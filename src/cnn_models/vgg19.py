@@ -64,7 +64,8 @@ def create_vgg19_model(num_classes: int):
     model.add(Dense(units=32, activation='relu', kernel_initializer="random_uniform", name='Dense_2'))
 
     # Final output layer that uses softmax activation function (because the classes are exclusive).
-    if config.dataset == "CBIS-DDSM" or config.dataset == "mini-MIAS-binary":
+    # if config.dataset == "CBIS-DDSM" or config.dataset == "mini-MIAS-binary":
+    if config.dataset in ["CBIS-DDSM", "mini-MIAS-binary", "CMMD", "CMMD_binary"]:
         model.add(Dense(1, activation='sigmoid', kernel_initializer="random_uniform", name='Output'))
     elif config.dataset == "mini-MIAS":
         model.add(Dense(num_classes, activation='softmax', kernel_initializer="random_uniform", ame='Output'))

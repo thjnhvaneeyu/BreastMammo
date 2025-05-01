@@ -37,22 +37,34 @@
   },
   "CBIS-DDSM": {
     "B-M": [
-        {
-          "paper": "Agarwal R et al.",
-          "accuracy": "0.92"
-        },
-        {
-          "paper": "Sarosa SJ et al.",
-          "accuracy": "0.6303"
-        },
-        {
-          "paper": "Chen Y et al.",
-          "accuracy": "0.9315"
-        },
-        {
-          "paper": "Falconí LG et al.",
-          "accuracy": "0.784"
-        }
+      {
+        "paper": "Agarwal R et al.",
+        "accuracy": "0.92"
+      },
+      {
+        "paper": "Sarosa SJ et al.",
+        "accuracy": "0.6303"
+      },
+      {
+        "paper": "Chen Y et al.",
+        "accuracy": "0.9315"
+      },
+      {
+        "paper": "Falconí LG et al.",
+        "accuracy": "0.784"
+      }
+    ]
+  },
+  "CMMD": {
+    "B-M": [
+      {
+        "paper": "Attention-Based Deep Learning System for Classification of Breast Lesions (CLAM)",
+        "accuracy": "0.784"
+      },
+      {
+        "paper": "Boudouh et al., Fine-tuned InceptionV3 on combined CMMD, Mini-MIAS & DDSM40",
+        "accuracy": "0.9990"
+      }
     ]
   }
 }

@@ -1,0 +1,2 @@
+python main.py   --dataset CMMD   --model MobileNet   --runmode train   --batch_size 1   --learning_rate 1e-5   --max_epoch_frozen 0   --max_epoch_unfrozen 30   --name cmmd_mobilenet_all  --verbose
+python main.py   --dataset CMMD   --model MobileNet   --runmode test   --batch_size 1   --learning_rate 1e-5   --max_epoch_frozen 0   --max_epoch_unfrozen 30   --name cmmd_mobilenet_all  --verbose

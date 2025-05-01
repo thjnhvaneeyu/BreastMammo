@@ -83,12 +83,24 @@ def plot_training_results(hist_input, plot_name: str, is_frozen_layers) -> None:
     if not is_frozen_layers:
         title += " (unfrozen layers)"
 
-    fig = plt.figure()
-    n = len(hist_input.history["loss"])
+    # fig = plt.figure()
+    # n = len(hist_input.history["loss"])
+    # 1) Lấy history dict và xác định key loss / val_loss
+    hist = hist_input.history
+    if "loss" in hist:
+        loss_key = "loss"
+    else:
+        # fallback: tìm key nào chứa 'loss' (tránh 'val_')
+        loss_cands = [k for k in hist.keys() if "loss" in k and not k.startswith("val_")]
+        if not loss_cands:
+            raise KeyError(f"No loss in history: {hist.keys()}")
+        loss_key = loss_cands[0]
+    val_loss_key = "val_loss" if "val_loss" in hist else f"val_{loss_key}"
+    n = len(hist[loss_key])
     plt.style.use("ggplot")
-    plt.figure()
-    plt.plot(np.arange(0, n), hist_input.history["loss"], label="train set")
-    plt.plot(np.arange(0, n), hist_input.history["val_loss"], label="validation set")
+    # plt.figure()
+    # plt.plot(np.arange(0, n), hist_input.history["loss"], label="train set")
+    # plt.plot(np.arange(0, n), hist_input.history["val_loss"], label="validation set")
     plt.title(title)
     plt.xlabel("Epochs")
     plt.ylabel("Cross entropy loss")
@@ -106,12 +118,29 @@ def plot_training_results(hist_input, plot_name: str, is_frozen_layers) -> None:
     plt.style.use("ggplot")
     plt.figure()
 
+    # if config.dataset == "mini-MIAS":
+    #     plt.plot(np.arange(0, n), hist_input.history["categorical_accuracy"], label="train set")
+    #     plt.plot(np.arange(0, n), hist_input.history["val_categorical_accuracy"], label="validation set")
+    # elif config.dataset == "CBIS-DDSM" or config.dataset == "mini-MIAS-binary":
+    #     plt.plot(np.arange(0, n), hist_input.history["binary_accuracy"], label="train set")
+    #     plt.plot(np.arange(0, n), hist_input.history["val_binary_accuracy"], label="validation set")
+    # 2) Vẽ accuracy — gồm CMMD như binary
     if config.dataset == "mini-MIAS":
-        plt.plot(np.arange(0, n), hist_input.history["categorical_accuracy"], label="train set")
-        plt.plot(np.arange(0, n), hist_input.history["val_categorical_accuracy"], label="validation set")
-    elif config.dataset == "CBIS-DDSM" or config.dataset == "mini-MIAS-binary":
-        plt.plot(np.arange(0, n), hist_input.history["binary_accuracy"], label="train set")
-        plt.plot(np.arange(0, n), hist_input.history["val_binary_accuracy"], label="validation set")
+        acc_key = "categorical_accuracy"; val_acc = "val_categorical_accuracy"
+    elif config.dataset in ["CBIS-DDSM", "mini-MIAS-binary", "CMMD", "CMMD_binary"]:
+        # assume compile_model đã dùng BinaryAccuracy(name="binary_accuracy")
+        acc_key = "binary_accuracy"
+        val_acc  = "val_binary_accuracy"
+    else:
+        # fallback: tìm bất kỳ key nào chứa 'accuracy'
+        acc_key = next((k for k in hist if k.endswith("accuracy")), None)
+        val_acc  = f"val_{acc_key}" if acc_key and f"val_{acc_key}" in hist else None
+
+    if acc_key:
+        plt.figure()
+        plt.plot(np.arange(0, n), hist[acc_key], label="train acc")
+        if val_acc and val_acc in hist:
+            plt.plot(np.arange(0, n), hist[val_acc], label="val acc")
     plt.title(title)
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")

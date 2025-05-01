@@ -7,9 +7,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 from tensorflow.keras.utils import to_categorical
-
+from PIL import Image
+import pydicom
+import cv2
+import re
 import config
-
+from data_operations.data_transformations import generate_image_transforms
+import xml.etree.ElementTree as ET
 
 def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     """
@@ -40,8 +44,432 @@ def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.nda
 
     # Encode labels.
     labels = encode_labels(labels, label_encoder)
-
     return images, labels
+
+    # X = np.array(images, dtype="float32")
+    # y = label_encoder.fit_transform(labels)
+    # if label_encoder.classes_.size > 2:
+    #     y = to_categorical(y)
+
+    # if config.augment_data:
+    #     X, y = generate_image_transforms(X, y)
+
+    # return X, y
+def import_cmmd_dataset(data_dir: str, label_encoder, target_size=None) -> (np.ndarray, np.ndarray):
+    """
+    Import CMMD dataset (binary classification) by loading images and encoding labels.
+    :param data_dir: Thư mục chứa ảnh CMMD đã xử lý, gồm hai folder con cho từng lớp.
+    :param label_encoder: Bộ encoder để mã hóa label.
+    :param target_size: Tuple (H, W) mong muốn; nếu None sẽ chọn tự động theo mô hình.
+    :return: images (NumPy array) và labels (NumPy array) đã mã hóa.
+    """
+    images = []
+    labels = []
+    # Xác định kích thước ảnh dựa trên mô hình nếu chưa chỉ định
+    if target_size is None:
+        if config.model == "CNN" or config.is_roi:
+            target_size = (config.ROI_IMG_SIZE['HEIGHT'], config.ROI_IMG_SIZE['WIDTH'])
+        elif config.model == "VGG" or config.model == "Inception":
+            target_size = (config.MINI_MIAS_IMG_SIZE['HEIGHT'], config.MINI_MIAS_IMG_SIZE['WIDTH'])
+        elif config.model == "VGG-common":
+            target_size = (config.VGG_IMG_SIZE['HEIGHT'], config.VGG_IMG_SIZE['WIDTH'])
+        elif config.model == "ResNet":
+            target_size = (config.RESNET_IMG_SIZE['HEIGHT'], config.RESNET_IMG_SIZE['WIDTH'])
+        elif config.model == "MobileNet":
+            target_size = (config.MOBILE_NET_IMG_SIZE['HEIGHT'], config.MOBILE_NET_IMG_SIZE['WIDTH'])
+        elif config.model == "DenseNet" or config.model == "Inception":
+            target_size = (config.INCEPTION_IMG_SIZE['HEIGHT'], config.INCEPTION_IMG_SIZE['WIDTH'])
+        else:
+            target_size = (224, 224)  # mặc định
+    # Duyệt qua từng thư mục lớp (benign, malignant)
+    for label_folder in sorted(os.listdir(data_dir)):
+        label_path = os.path.join(data_dir, label_folder)
+        if not os.path.isdir(label_path):
+            continue  # bỏ qua nếu không phải thư mục
+        for image_file in sorted(os.listdir(label_path)):
+            image_path = os.path.join(label_path, image_file)
+            if not os.path.isfile(image_path) or not image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                continue
+            try:
+                # Load ảnh; đảm bảo ảnh grayscale 1 kênh
+                image = load_img(image_path, color_mode="grayscale", target_size=target_size)
+                image_array = img_to_array(image) / 255.0  # chuyển thành mảng và chuẩn hóa [0,1]
+                images.append(image_array)
+                labels.append(label_folder)  # label chính là tên thư mục
+            except Exception as e:
+                print(f"Error processing file {image_path}: {e}")
+    if len(images) == 0 or len(labels) == 0:
+        raise ValueError("No images or labels found in CMMD dataset directory!")
+    # Chuyển sang numpy array
+    # images = np.array(images, dtype="float32")
+    # labels = np.array(labels)
+    # # Mã hóa label (benign/malignant) thành số và one-hot nếu cần
+    # labels = encode_labels(labels, label_encoder)
+    # return images, labels
+    images = np.array(images, dtype="float32")
+    labels = np.array(labels)
+    # Mã hóa label (benign/malignant) thành số và one-hot nếu cần
+    labels = encode_labels(labels, label_encoder)
+    # --- Augmentation nếu được bật ---
+    if config.augment_data:
+        images, labels = generate_image_transforms(images, labels)
+    return images, labels
+
+# # def import_cmmd_dataset(data_dir: str, metadata_csv: str, label_encoder, target_size=None) -> (np.ndarray, np.ndarray):
+# #     """
+# #     Import CMMD dataset and optionally augment to balance classes.
+# #     """
+# #     # --- phần load ảnh và encode labels giống như trước ---
+# #     # (dùng bản gốc bạn đã có)
+# #     df = pd.read_csv(metadata_csv)
+# #     images, labels = [], []
+# #     for _, row in df.iterrows():
+# #         fn = row['filename']; lbl = row['label']
+# #         path = os.path.join(data_dir, fn)
+# #         if not os.path.isfile(path):
+# #             continue
+# #         img = Image.open(path).convert("L")
+# #         arr = np.array(img, dtype="float32") / 255.0
+# #         if arr.ndim == 2:
+# #             arr = arr[..., np.newaxis]
+# #         images.append(arr)
+# #         labels.append(lbl)
+
+# #     X = np.stack(images, axis=0)
+# #     y = np.array(label_encoder.fit_transform(labels))
+# #     # Với multi-class thì one-hot
+# #     if label_encoder.classes_.size > 2:
+# #         y = to_categorical(y)
+
+# #     # --- Tăng cường dữ liệu ngay tại đây nếu bật config.augment_data ---
+# #     if config.augment_data:
+# #         X, y = generate_image_transforms(X, y)
+
+# #     return X, y
+
+
+# def import_inbreast_dataset(data_dir: str, label_encoder, target_size=None):
+#     import os, numpy as np, cv2, pydicom
+#     import xml.etree.ElementTree as ET
+#     from tensorflow.keras.utils import to_categorical
+#     import config
+
+#     dicom_dir = os.path.join(data_dir, "AllDICOMs")
+#     xml_dir   = os.path.join(data_dir, "AllXML")
+#     roi_dir   = os.path.join(data_dir, "AllROI")
+
+#     # 1) Determine resize
+#     if target_size is None:
+#         ts = config.INBREAST_IMG_SIZE
+#         target_size = (ts["HEIGHT"], ts["WIDTH"])
+
+#     # 2) Decide whether to use ROI
+#     use_roi = False
+#     if config.is_roi and os.path.isdir(roi_dir) and any(
+#         f.lower().endswith((".png",".jpg",".jpeg",".roi"))
+#         for f in os.listdir(roi_dir)
+#     ):
+#         use_roi = True
+#     elif config.is_roi:
+#         print(f"[WARN] ROI folder empty or missing: {roi_dir}, using full DICOM")
+
+#     X_list, y_list = [], []
+
+#     def parse_birads(xml_path, pid):
+#         tree = ET.parse(xml_path)
+#         root = tree.getroot()
+
+#         # 1) Try <bi_rads>
+#         bi_el = root.find(".//bi_rads")
+#         birad = bi_el.text.strip() if bi_el is not None and bi_el.text else None
+
+#         # 2) Scan for any “BI-RADS …”
+#         if birad is None:
+#             for e in root.iter():
+#                 txt = e.text.strip() if e.text else ""
+#                 if txt.startswith("BI-RADS"):
+#                     birad = txt
+#                     break
+
+#         if birad is None:
+#             print(f"[WARN] No BI-RADS in XML '{pid}.xml', skipping")
+#             return None
+
+#         # 3) Map via config.BI_RADS_MAPPING
+#         for cls, vals in config.BI_RADS_MAPPING.items():
+#             if birad in vals:
+#                 return 0 if cls == "Benign" else 1
+
+#         print(f"[WARN] BI-RADS '{birad}' not in mapping, skipping")
+#         print(ET.tostring(root, encoding='unicode'))
+#         return None
+
+#     # -- ROI branch --
+#     if use_roi:
+#         for fn in sorted(os.listdir(roi_dir)):
+#             name, ext = os.path.splitext(fn)
+#             pid        = name.split("_",1)[0]
+#             xml_path   = os.path.join(xml_dir, pid + ".xml")
+#             dicom_path = os.path.join(dicom_dir, pid + ".dcm")
+#             if not (os.path.exists(xml_path) and os.path.exists(dicom_path)):
+#                 continue
+
+#             # load ROI or crop from DICOM
+#             if ext in (".png",".jpg",".jpeg"):
+#                 img = cv2.imread(os.path.join(roi_dir, fn), cv2.IMREAD_GRAYSCALE)
+#             elif ext == ".roi":
+#                 coords = []
+#                 with open(os.path.join(roi_dir, fn)) as f:
+#                     for line in f:
+#                         parts = line.split()
+#                         if len(parts)>=2:
+#                             x,y = map(int, map(float, parts[:2]))
+#                             coords.append((x,y))
+#                 if not coords:
+#                     continue
+#                 ds = pydicom.dcmread(dicom_path)
+#                 arr = ds.pixel_array.astype(np.float32)
+#                 arr -= arr.min()
+#                 if arr.max()>0: arr /= arr.max()
+#                 xs, ys = zip(*coords)
+#                 x0,x1 = max(0,min(xs)), min(arr.shape[1],max(xs))
+#                 y0,y1 = max(0,min(ys)), min(arr.shape[0],max(ys))
+#                 img = arr[y0:y1, x0:x1]
+#             else:
+#                 continue
+
+#             img = cv2.resize(img, (target_size[1], target_size[0]))
+#             img = img.astype(np.float32)/255.0
+#             lbl = parse_birads(xml_path, pid)
+#             if lbl is None:
+#                 continue
+
+#             X_list.append(img[...,None])
+#             y_list.append(lbl)
+
+#         if not X_list:
+#             print("[WARN] ROI branch loaded 0 images, falling back to full DICOM")
+#             use_roi = False
+
+#     # -- Full DICOM branch --
+#     if not use_roi:
+#         for fn in sorted(os.listdir(dicom_dir)):
+#             if not fn.lower().endswith(".dcm"):
+#                 continue
+#             pid      = os.path.splitext(fn)[0].split("_",1)[0]
+#             xml_path = os.path.join(xml_dir, pid + ".xml")
+#             if not os.path.exists(xml_path):
+#                 continue
+
+#             ds  = pydicom.dcmread(os.path.join(dicom_dir, fn))
+#             img = ds.pixel_array.astype(np.float32)
+#             img -= img.min()
+#             if img.max()>0: img /= img.max()
+#             img = cv2.resize(img, (target_size[1], target_size[0]))
+#             lbl = parse_birads(xml_path, pid)
+#             if lbl is None:
+#                 continue
+
+#             X_list.append(img[...,None])
+#             y_list.append(lbl)
+
+#     # 4) Final check
+#     if not X_list:
+#         raise ValueError("No INbreast images loaded in either ROI or DICOM branch.")
+
+#     X = np.stack(X_list, axis=0)
+#     y = np.array(y_list, dtype=np.int32)
+#     y = label_encoder.fit_transform(y)
+#     if label_encoder.classes_.size > 2:
+#         y = to_categorical(y)
+#     return X, y
+# Trong src/data_operations/data_preprocessing.py
+# Trong src/data_operations/data_preprocessing.py
+# ở đầu file, thêm import:
+def import_inbreast_dataset(data_dir: str, label_encoder, target_size=None):
+    """
+    Load the INbreast dataset with support for three classes (Normal, Benign, Malignant).
+    - If config.is_roi is True and ROI files are available, crops lesions from DICOM images using .roi coordinates.
+    - Falls back to full DICOM images for cases with no ROI (e.g., normal cases or missing ROI data).
+    Returns:
+        X: NumPy array of shape (N, H, W, 1) containing image data (grayscale, normalized).
+        y: NumPy array of shape (N,) for binary labels or (N, C) for one-hot multi-class labels.
+    """
+    import os
+    import numpy as np
+    import pandas as pd
+    import pydicom
+    import cv2
+    import config
+    from tensorflow.keras.utils import to_categorical
+
+    # 1. Read the metadata CSV file
+    csv_path = os.path.join(data_dir, "INbreast.csv")
+    df = pd.read_csv(csv_path, sep=';')
+    
+    # 2. Identify the relevant columns for file name and BI-RADS category
+    file_col  = next(c for c in df.columns if "file"    in c.lower())
+    birad_col = next(c for c in df.columns if "bi-rads" in c.lower() or "bi_rads" in c.lower())
+    df[file_col]  = df[file_col].astype(str).str.strip()
+    df[birad_col] = df[birad_col].astype(str).str.strip()
+    
+    # Remove any "BI-RADS" prefix in the BI-RADS column for consistency (e.g., "BI-RADS 3" -> "3")
+    df[birad_col] = df[birad_col].str.replace("BI-RADS", "").str.strip()
+    
+    # 3. Create a mapping from image ID (without extension) to BI-RADS value
+    df["pid"] = df[file_col].str.replace(r"(?i)\.dcm$", "", regex=True)
+    birad_map = dict(zip(df["pid"], df[birad_col]))
+    
+    # 4. Determine target image size for resizing
+    if target_size is None:
+        ts = config.INBREAST_IMG_SIZE
+        target_size = (ts["HEIGHT"], ts["WIDTH"])
+    
+    # Define directories for DICOM images and ROI files
+    dicom_dir = os.path.join(data_dir, "AllDICOMs")
+    roi_dir   = os.path.join(data_dir, "AllROI")
+    
+    # 5. Decide whether to use ROI cropping (if ROI files exist and config.is_roi is True)
+    use_roi = config.is_roi and os.path.isdir(roi_dir) and any(f.lower().endswith(".roi") for f in os.listdir(roi_dir))
+    
+    X_list = []
+    y_list = []
+    loaded_pids = set()  # keep track of images processed via ROI
+    
+    # --- ROI branch: process images with ROI annotations ---
+    if use_roi:
+        print("Loading cropped ROI images...")
+        for fn in sorted(os.listdir(roi_dir)):
+            if not fn.lower().endswith(".roi"):
+                continue
+            # Image ID (pid) from ROI filename (strip extension and any trailing index after '_')
+            pid_full = os.path.splitext(fn)[0]
+            pid_base = pid_full.split('_', 1)[0]    # e.g., "22678622_1" -> "22678622"
+            birad_val = birad_map.get(pid_base)
+            dicom_fp = os.path.join(dicom_dir, pid_base + ".dcm")
+            if birad_val is None or not os.path.exists(dicom_fp):
+                continue  # skip ROI if corresponding image or BI-RADS not found
+            
+            # Read ROI coordinates from the .roi file (assuming text with one X Y per line)
+            coords = []
+            with open(os.path.join(roi_dir, fn), 'r') as f_roi:
+                for line in f_roi:
+                    parts = line.strip().split()
+                    if len(parts) >= 2:
+                        # Parse X and Y coordinates (float to int for pixel indices)
+                        x, y = map(float, parts[:2])
+                        coords.append((int(x), int(y)))
+            if not coords:
+                # If no coordinates found, skip this ROI (could log a warning)
+                continue
+            
+            # Load the full DICOM image
+            ds = pydicom.dcmread(dicom_fp)
+            arr = ds.pixel_array.astype(np.float32)
+            # Normalize pixel intensities to [0,1]
+            arr -= arr.min()
+            if arr.max() > 0:
+                arr /= arr.max()
+            
+            # Compute bounding box of ROI coordinates
+            xs, ys = zip(*coords)
+            x_min, x_max = max(0, min(xs)), min(arr.shape[1], max(xs))
+            y_min, y_max = max(0, min(ys)), min(arr.shape[0], max(ys))
+            crop = arr[y_min:y_max, x_min:x_max]
+            
+            # Resize crop to target size and normalize
+            roi_img = cv2.resize(crop, (target_size[1], target_size[0]))  # cv2 expects (width, height)
+            roi_img = roi_img.astype(np.float32)
+            # (arr was already 0-1, so roi_img is 0-1; no additional /255 scaling needed)
+            
+            # Append image and label
+            X_list.append(roi_img[..., None])  # add channel dimension
+            # Determine class label from BI-RADS using config mapping
+            birad_str = str(birad_val).strip()  # e.g., "2", "4a", etc.
+            label_name = None
+            for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+                if birad_str in [v.replace("BI-RADS ", "").strip() for v in vals]:
+                    label_name = cls
+                    break
+            if label_name is None:
+                # If BI-RADS is not in mapping (e.g., '0'), skip this entry
+                continue
+            y_list.append(label_name)
+            loaded_pids.add(pid_base)
+        # If no images were loaded via ROI (edge case), fallback to full images
+        if not X_list:
+            print("[WARN] No ROI crops loaded; falling back to full DICOM images.")
+            use_roi = False
+    
+    # --- Full DICOM branch: process all images (or those not handled by ROI) ---
+    if not use_roi:
+        print("Loading full DICOM images...")
+    for fn in sorted(os.listdir(dicom_dir)):
+        if not fn.lower().endswith(".dcm"):
+            continue
+        pid_base = os.path.splitext(fn)[0].split('_', 1)[0]
+        # If we already added this image via ROI crop, skip to avoid duplicates
+        if use_roi and pid_base in loaded_pids:
+            continue
+        birad_val = birad_map.get(pid_base)
+        if birad_val is None:
+            continue  # skip if no BI-RADS info for this image
+        
+        # Load DICOM image
+        ds = pydicom.dcmread(os.path.join(dicom_dir, fn))
+        arr = ds.pixel_array.astype(np.float32)
+        # Normalize to [0,1]
+        arr -= arr.min()
+        if arr.max() > 0:
+            arr /= arr.max()
+        # Resize image to target size
+        img_resized = cv2.resize(arr, (target_size[1], target_size[0]))
+        img_resized = img_resized.astype(np.float32)
+        # (arr normalized to 0-1, so img_resized is 0-1 range as well)
+        
+        X_list.append(img_resized[..., None])
+        birad_str = str(birad_val).strip()
+        label_name = None
+        for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+            if birad_str in [v.replace("BI-RADS ", "").strip() for v in vals]:
+                label_name = cls
+                break
+        if label_name is None:
+            continue
+        y_list.append(label_name)
+    
+    # 6. Finalize arrays and encode labels
+    if len(X_list) == 0:
+        raise ValueError("No INbreast images were loaded. Check data paths and ROI files.")
+    X = np.stack(X_list, axis=0).astype(np.float32)
+    y = np.array(y_list)  # labels as array of class names
+    # Fit label encoder and transform labels to numeric values
+    y_enc = label_encoder.fit_transform(y)
+    # If multi-class (more than 2 classes), convert to one-hot encoding
+    if label_encoder.classes_.size > 2:
+        y_enc = to_categorical(y_enc)
+    return X, y_enc
+
+
+def dataset_stratified_split(split, data, labels):
+    return train_test_split(data, labels,
+                            test_size=split,
+                            stratify=labels,
+                            random_state=config.RANDOM_SEED,
+                            shuffle=True)
+
+def calculate_class_weights(y_train, label_encoder):
+    """
+    Compute balanced class weights for imbalanced data.
+    """
+    if label_encoder.classes_.size > 2:
+        flat = label_encoder.inverse_transform(np.argmax(y_train, axis=1))
+    else:
+        flat = y_train
+    weights = class_weight.compute_class_weight('balanced',
+                                                np.unique(flat),
+                                                flat)
+    return {i: w for i, w in enumerate(weights)}
 
 
 def import_cbisddsm_training_dataset(label_encoder):
@@ -83,7 +511,6 @@ def import_cbisddsm_testing_dataset(label_encoder):
     list_IDs = df['img_path'].values
     labels = encode_labels(df['label'].values, label_encoder)
     return list_IDs, labels
-
 
 def preprocess_image(image_path: str) -> np.ndarray:
     """
@@ -152,30 +579,45 @@ def dataset_stratified_split(split: float, dataset: np.ndarray, labels: np.ndarr
     return train_X, test_X, train_Y, test_Y
 
 
+# def calculate_class_weights(y_train, label_encoder):
+#     """
+#     Calculate class  weights for imbalanced datasets.
+#     """
+#     if label_encoder.classes_.size != 2:
+#         y_train = label_encoder.inverse_transform(np.argmax(y_train, axis=1))
+
+#     # Balanced class weights
+#     weights = class_weight.compute_class_weight("balanced",
+#                                                 np.unique(y_train),
+#                                                 y_train)
+#     class_weights = dict(enumerate(weights))
+
+#     # Manual class weights for CBIS-DDSM
+#     #class_weights = {0: 1.0, 1:1.5}
+
+#     # No class weights
+#     #class_weights = None
+
+#     if config.verbose_mode:
+#         print("Class weights: {}".format(str(class_weights)))
+
+#     return class_weights
+#     # return None
 def calculate_class_weights(y_train, label_encoder):
     """
-    Calculate class  weights for imbalanced datasets.
+    Tính toán trọng số lớp cho datasets không cân bằng.
     """
     if label_encoder.classes_.size != 2:
         y_train = label_encoder.inverse_transform(np.argmax(y_train, axis=1))
 
-    # Balanced class weights
+    # Tính trọng số cân bằng
     weights = class_weight.compute_class_weight("balanced",
-                                                np.unique(y_train),
-                                                y_train)
+                                            np.unique(y_train),
+                                            y_train)
     class_weights = dict(enumerate(weights))
-
-    # Manual class weights for CBIS-DDSM
-    #class_weights = {0: 1.0, 1:1.5}
-
-    # No class weights
-    #class_weights = None
-
-    if config.verbose_mode:
-        print("Class weights: {}".format(str(class_weights)))
-
-    # return class_weights
-    return None
+    
+    # Thay đổi từ return None thành return class_weights
+    return class_weights
 
 
 def crop_roi_image(data_dir):
