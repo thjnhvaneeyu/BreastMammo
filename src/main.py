@@ -166,7 +166,9 @@ def main():
         # Nếu muốn dùng CMMD-binary:
         # d = os.path.join(DATA_ROOT, "CMMD-binary")
         # Nếu muốn dùng CMMD gốc (ảnh và clinical):
-        d = os.path.join(DATA_ROOT, "CMMD", "CMMD")
+        DATA_ROOT = '/kaggle/input/cmmddata/CMMD'
+        # d = os.path.join(DATA_ROOT, "CMMD", "CMMD")
+        d = DATA_ROOT    
         X, y = data_preprocessing.import_cmmd_dataset(d, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
