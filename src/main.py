@@ -13,7 +13,8 @@ from sklearn.preprocessing import LabelEncoder
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJECT_ROOT)
-DATA_ROOT = '/kaggle/input/breastdata'
+DATA_ROOT_BREAST = '/kaggle/input/breastdata'
+DATA_ROOT_CMMD = '/kaggle/input/cmmddata/CMMD'
 
 import config
 from data_operations.data_transformations import generate_image_transforms
@@ -154,7 +155,7 @@ def main():
     X_train = X_test = y_train = y_test = None
 
     if config.dataset in ["mini-MIAS", "mini-MIAS-binary"]:
-        d = os.path.join(DATA_ROOT, config.dataset)
+        d = os.path.join(DATA_ROOT_BREAST, config.dataset)
         X, y = data_preprocessing.import_minimias_dataset(d, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
@@ -166,14 +167,13 @@ def main():
         # Nếu muốn dùng CMMD-binary:
         # d = os.path.join(DATA_ROOT, "CMMD-binary")
         # Nếu muốn dùng CMMD gốc (ảnh và clinical):
-        DATA_ROOT = '/kaggle/input/cmmddata/CMMD'
         # d = os.path.join(DATA_ROOT, "CMMD", "CMMD")
-        d = DATA_ROOT    
+        d = DATA_ROOT_CMMD
         X, y = data_preprocessing.import_cmmd_dataset(d, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
     elif config.dataset.upper() == "INBREAST":
-        data_dir = os.path.join(DATA_ROOT, "INbreast")
+        data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast")
         X, y = data_preprocessing.import_inbreast_dataset(data_dir, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
