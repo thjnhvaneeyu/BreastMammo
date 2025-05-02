@@ -9,6 +9,8 @@ output
 saved_models
 setup.sh
 src/main.py
+src/mainmain.py
+
 # ______________________________________________________________________________________________________________________
 
 # Byte-compiled / optimized / DLL files
