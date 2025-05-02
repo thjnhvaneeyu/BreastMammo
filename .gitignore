@@ -8,7 +8,7 @@ data/mini-MIAS/images_processed
 output
 saved_models
 setup.sh
-
+src/main.py
 # ______________________________________________________________________________________________________________________
 
 # Byte-compiled / optimized / DLL files

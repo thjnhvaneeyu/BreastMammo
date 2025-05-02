@@ -95,7 +95,7 @@ def process_and_save_dicom_images(root_dir, output_dir, metadata_excel, output_c
 # Ví dụ sử dụng (có thể thay đổi đường dẫn phù hợp trước khi chạy):
 if __name__ == "__main__":
     root_directory = "/home/neeyuhuynh/cggm-mammography-classification/dataset/TheChineseMammographyDatabase/CMMD/"  # Thư mục gốc chứa các file DICOM
-    output_directory = "/home/neeyuhuynh/Desktop/Breast-Cancer-Detection-Mammogram-Deep-Learning-Publication/data/CMMD-binary"  # Thư mục sẽ chứa ảnh PNG (có subfolders benign/malignant)
+    output_directory = "/home/neeyuhuynh/Desktop/Breast-Cancer-Detection-Mammogram-Deep-Learning-Publication/data/CMMD"  # Thư mục sẽ chứa ảnh PNG (có subfolders benign/malignant)
     metadata_excel = "/home/neeyuhuynh/Breast-Cancer-Detection-Mammogram-Deep-Learning-Publication/data/CMMD/CMMD_clinicaldata_revision.xlsx"  # File Excel chứa thông tin ID và nhãn
     output_csv = os.path.join(output_directory, "processed_metadata.csv")
     process_and_save_dicom_images(root_directory, output_directory, metadata_excel, output_csv)

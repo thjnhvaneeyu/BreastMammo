@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.optimizers import Adam
 
 # allow imports from project root
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
