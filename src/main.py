@@ -230,7 +230,7 @@ def main():
     loss_fn = "binary_crossentropy" if num_classes==2 else "categorical_crossentropy"
     keras_model.compile(
         loss=loss_fn,
-        optimizer=optimizers.Adam(lr=config.learning_rate),
+        optimizer=optimizers.Adam(learning_rate=config.learning_rate),
         metrics=["accuracy"]
     )
 
