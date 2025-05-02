@@ -364,7 +364,7 @@ def import_inbreast_dataset(data_dir: str, label_encoder, target_size=None):
                 continue
             
             # Load the full DICOM image
-            ds = pydicom.dcmread(dicom_fp)
+            ds = pydicom.dcmread(dicom_fp, force=True)
             arr = ds.pixel_array.astype(np.float32)
             # Normalize pixel intensities to [0,1]
             arr -= arr.min()
