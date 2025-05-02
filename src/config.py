@@ -35,6 +35,17 @@ DENSE_NET_IMG_SIZE = MOBILE_NET_IMG_SIZE
 XCEPTION_IMG_SIZE = INCEPTION_IMG_SIZE
 # Cho MobileNet tương thích với tên trong main.py
 MOBILENET_IMG_SIZE = MOBILE_NET_IMG_SIZE
+# Số epoch tối đa không cải thiện sẽ dừng training
+early_stopping_patience = 5  
+# Số epoch không cải thiện sẽ giảm learning rate
+reduce_lr_patience      = 3  
+# Hệ số giảm learning rate mỗi lần giảm
+reduce_lr_factor        = 0.5
+# Learning rate nhỏ nhất còn cho phép
+min_learning_rate       = 1e-6
+# Batch size mặc định
+batch_size              = 8
+
 # Kích thước ROI (Region of Interest)
 ROI_IMG_SIZE = {
     "HEIGHT": 224,

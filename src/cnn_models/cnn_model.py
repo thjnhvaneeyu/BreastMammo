@@ -114,11 +114,27 @@ class CnnModel:
             plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
 
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
-        patience = max(1, epochs // 10)
-        callbacks = [
-            EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),
-            ReduceLROnPlateau(monitor='val_loss', patience=max(1, patience//2))
-        ]
+        # patience = max(1, epochs // 10)
+        # callbacks = [
+        #     EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),
+        #     ReduceLROnPlateau(monitor='val_loss', patience=max(1, patience//2))
+        # ]
+        # Dùng thẳng config.py để điều khiển callback
+
+        es = EarlyStopping(
+            monitor='val_loss',
+            patience=config.early_stopping_patience,
+            restore_best_weights=True,
+            verbose=1
+        )
+        rlrp = ReduceLROnPlateau(
+            monitor='val_loss',
+            patience=config.reduce_lr_patience,
+            factor=config.reduce_lr_factor,
+            min_lr=config.min_learning_rate,
+            verbose=1
+        )
+        callbacks = [es, rlrp]
         if isinstance(X_train, tf.data.Dataset):
             self.history = self._model.fit(
                 X_train,
