@@ -52,18 +52,36 @@ class CnnModel:
          - 2 classes → BinaryCrossentropy + BinaryAccuracy
          - >2 classes → CategoricalCrossentropy + CategoricalAccuracy
         """
+        # if self.num_classes == 2:
+        #     self._model.compile(
+        #         optimizer=Adam(learning_rate),
+        #         loss=BinaryCrossentropy(),
+        #         metrics=[BinaryAccuracy()]
+        #     )
+        # else:
+        #     self._model.compile(
+        #         optimizer=Adam(learning_rate),
+        #         loss=CategoricalCrossentropy(),
+        #         metrics=[CategoricalAccuracy()]
+        #     )
+        # Khởi tạo optimizer và alias để callback tìm attribute 'lr'
+        opt = Adam(learning_rate=learning_rate)
+        # Thiết lập alias cho legacy callbacks
+        setattr(opt, 'lr', opt.learning_rate)
+
         if self.num_classes == 2:
             self._model.compile(
-                optimizer=Adam(learning_rate),
+                optimizer=opt,
                 loss=BinaryCrossentropy(),
                 metrics=[BinaryAccuracy()]
             )
         else:
             self._model.compile(
-                optimizer=Adam(learning_rate),
+                optimizer=opt,
                 loss=CategoricalCrossentropy(),
                 metrics=[CategoricalAccuracy()]
             )
+
 
     def train_model(self, X_train, X_val, y_train, y_val, class_weights) -> None:
         """
