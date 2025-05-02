@@ -174,7 +174,7 @@ def main():
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
     elif config.dataset.upper() == "INBREAST":
-        data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast")
+        data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
         X, y = data_preprocessing.import_inbreast_dataset(data_dir, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
 
