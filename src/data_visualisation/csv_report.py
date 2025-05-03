@@ -25,22 +25,26 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
     new_row = pd.DataFrame([{'accuracy': accuracy}])
     report_df = pd.concat([report_df, new_row], ignore_index=True)
 
-    # Save report.
+# Save report.
     report_df.to_csv(
-        os.path.join(output_dir,
-            "{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_report.csv".format(            
-            config.run_mode,
-            config.dataset,
-            config.mammogram_type,
-            config.model,
-            config.learning_rate,
-            config.batch_size,
-            config.max_epoch_frozen,
-            config.max_epoch_unfrozen,
-            config.is_roi),
+        os.path.join(
+            output_dir,
+            "{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_report.csv".format(
+                config.run_mode,
+                config.dataset,
+                config.mammogram_type,
+                config.model,
+                config.learning_rate,
+                config.batch_size,
+                config.max_epoch_frozen,
+                config.max_epoch_unfrozen,
+                config.is_roi
+            )
+        ),
         index=False,
         header=True
-    )
+)
+
 
 
 def generate_csv_metadata(runtime) -> None:
