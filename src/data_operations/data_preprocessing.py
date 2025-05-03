@@ -555,7 +555,14 @@ def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None)
                 break
         if label:
             samples.append((os.path.join(dicom_dir, fn), label))
-
+    # ————————————————————————————————————————
+    # Guard: nếu không tìm thấy sample nào, báo lỗi rõ ràng
+    if not samples:
+        raise ValueError(
+            f"No valid InBreast DICOM samples found in {dicom_dir}. "
+            "Kiểm tra lại đường dẫn DATA_ROOT và thư mục AllXML/AllDICOMs."
+        )
+    # ————————————————————————————————————————
     # 3) Load vào arrays
     X_list, y_list = [], []
     for dicom_fp, label in samples:
@@ -574,6 +581,12 @@ def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None)
             arr = cv2.resize(arr, (W, H))
         X_list.append(arr[..., np.newaxis])
         y_list.append(label)
+    # Guard thêm: sau khi lấy sample, vẫn rỗng => hỏng data
+    if not X_list:
+        raise ValueError(
+            "After filtering invalid DICOM, no images left to load. "
+            "Hãy kiểm tra file DICOM và XML annotation."
+        )
 
     X = np.stack(X_list, axis=0)
     # 4) Fit & transform labels
