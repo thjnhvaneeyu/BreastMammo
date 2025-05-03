@@ -707,7 +707,7 @@ def import_inbreast_roi_dataset(
     data_dir: str,
     label_encoder,
     target_size=None,
-    csv_path="/mnt/data/INbreast.csv"
+    csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"
 ):
     """
     Chỉ load & crop ROI on-the-fly, gán nhãn từ CSV BI-RADS, trả về tf.data.Dataset.
