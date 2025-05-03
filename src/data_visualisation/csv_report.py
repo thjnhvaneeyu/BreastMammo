@@ -2,7 +2,11 @@ import pandas as pd
 from sklearn.metrics import classification_report
 
 import config
+import os
 
+# Tự động tạo thư mục ../output nếu chưa tồn tại
+output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
+os.makedirs(output_dir, exist_ok=True)
 
 def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None:
     """
@@ -23,7 +27,8 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
 
     # Save report.
     report_df.to_csv(
-        "../output/{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_report.csv".format(
+        os.path.join(output_dir,
+            "{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_report.csv".format(            
             config.run_mode,
             config.dataset,
             config.mammogram_type,
