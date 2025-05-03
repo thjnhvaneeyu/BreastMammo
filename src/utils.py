@@ -3,7 +3,7 @@ from numpy.random import seed
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-
+import os
 import config
 
 
@@ -79,26 +79,52 @@ def print_cli_arguments() -> None:
     print("Experiment name: {}\n".format(config.name))
 
 
+# def save_output_figure(title: str) -> None:
+#     """
+#     Save a figure on the output directory.
+#     :param title: The title of the figure.
+#     :return: None
+#     """
+#     plt.savefig(
+#         "../output/{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_{}_{}.png".format(
+#             config.run_mode,
+#             config.dataset,
+#             config.mammogram_type,
+#             config.model,
+#             config.learning_rate,
+#             config.batch_size,
+#             config.max_epoch_frozen,
+#             config.max_epoch_unfrozen,
+#             config.is_roi,
+#             config.name,
+#             title))  # bbox_inches='tight'
 def save_output_figure(title: str) -> None:
     """
-    Save a figure on the output directory.
-    :param title: The title of the figure.
-    :return: None
+    Save a figure into the output directory (auto-create it if missing).
+    :param title: The title suffix of the file.
     """
-    plt.savefig(
-        "../output/{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_{}_{}.png".format(
-            config.run_mode,
-            config.dataset,
-            config.mammogram_type,
-            config.model,
-            config.learning_rate,
-            config.batch_size,
-            config.max_epoch_frozen,
-            config.max_epoch_unfrozen,
-            config.is_roi,
-            config.name,
-            title))  # bbox_inches='tight'
+    # 1) Xác định project root (thư mục trên src/)
+    util_dir    = os.path.dirname(os.path.abspath(__file__))  # .../BreastMammo/src
+    project_dir = os.path.dirname(util_dir)                   # .../BreastMammo
+    output_dir  = os.path.join(project_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
 
+    # 2) Build filename theo config và title
+    fname = (
+        f"{config.run_mode}_dataset-{config.dataset}"
+        f"_mammogramtype-{config.mammogram_type}"
+        f"_model-{config.model}"
+        f"_lr-{config.learning_rate}"
+        f"_b-{config.batch_size}"
+        f"_e1-{config.max_epoch_frozen}"
+        f"_e2-{config.max_epoch_unfrozen}"
+        f"_roi-{config.is_roi}"
+        f"_{config.name}_{title}.png"
+    )
+    save_path = os.path.join(output_dir, fname)
+
+    # 3) Lưu ảnh
+    plt.savefig(save_path)  # bạn có thể thêm bbox_inches='tight' nếu cần
 
 def load_trained_model() -> None:
     """
