@@ -629,6 +629,80 @@ from data_operations.data_transformations import load_roi_and_label
 #     if not vals:
 #         return None
 #     return vals[0].replace("BI-RADS", "").strip()
+def import_inbreast_full_dataset(
+    data_dir: str,
+    label_encoder,
+    target_size=None,
+    csv_path="/mnt/data/INbreast.csv"   # <-- đường dẫn tới file CSV của bạn
+):
+    """
+    Load toàn bộ DICOM trong AllDICOMs, đọc BI-RADS từ CSV, trả về (X: np.ndarray, y: np.ndarray).
+    CSV phải có cột 'File Name' khớp với prefix của .dcm (ví dụ '22678622'), và cột 'Bi-Rads'.
+    """
+    # 1) Đọc CSV và build map: pid_base -> birad_val
+    df = pd.read_csv(csv_path, sep=';')
+    # đảm bảo cột đúng tên, strip space
+    df.columns = [c.strip() for c in df.columns]
+    birad_map = dict(zip(
+        df['File Name'].astype(str).str.strip(),
+        df['Bi-Rads'].astype(str).str.strip()
+    ))
+
+    # 2) Build list samples (dcm_path, label_name)
+    samples = []
+    dicom_dir = os.path.join(data_dir, "AllDICOMs")
+    for fn in sorted(os.listdir(dicom_dir)):
+        if not fn.lower().endswith(".dcm"):
+            continue
+        # pid_base lấy trước dấu '_' hoặc trước '.dcm'
+        pid = fn.split("_", 1)[0]
+        birad = birad_map.get(pid)
+        if birad is None:
+            continue
+        # map birad (string) sang class name
+        label_name = None
+        for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+            # vals ví dụ ["BI-RADS 2","BI-RADS 3"], ta strip về số
+            normalized = [v.replace("BI-RADS", "").strip() for v in vals]
+            if str(birad) in normalized:
+                label_name = cls
+                break
+        if label_name:
+            samples.append((os.path.join(dicom_dir, fn), label_name))
+
+    if not samples:
+        raise ValueError(f"No valid samples found in {dicom_dir} using CSV {csv_path}")
+
+    # 3) Load image + build arrays
+    X_list, y_list = [], []
+    for dcm_path, label_name in samples:
+        try:
+            ds = pydicom.dcmread(dcm_path, force=True)
+        except InvalidDicomError:
+            continue
+        arr = ds.pixel_array.astype(np.float32)
+        arr -= arr.min()
+        if arr.max()>0: arr /= arr.max()
+        H, W = target_size or (
+            config.INBREAST_IMG_SIZE["HEIGHT"],
+            config.INBREAST_IMG_SIZE["WIDTH"]
+        )
+        if (arr.shape[0], arr.shape[1]) != (H, W):
+            arr = cv2.resize(arr, (W, H))
+        X_list.append(arr[..., np.newaxis])
+        y_list.append(label_name)
+
+    if not X_list:
+        raise ValueError("All DICOMs were invalid or skipped.")
+
+    X = np.stack(X_list, axis=0).astype(np.float32)
+
+    # 4) Fit & transform labels
+    y_enc = label_encoder.fit_transform(y_list)
+    if label_encoder.classes_.size > 2:
+        y_enc = to_categorical(y_enc)
+
+    return X, y_enc
 def import_inbreast_roi_dataset(
     data_dir: str,
     label_encoder,
