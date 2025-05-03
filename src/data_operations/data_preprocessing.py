@@ -633,7 +633,7 @@ def import_inbreast_full_dataset(
     data_dir: str,
     label_encoder,
     target_size=None,
-    csv_path="/mnt/data/INbreast.csv"   # <-- đường dẫn tới file CSV của bạn
+    csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"   # <-- đường dẫn tới file CSV của bạn
 ):
     """
     Load toàn bộ DICOM trong AllDICOMs, đọc BI-RADS từ CSV, trả về (X: np.ndarray, y: np.ndarray).
