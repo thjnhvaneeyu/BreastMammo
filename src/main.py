@@ -234,7 +234,8 @@ def main():
                 val_data   = (X_test,  y_test)
                 input_shape = X_train.shape[1:]
             # ------------------------------------------------------------
-            num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
+            # num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
+            num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
 
     else:
         raise ValueError(f"Unsupported dataset: {config.dataset}")
@@ -248,6 +249,8 @@ def main():
             Xte = np.repeat(val_data[0], 3, axis=-1)
             train_data = (Xtr, train_data[1])
             val_data   = (Xte, val_data[1])
+            X_train, y_train = train_data
+            X_test,  y_test  = val_data
             input_shape = (input_shape[0], input_shape[1], 3)
 
     if config.model == "CNN":
