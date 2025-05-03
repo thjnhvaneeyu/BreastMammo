@@ -71,14 +71,20 @@ def generate_csv_metadata(runtime) -> None:
 
     # Save report.
     metadata_df.to_csv(
-        "../output/{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_metadata.csv".format(
-            config.run_mode,
-            config.dataset,
-            config.mammogram_type,
-            config.model,
-            config.learning_rate,
-            config.batch_size,
-            config.max_epoch_frozen,
-            config.max_epoch_unfrozen,
-            config.is_roi)
+        os.path.join(
+            output_dir,
+            "{}_dataset-{}_mammogramtype-{}_model-{}_lr-{}_b-{}_e1-{}_e2-{}_roi-{}_metadata.csv".format(
+                config.run_mode,
+                config.dataset,
+                config.mammogram_type,
+                config.model,
+                config.learning_rate,
+                config.batch_size,
+                config.max_epoch_frozen,
+                config.max_epoch_unfrozen,
+                config.is_roi
+            )
+        ),
+        index=False,
+        header=True
     )
