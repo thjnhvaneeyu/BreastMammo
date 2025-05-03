@@ -174,12 +174,15 @@ def main():
         # d = os.path.join(DATA_ROOT, "CMMD-binary")
         # Nếu muốn dùng CMMD gốc (ảnh và clinical):
         # d = os.path.join(DATA_ROOT, "CMMD", "CMMD")
-        input_shape = X_train.shape[1:]
-        num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
         d = DATA_ROOT_CMMD
         X, y = data_preprocessing.import_cmmd_dataset(d, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
-
+        # --- Gán train/val và input_shape, num_classes ---
+        train_data = (X_train, y_train)
+        val_data   = (X_test,  y_test)
+        input_shape = X_train.shape[1:]
+        # nếu y_train one-hot thì ndim>1, ngược lại binary (ndim==1)
+        num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
     elif config.dataset.upper() == "INBREAST":
         data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
         if config.is_roi:
