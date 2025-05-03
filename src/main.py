@@ -216,10 +216,21 @@ def main():
 
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
+             # ------ New: expand grayscale → RGB for pretrained nets ------
+            if config.model != "CNN" and X_train.shape[-1] == 1:
+                # lặp kênh cuối 3 lần
+                X_train = np.repeat(X_train, 3, axis=-1)
+                X_test  = np.repeat(X_test,  3, axis=-1)
+                # cập nhật lại train_data, val_data và input_shape
+                train_data = (X_train, y_train)
+                val_data   = (X_test,  y_test)
+                input_shape = (input_shape[0], input_shape[1], 3)
+            else:
+                train_data = (X_train, y_train)
+                val_data   = (X_test,  y_test)
+                input_shape = X_train.shape[1:]
+            # ------------------------------------------------------------
 
-            train_data = (X_train, y_train)
-            val_data   = (X_test, y_test)
-            input_shape = X_train.shape[1:]
             num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
 
     else:
