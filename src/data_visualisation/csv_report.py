@@ -16,7 +16,10 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
                                                    output_dict=True)).transpose()
 
     # Append accuracy.
-    report_df.append({'accuracy': accuracy}, ignore_index=True)
+    # report_df.append({'accuracy': accuracy}, ignore_index=True)
+    # Append accuracy as a new row (using concat thay thế append)
+    new_row = pd.DataFrame([{'accuracy': accuracy}])
+    report_df = pd.concat([report_df, new_row], ignore_index=True)
 
     # Save report.
     report_df.to_csv(
