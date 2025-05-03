@@ -3,7 +3,7 @@ import numpy as np
 import skimage as sk
 import skimage.transform
 import config
-
+import os
 def generate_image_transforms(images, labels):
     """
     Oversample data by creating transformed copies of existing images.
@@ -76,7 +76,7 @@ def load_roi_and_label(roi_file_path: str):
     """
     # 1) Đọc tọa độ
     coords = []
-    with open(roi_file_path, 'r') as f:
+    with open(roi_file_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 2:
