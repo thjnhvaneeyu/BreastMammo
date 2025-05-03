@@ -232,7 +232,7 @@ class CnnModel:
 
         # 5) Confusion matrix
         cm = confusion_matrix(y_true_inv, y_pred_inv)
-        plot_confusion_matrix(cm, 'd', label_encoder)
+        # plot_confusion_matrix(cm, 'd', label_encoder)
         plot_confusion_matrix(cm.astype('float')/cm.sum(axis=1)[:, None], '.2f', label_encoder, is_normalised=True)
         # in ma trận nhầm lẫn thô
         # plot_confusion_matrix(cm, 'd', label_encoder)
