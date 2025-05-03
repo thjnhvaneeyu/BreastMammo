@@ -9,6 +9,10 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.optimizers import Adam
+from data_operations.data_preprocessing import (
+    import_inbreast_roi_dataset,
+    import_inbreast_full_dataset
+)
 
 # allow imports from project root
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +158,7 @@ def main():
 
     le = LabelEncoder()
     X_train = X_test = y_train = y_test = None
+    train_data = val_data = None
 
     if config.dataset in ["mini-MIAS", "mini-MIAS-binary"]:
         d = os.path.join(DATA_ROOT_BREAST, config.dataset)
@@ -175,22 +180,84 @@ def main():
 
     elif config.dataset.upper() == "INBREAST":
         data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
-        X, y = data_preprocessing.import_inbreast_dataset(data_dir, le)
-        X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
+        if config.is_roi:
+            # --- ROI‐mode: tf.data.Dataset on‐the‐fly ---
+            ds = import_inbreast_roi_dataset(
+                data_dir, le,
+                target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
+                             config.INBREAST_IMG_SIZE["WIDTH"])
+            )
+            # Shuffle + split
+            ds = ds.shuffle(buffer_size=1000)
+            split = int(0.8 * 1000)
+            ds_train = ds.take(split).batch(config.batch_size)
+            ds_val   = ds.skip(split).batch(config.batch_size)
+
+            train_data, val_data = ds_train, ds_val
+            # Lấy input_shape từ element_spec của Dataset
+            input_shape = train_data.element_spec[0].shape[1:]
+            # Số lớp bằng số classes của LabelEncoder
+            num_classes = le.classes_.size
+
+        else:
+            # --- Full‐image mode: load all into numpy ---
+            X, y = import_inbreast_full_dataset(
+                data_dir, le,
+                target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
+                             config.INBREAST_IMG_SIZE["WIDTH"])
+            )
+            X_train, X_test, y_train, y_test = \
+                data_preprocessing.dataset_stratified_split(0.2, X, y)
+
+            if config.augment_data:
+                X_train, y_train = generate_image_transforms(X_train, y_train)
+
+            train_data = (X_train, y_train)
+            val_data   = (X_test, y_test)
+            input_shape = X_train.shape[1:]
+            num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
 
     else:
         raise ValueError(f"Unsupported dataset: {config.dataset}")
 
-    # 4) Augmentation if requested
-    if config.augment_data and X_train is not None:
-        X_train, y_train = generate_image_transforms(X_train, y_train)
+    # 4) Build & compile model
+    #    Nếu dùng pretrained và ảnh grayscale thì cần convert sang 3-channel trước
+    if config.model != "CNN" and isinstance(train_data, tuple):
+        Xtr, _ = train_data
+        if Xtr.shape[-1] == 1:
+            Xtr = np.repeat(Xtr, 3, axis=-1)
+            Xte = np.repeat(val_data[0], 3, axis=-1)
+            train_data = (Xtr, train_data[1])
+            val_data   = (Xte, val_data[1])
+            input_shape = (input_shape[0], input_shape[1], 3)
 
-    # 5) Determine number of classes
-    num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
-    if config.verbose_mode:
-        print(f"[INFO] Number of classes = {num_classes}")
+    if config.model == "CNN":
+        keras_model = build_cnn(input_shape, num_classes)
+    else:
+        keras_model, _ = build_pretrained_model(
+            config.model, input_shape, num_classes
+        )
+
+    loss_fn = "binary_crossentropy" if num_classes == 2 else "categorical_crossentropy"
+    keras_model.compile(
+        loss=loss_fn,
+        optimizer=Adam(learning_rate=config.learning_rate),
+        metrics=["accuracy"]
+    )
+
+    cnn = CnnModel(config.model, num_classes)
+    cnn._model = keras_model
+
+    # # 5) Train
+    # if config.is_roi:
+    #     cnn.train_model(train_data, val_data, class_weights=None)
+    # else:
+    #     Xtr, Ytr = train_data
+    #     Xt, Yt   = val_data
+    #     cnn.train_model(Xtr, Xt, Ytr, Yt, class_weights=None)
 
     # 6) Test mode
+    start_time = time.time()
     if config.run_mode == "test":
         # load model and evaluate
         model_fname = f"{config.dataset}_{config.model}.h5"
@@ -210,42 +277,53 @@ def main():
         cnn.evaluate_model(y_test, le, "binary", time.time() - start_time)
         return
 
-    # 7) Build & compile a fresh model for training
-    #   convert grayscale→RGB if necessary for pretrained
-    if config.model != "CNN" and isinstance(X_train, np.ndarray) and X_train.ndim==4 and X_train.shape[-1]==1:
-        X_train = np.repeat(X_train, 3, axis=-1)
-        X_test  = np.repeat(X_test,  3, axis=-1)
+    # # 7) Build & compile a fresh model for training
+    # #   convert grayscale→RGB if necessary for pretrained
+    # if config.model != "CNN" and isinstance(X_train, np.ndarray) and X_train.ndim==4 and X_train.shape[-1]==1:
+    #     X_train = np.repeat(X_train, 3, axis=-1)
+    #     X_test  = np.repeat(X_test,  3, axis=-1)
 
-    if config.model == "CNN":
-        in_shape = X_train.shape[1:]
-        keras_model = build_cnn(in_shape, num_classes)
-    else:
-        # figure out correct height/width
-        if config.dataset == "CMMD":
-            h,w = config.CMMD_IMG_SIZE.values()
-        else:
-            size_attr = f"{config.model.upper()}_IMG_SIZE"
-            h,w = getattr(config, size_attr).values()
-        keras_model, _ = build_pretrained_model(config.model, (h,w,3), num_classes)
+    # if config.model == "CNN":
+    #     in_shape = X_train.shape[1:]
+    #     keras_model = build_cnn(in_shape, num_classes)
+    # else:
+    #     # figure out correct height/width
+    #     if config.dataset == "CMMD":
+    #         h,w = config.CMMD_IMG_SIZE.values()
+    #     else:
+    #         size_attr = f"{config.model.upper()}_IMG_SIZE"
+    #         h,w = getattr(config, size_attr).values()
+    #     keras_model, _ = build_pretrained_model(config.model, (h,w,3), num_classes)
 
-    loss_fn = "binary_crossentropy" if num_classes==2 else "categorical_crossentropy"
-    keras_model.compile(
-        loss=loss_fn,
-        optimizer=optimizers.Adam(learning_rate=config.learning_rate),
-        metrics=["accuracy"]
-    )
+    # loss_fn = "binary_crossentropy" if num_classes==2 else "categorical_crossentropy"
+    # keras_model.compile(
+    #     loss=loss_fn,
+    #     optimizer=optimizers.Adam(learning_rate=config.learning_rate),
+    #     metrics=["accuracy"]
+    # )
 
     # 8) Wrap and train
     cnn = CnnModel(config.model, num_classes)
     cnn._model = keras_model
 
-    if config.dataset == "CBIS-DDSM":
+    # if config.dataset == "CBIS-DDSM":
+    #     ds_train = dataset_feed.create_dataset(X_train, y_train)
+    #     ds_val   = dataset_feed.create_dataset(X_test,  y_test)
+    #     cnn.train_model(ds_train, ds_val, y_train, y_test, class_weights=None)
+    # else:
+    #     cnn.train_model(X_train, X_test, y_train, y_test, class_weights=None)
+    # 8) Wrap and train (INBREAST-ROI riêng, CBIS-DDSM riêng, còn lại giữ nguyên)
+    if config.dataset.upper() == "INBREAST" and config.is_roi:
+        # INBREAST ROI-mode: train trên tf.data.Dataset đã chuẩn bị ở bước load data
+        cnn.train_model(ds_train, ds_val, class_weights=None)
+    elif config.dataset == "CBIS-DDSM":
+        # CBIS-DDSM: build dataset rồi train (như cũ)
         ds_train = dataset_feed.create_dataset(X_train, y_train)
         ds_val   = dataset_feed.create_dataset(X_test,  y_test)
         cnn.train_model(ds_train, ds_val, y_train, y_test, class_weights=None)
     else:
         cnn.train_model(X_train, X_test, y_train, y_test, class_weights=None)
-        start_time = time.time()
+        # Các dataset còn lại (mini-MIAS, CMMD, INBREAST full-mode, etc.)
 
     # 9) Save & evaluate
     cnn.save_model()

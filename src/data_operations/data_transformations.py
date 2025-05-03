@@ -77,11 +77,11 @@ def load_roi_and_label(roi_file_path: str):
     # 1) Đọc tọa độ
     coords = []
     with open(roi_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                x, y = map(float, parts[:2])
-                coords.append((int(x), int(y)))
+        # for line in f:
+        #     parts = line.strip().split()
+        #     if len(parts) >= 2:
+        #         x, y = map(float, parts[:2])
+        #         coords.append((int(x), int(y)))
     # Nếu không có coords, trả về None để skip
     if not coords:
         return None, None
