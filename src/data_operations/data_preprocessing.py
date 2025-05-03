@@ -462,11 +462,192 @@ import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
 from data_operations.data_transformations import load_roi_and_label
 
-def import_inbreast_roi_dataset(data_dir: str, label_encoder, target_size=None):
+# def import_inbreast_roi_dataset(data_dir: str, label_encoder, target_size=None):
+#     """
+#     Chỉ load & crop ROI on-the-fly, trả về tf.data.Dataset (img, one-hot/label).
+#     """
+#     # 1) Build sample list
+#     samples = []
+#     dicom_dir = os.path.join(data_dir, "AllDICOMs")
+#     roi_dir   = os.path.join(data_dir, "AllROI")
+#     for roi_fn in sorted(os.listdir(roi_dir)):
+#         if not roi_fn.lower().endswith(".roi"):
+#             continue
+#         pid = roi_fn.split("_roi")[0]
+#         dicom_fp = os.path.join(dicom_dir, pid + ".dcm")
+#         coords, label = load_roi_and_label(os.path.join(roi_dir, roi_fn))
+#         if coords and label:
+#             samples.append((dicom_fp, coords, label))
+
+#     # 2) Fit LabelEncoder
+#     labels = [lbl for _, _, lbl in samples]
+#     label_encoder.fit(labels)
+#     num_classes = label_encoder.classes_.size
+
+#     # 3) Generator từng sample
+#     def gen():
+#         for dicom_fp, coords, label in samples:
+#             try:
+#                 arr = _load_and_crop(dicom_fp, coords, target_size)
+#             except InvalidDicomError:
+#                 continue
+#             yield arr, label.encode()
+
+#     # 4) Tạo Dataset & encode nhãn
+#     H, W = target_size or (
+#         config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
+#     )
+#     output_signature = (
+#         tf.TensorSpec(shape=(H, W, 1), dtype=tf.float32),
+#         tf.TensorSpec(shape=(),       dtype=tf.string),
+#     )
+#     ds = tf.data.Dataset.from_generator(gen, output_signature=output_signature)
+
+#     def _encode(img, lbl):
+#         i = tf.py_function(
+#             lambda x: label_encoder.transform([x.decode()])[0],
+#             [lbl], tf.int32
+#         )
+#         i.set_shape([])  # scalar
+#         if num_classes > 2:
+#             i = tf.one_hot(i, num_classes)
+#         return img, i
+
+#     ds = (
+#         ds
+#         .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+#         .shuffle(len(samples))
+#         .batch(config.BATCH_SIZE)
+#         .prefetch(tf.data.AUTOTUNE)
+#     )
+#     return ds
+
+
+# def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None):
+#     """
+#     Load toàn bộ DICOM + trích BI-RADS từ XML, trả về (X: np.ndarray, y: np.ndarray).
+#     """
+#     # 1) Build birad_map từ XML
+#     xml_dir = os.path.join(data_dir, "AllXML")
+#     birad_map = {}
+#     for xml_fn in os.listdir(xml_dir):
+#         if xml_fn.lower().endswith(".xml"):
+#             pid = os.path.splitext(xml_fn)[0]
+#             val = _parse_birads(os.path.join(xml_dir, xml_fn))
+#             if val is not None:
+#                 birad_map[pid] = val
+
+#     # 2) Build sample list
+#     samples = []
+#     dicom_dir = os.path.join(data_dir, "AllDICOMs")
+#     for fn in sorted(os.listdir(dicom_dir)):
+#         if not fn.lower().endswith(".dcm"):
+#             continue
+#         pid = os.path.splitext(fn)[0].split("_", 1)[0]
+#         birad = birad_map.get(pid)
+#         if birad is None:
+#             continue
+#         # map birad -> class name
+#         label = None
+#         for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+#             if str(birad) in [v.replace("BI-RADS", "").strip() for v in vals]:
+#                 label = cls
+#                 break
+#         if label:
+#             samples.append((os.path.join(dicom_dir, fn), label))
+#     # ————————————————————————————————————————
+#     # Guard: nếu không tìm thấy sample nào, báo lỗi rõ ràng
+#     if not samples:
+#         raise ValueError(
+#             f"No valid InBreast DICOM samples found in {dicom_dir}. "
+#             "Kiểm tra lại đường dẫn DATA_ROOT và thư mục AllXML/AllDICOMs."
+#         )
+#     # ————————————————————————————————————————
+#     # 3) Load vào arrays
+#     X_list, y_list = [], []
+#     for dicom_fp, label in samples:
+#         try:
+#             ds = pydicom.dcmread(dicom_fp, force=True)
+#         except InvalidDicomError:
+#             continue
+#         arr = ds.pixel_array.astype(np.float32)
+#         arr -= arr.min()
+#         if arr.max() > 0:
+#             arr /= arr.max()
+#         H, W = target_size or (
+#             config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
+#         )
+#         if (arr.shape[0], arr.shape[1]) != (H, W):
+#             arr = cv2.resize(arr, (W, H))
+#         X_list.append(arr[..., np.newaxis])
+#         y_list.append(label)
+#     # Guard thêm: sau khi lấy sample, vẫn rỗng => hỏng data
+#     if not X_list:
+#         raise ValueError(
+#             "After filtering invalid DICOM, no images left to load. "
+#             "Hãy kiểm tra file DICOM và XML annotation."
+#         )
+
+#     X = np.stack(X_list, axis=0)
+#     # 4) Fit & transform labels
+#     y_enc = label_encoder.fit_transform(y_list)
+#     if label_encoder.classes_.size > 2:
+#         from tensorflow.keras.utils import to_categorical
+#         y_enc = to_categorical(y_enc)
+#     return X.astype(np.float32), y_enc
+
+# # --- Helpers ---
+
+# def _load_and_crop(dicom_fp, coords, target_size):
+#     """
+#     Dùng trong ROI‐branch.
+#     """
+#     ds = pydicom.dcmread(dicom_fp, force=True)
+#     arr = ds.pixel_array.astype(np.float32)
+#     arr -= arr.min()
+#     if arr.max()>0: arr /= arr.max()
+#     xs, ys = zip(*coords)
+#     x0, x1 = max(0,min(xs)), min(arr.shape[1],max(xs))
+#     y0, y1 = max(0,min(ys)), min(arr.shape[0],max(ys))
+#     roi = arr[y0:y1, x0:x1]
+#     H, W = target_size or (arr.shape[0], arr.shape[1])
+#     roi = cv2.resize(roi, (W, H))
+#     return roi[..., np.newaxis]
+
+
+# def _parse_birads(xml_fp):
+#     """
+#     Đọc BI-RADS từ XML và trả về giá trị (chuỗi đã strip "BI-RADS").
+#     """
+#     root = ET.parse(xml_fp).getroot()
+#     bi = root.find(".//bi_rads")
+#     vals = [bi.text.strip()] if bi is not None and bi.text else []
+#     if not vals:
+#         for e in root.iter():
+#             if e.text and e.text.strip().startswith("BI-RADS"):
+#                 vals = [e.text.strip()]; break
+#     if not vals:
+#         return None
+#     return vals[0].replace("BI-RADS", "").strip()
+def import_inbreast_roi_dataset(
+    data_dir: str,
+    label_encoder,
+    target_size=None,
+    csv_path="/mnt/data/INbreast.csv"
+):
     """
-    Chỉ load & crop ROI on-the-fly, trả về tf.data.Dataset (img, one-hot/label).
+    Chỉ load & crop ROI on-the-fly, gán nhãn từ CSV BI-RADS, trả về tf.data.Dataset.
+    CSV phải có cột 'File Name' và 'Bi-Rads'.
     """
-    # 1) Build sample list
+    # --- 0) Đọc CSV BI-RADS vào dict pid->birad
+    df = pd.read_csv(csv_path, sep=';')
+    df.columns = [c.strip() for c in df.columns]
+    birad_map = dict(zip(
+        df['File Name'].astype(str).str.strip(),
+        df['Bi-Rads'].astype(str).str.strip()
+    ))
+
+    # --- 1) Build sample list (coords, label_name)
     samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
     roi_dir   = os.path.join(data_dir, "AllROI")
@@ -474,162 +655,90 @@ def import_inbreast_roi_dataset(data_dir: str, label_encoder, target_size=None):
         if not roi_fn.lower().endswith(".roi"):
             continue
         pid = roi_fn.split("_roi")[0]
-        dicom_fp = os.path.join(dicom_dir, pid + ".dcm")
-        coords, label = load_roi_and_label(os.path.join(roi_dir, roi_fn))
-        if coords and label:
-            samples.append((dicom_fp, coords, label))
+        birad = birad_map.get(pid)
+        if birad is None:
+            continue
 
-    # 2) Fit LabelEncoder
-    labels = [lbl for _, _, lbl in samples]
+        # đọc coords từ file .roi
+        coords = []
+        with open(os.path.join(roi_dir, roi_fn), 
+                  'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) < 2: continue
+                try:
+                    x,y = map(float, parts[:2])
+                except ValueError:
+                    continue
+                coords.append((int(x),int(y)))
+        if not coords:
+            continue
+
+        # map birad -> label class
+        label_name = None
+        for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+            normalized = [v.replace("BI-RADS","").strip() for v in vals]
+            if str(birad) in normalized:
+                label_name = cls
+                break
+        if not label_name:
+            continue
+
+        dcm_fp = os.path.join(dicom_dir, pid + ".dcm")
+        samples.append((dcm_fp, coords, label_name))
+
+    if not samples:
+        raise ValueError(f"No ROI samples found in {roi_dir} with CSV labels")
+
+    # --- 2) Fit encoder & count classes
+    labels = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels)
     num_classes = label_encoder.classes_.size
 
-    # 3) Generator từng sample
+    # --- 3) Generator từng sample
     def gen():
-        for dicom_fp, coords, label in samples:
+        for dcm_fp, coords, lbl in samples:
             try:
-                arr = _load_and_crop(dicom_fp, coords, target_size)
+                ds = pydicom.dcmread(dcm_fp, force=True)
             except InvalidDicomError:
                 continue
-            yield arr, label.encode()
+            arr = ds.pixel_array.astype(np.float32)
+            arr -= arr.min()
+            if arr.max()>0: arr /= arr.max()
+            xs,ys = zip(*coords)
+            x0,x1 = max(0,min(xs)), min(arr.shape[1],max(xs))
+            y0,y1 = max(0,min(ys)), min(arr.shape[0],max(ys))
+            roi = arr[y0:y1, x0:x1]
+            H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+                                  config.INBREAST_IMG_SIZE["WIDTH"])
+            roi = cv2.resize(roi, (W,H))
+            yield roi[...,np.newaxis], lbl.encode()
 
-    # 4) Tạo Dataset & encode nhãn
-    H, W = target_size or (
-        config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
+    # --- 4) Tạo Dataset & encode nhãn
+    H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+                           config.INBREAST_IMG_SIZE["WIDTH"])
+    sig = (
+        tf.TensorSpec((H,W,1), tf.float32),
+        tf.TensorSpec((),     tf.string),
     )
-    output_signature = (
-        tf.TensorSpec(shape=(H, W, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(),       dtype=tf.string),
-    )
-    ds = tf.data.Dataset.from_generator(gen, output_signature=output_signature)
+    ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
 
     def _encode(img, lbl):
         i = tf.py_function(
             lambda x: label_encoder.transform([x.decode()])[0],
             [lbl], tf.int32
         )
-        i.set_shape([])  # scalar
-        if num_classes > 2:
+        i.set_shape([])
+        if num_classes>2:
             i = tf.one_hot(i, num_classes)
         return img, i
 
-    ds = (
-        ds
-        .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
-        .shuffle(len(samples))
-        .batch(config.BATCH_SIZE)
-        .prefetch(tf.data.AUTOTUNE)
-    )
+    ds = (ds
+          .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+          .shuffle(len(samples))
+          .batch(config.BATCH_SIZE)
+          .prefetch(tf.data.AUTOTUNE))
     return ds
-
-
-def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None):
-    """
-    Load toàn bộ DICOM + trích BI-RADS từ XML, trả về (X: np.ndarray, y: np.ndarray).
-    """
-    # 1) Build birad_map từ XML
-    xml_dir = os.path.join(data_dir, "AllXML")
-    birad_map = {}
-    for xml_fn in os.listdir(xml_dir):
-        if xml_fn.lower().endswith(".xml"):
-            pid = os.path.splitext(xml_fn)[0]
-            val = _parse_birads(os.path.join(xml_dir, xml_fn))
-            if val is not None:
-                birad_map[pid] = val
-
-    # 2) Build sample list
-    samples = []
-    dicom_dir = os.path.join(data_dir, "AllDICOMs")
-    for fn in sorted(os.listdir(dicom_dir)):
-        if not fn.lower().endswith(".dcm"):
-            continue
-        pid = os.path.splitext(fn)[0].split("_", 1)[0]
-        birad = birad_map.get(pid)
-        if birad is None:
-            continue
-        # map birad -> class name
-        label = None
-        for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
-            if str(birad) in [v.replace("BI-RADS", "").strip() for v in vals]:
-                label = cls
-                break
-        if label:
-            samples.append((os.path.join(dicom_dir, fn), label))
-    # ————————————————————————————————————————
-    # Guard: nếu không tìm thấy sample nào, báo lỗi rõ ràng
-    if not samples:
-        raise ValueError(
-            f"No valid InBreast DICOM samples found in {dicom_dir}. "
-            "Kiểm tra lại đường dẫn DATA_ROOT và thư mục AllXML/AllDICOMs."
-        )
-    # ————————————————————————————————————————
-    # 3) Load vào arrays
-    X_list, y_list = [], []
-    for dicom_fp, label in samples:
-        try:
-            ds = pydicom.dcmread(dicom_fp, force=True)
-        except InvalidDicomError:
-            continue
-        arr = ds.pixel_array.astype(np.float32)
-        arr -= arr.min()
-        if arr.max() > 0:
-            arr /= arr.max()
-        H, W = target_size or (
-            config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
-        )
-        if (arr.shape[0], arr.shape[1]) != (H, W):
-            arr = cv2.resize(arr, (W, H))
-        X_list.append(arr[..., np.newaxis])
-        y_list.append(label)
-    # Guard thêm: sau khi lấy sample, vẫn rỗng => hỏng data
-    if not X_list:
-        raise ValueError(
-            "After filtering invalid DICOM, no images left to load. "
-            "Hãy kiểm tra file DICOM và XML annotation."
-        )
-
-    X = np.stack(X_list, axis=0)
-    # 4) Fit & transform labels
-    y_enc = label_encoder.fit_transform(y_list)
-    if label_encoder.classes_.size > 2:
-        from tensorflow.keras.utils import to_categorical
-        y_enc = to_categorical(y_enc)
-    return X.astype(np.float32), y_enc
-
-# --- Helpers ---
-
-def _load_and_crop(dicom_fp, coords, target_size):
-    """
-    Dùng trong ROI‐branch.
-    """
-    ds = pydicom.dcmread(dicom_fp, force=True)
-    arr = ds.pixel_array.astype(np.float32)
-    arr -= arr.min()
-    if arr.max()>0: arr /= arr.max()
-    xs, ys = zip(*coords)
-    x0, x1 = max(0,min(xs)), min(arr.shape[1],max(xs))
-    y0, y1 = max(0,min(ys)), min(arr.shape[0],max(ys))
-    roi = arr[y0:y1, x0:x1]
-    H, W = target_size or (arr.shape[0], arr.shape[1])
-    roi = cv2.resize(roi, (W, H))
-    return roi[..., np.newaxis]
-
-
-def _parse_birads(xml_fp):
-    """
-    Đọc BI-RADS từ XML và trả về giá trị (chuỗi đã strip "BI-RADS").
-    """
-    root = ET.parse(xml_fp).getroot()
-    bi = root.find(".//bi_rads")
-    vals = [bi.text.strip()] if bi is not None and bi.text else []
-    if not vals:
-        for e in root.iter():
-            if e.text and e.text.strip().startswith("BI-RADS"):
-                vals = [e.text.strip()]; break
-    if not vals:
-        return None
-    return vals[0].replace("BI-RADS", "").strip()
-
 
 def dataset_stratified_split(split, data, labels):
     return train_test_split(data, labels,
