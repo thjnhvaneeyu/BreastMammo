@@ -7,7 +7,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
-from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.utils import to_categorical  # nếu bạn dùng to_categorical trong full‐mode
 from PIL import Image
 import pydicom
 import cv2
@@ -460,14 +460,12 @@ import pydicom
 import cv2
 import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
-
+from data_operations.data_transformations import load_roi_and_label
 
 def import_inbreast_roi_dataset(data_dir: str, label_encoder, target_size=None):
     """
-    Chỉ load & crop những ROI có sẵn trong AllROI, yield từng batch on-the-fly.
+    Chỉ load & crop ROI on-the-fly, trả về tf.data.Dataset (img, one-hot/label).
     """
-    from data_operations.data_transformations import load_roi_and_label
-
     # 1) Build sample list
     samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
@@ -475,62 +473,69 @@ def import_inbreast_roi_dataset(data_dir: str, label_encoder, target_size=None):
     for roi_fn in sorted(os.listdir(roi_dir)):
         if not roi_fn.lower().endswith(".roi"):
             continue
-        pid_base = roi_fn.split("_roi")[0]
-        dicom_fp = os.path.join(dicom_dir, pid_base + ".dcm")
-        coords, label_name = load_roi_and_label(os.path.join(roi_dir, roi_fn))
-        if coords and label_name:
-            samples.append((dicom_fp, coords, label_name))
+        pid = roi_fn.split("_roi")[0]
+        dicom_fp = os.path.join(dicom_dir, pid + ".dcm")
+        coords, label = load_roi_and_label(os.path.join(roi_dir, roi_fn))
+        if coords and label:
+            samples.append((dicom_fp, coords, label))
 
-    # 2) Generator
+    # 2) Fit LabelEncoder
+    labels = [lbl for _, _, lbl in samples]
+    label_encoder.fit(labels)
+    num_classes = label_encoder.classes_.size
+
+    # 3) Generator từng sample
     def gen():
-        for dicom_fp, coords, label_name in samples:
+        for dicom_fp, coords, label in samples:
             try:
                 arr = _load_and_crop(dicom_fp, coords, target_size)
             except InvalidDicomError:
-                print(f"⚠️ Skip invalid DICOM: {dicom_fp}")
                 continue
-            yield arr, label_name.encode()
+            yield arr, label.encode()
 
-    # 3) Build Dataset
+    # 4) Tạo Dataset & encode nhãn
     H, W = target_size or (
         config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
     )
     output_signature = (
         tf.TensorSpec(shape=(H, W, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(),      dtype=tf.string),
+        tf.TensorSpec(shape=(),       dtype=tf.string),
     )
     ds = tf.data.Dataset.from_generator(gen, output_signature=output_signature)
 
-    # 4) Label‐encode
-    num_classes = label_encoder.classes_.size
     def _encode(img, lbl):
         i = tf.py_function(
             lambda x: label_encoder.transform([x.decode()])[0],
             [lbl], tf.int32
-        ); i.set_shape([])
+        )
+        i.set_shape([])  # scalar
         if num_classes > 2:
             i = tf.one_hot(i, num_classes)
         return img, i
 
-    ds = ds.map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
-    ds = ds.shuffle(len(samples)).batch(config.BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    ds = (
+        ds
+        .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+        .shuffle(len(samples))
+        .batch(config.BATCH_SIZE)
+        .prefetch(tf.data.AUTOTUNE)
+    )
     return ds
 
 
 def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None):
     """
-    Load toàn bộ DICOM trong AllDICOMs, lấy nhãn từ XML, yield từng batch on-the-fly.
+    Load toàn bộ DICOM + trích BI-RADS từ XML, trả về (X: np.ndarray, y: np.ndarray).
     """
-    # 1) Build birad map từ CSV/XML metadata
-    xml_dir   = os.path.join(data_dir, "AllXML")
+    # 1) Build birad_map từ XML
+    xml_dir = os.path.join(data_dir, "AllXML")
     birad_map = {}
     for xml_fn in os.listdir(xml_dir):
-        if not xml_fn.lower().endswith(".xml"):
-            continue
-        pid_base = os.path.splitext(xml_fn)[0]
-        birad_val = _parse_birads(os.path.join(xml_dir, xml_fn))
-        if birad_val is not None:
-            birad_map[pid_base] = birad_val
+        if xml_fn.lower().endswith(".xml"):
+            pid = os.path.splitext(xml_fn)[0]
+            val = _parse_birads(os.path.join(xml_dir, xml_fn))
+            if val is not None:
+                birad_map[pid] = val
 
     # 2) Build sample list
     samples = []
@@ -538,62 +543,45 @@ def import_inbreast_full_dataset(data_dir: str, label_encoder, target_size=None)
     for fn in sorted(os.listdir(dicom_dir)):
         if not fn.lower().endswith(".dcm"):
             continue
-        pid_base = os.path.splitext(fn)[0].split("_",1)[0]
-        birad = birad_map.get(pid_base)
+        pid = os.path.splitext(fn)[0].split("_", 1)[0]
+        birad = birad_map.get(pid)
         if birad is None:
             continue
         # map birad -> class name
-        label_name = None
+        label = None
         for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
-            normalized = [v.replace("BI-RADS", "").strip() for v in vals]
-            if str(birad) in normalized:
-                label_name = cls
+            if str(birad) in [v.replace("BI-RADS", "").strip() for v in vals]:
+                label = cls
                 break
-        if label_name:
-            samples.append((os.path.join(dicom_dir, fn), label_name))
+        if label:
+            samples.append((os.path.join(dicom_dir, fn), label))
 
-    # 3) Generator
-    def gen():
-        for dicom_fp, label_name in samples:
-            try:
-                ds = pydicom.dcmread(dicom_fp, force=True)
-            except InvalidDicomError:
-                print(f"⚠️ Skip invalid DICOM: {dicom_fp}")
-                continue
-            arr = ds.pixel_array.astype(np.float32)
-            arr -= arr.min()
-            if arr.max()>0: arr /= arr.max()
-            H, W = target_size or (
-                config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
-            )
-            if (arr.shape[0], arr.shape[1]) != (H, W):
-                arr = cv2.resize(arr, (W, H))
-            yield arr[..., np.newaxis], label_name.encode()
+    # 3) Load vào arrays
+    X_list, y_list = [], []
+    for dicom_fp, label in samples:
+        try:
+            ds = pydicom.dcmread(dicom_fp, force=True)
+        except InvalidDicomError:
+            continue
+        arr = ds.pixel_array.astype(np.float32)
+        arr -= arr.min()
+        if arr.max() > 0:
+            arr /= arr.max()
+        H, W = target_size or (
+            config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
+        )
+        if (arr.shape[0], arr.shape[1]) != (H, W):
+            arr = cv2.resize(arr, (W, H))
+        X_list.append(arr[..., np.newaxis])
+        y_list.append(label)
 
-    # 4) Build Dataset & encode labels
-    H, W = target_size or (
-        config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"]
-    )
-    output_signature = (
-        tf.TensorSpec(shape=(H, W, 1), dtype=tf.float32),
-        tf.TensorSpec(shape=(),      dtype=tf.string),
-    )
-    ds = tf.data.Dataset.from_generator(gen, output_signature=output_signature)
-
-    num_classes = label_encoder.classes_.size
-    def _encode(img, lbl):
-        i = tf.py_function(
-            lambda x: label_encoder.transform([x.decode()])[0],
-            [lbl], tf.int32
-        ); i.set_shape([])
-        if num_classes > 2:
-            i = tf.one_hot(i, num_classes)
-        return img, i
-
-    ds = ds.map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
-    ds = ds.shuffle(len(samples)).batch(config.BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-    return ds
-
+    X = np.stack(X_list, axis=0)
+    # 4) Fit & transform labels
+    y_enc = label_encoder.fit_transform(y_list)
+    if label_encoder.classes_.size > 2:
+        from tensorflow.keras.utils import to_categorical
+        y_enc = to_categorical(y_enc)
+    return X.astype(np.float32), y_enc
 
 # --- Helpers ---
 
