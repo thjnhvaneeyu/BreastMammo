@@ -174,6 +174,8 @@ def main():
         # d = os.path.join(DATA_ROOT, "CMMD-binary")
         # Nếu muốn dùng CMMD gốc (ảnh và clinical):
         # d = os.path.join(DATA_ROOT, "CMMD", "CMMD")
+        input_shape = X_train.shape[1:]
+        num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
         d = DATA_ROOT_CMMD
         X, y = data_preprocessing.import_cmmd_dataset(d, le)
         X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(0.2, X, y)
