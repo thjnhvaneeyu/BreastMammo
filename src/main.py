@@ -294,7 +294,9 @@ def main():
                     config.INBREAST_IMG_SIZE["WIDTH"]
                 )
             )
-
+            print("After filtering out Normal:")
+            print("  X.shape =", X.shape)
+            print("  y.shape =", y.shape)
             # 1) Lọc bỏ class "Normal"
             normal_label = "Normal"
             if normal_label in le.classes_:
@@ -310,9 +312,6 @@ def main():
             # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
             if y.ndim > 1:
                 y = np.argmax(y, axis=1)
-            print("After filtering out Normal:")
-            print("  X.shape =", X.shape)
-            print("  y.shape =", y.shape)
             # 3) Stratified split đúng cú pháp
             # X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
             #     0.2,
