@@ -199,28 +199,52 @@ class CnnModel:
     #         plot_roc_curve_binary(y_true, self.prediction)
     #     else:
     #         plot_roc_curve_multiclass(y_true, self.prediction, label_encoder)
-    def evaluate_model(self, X_test, y_true, label_encoder, classification_type, runtime):
-        """
-        Evaluate on X_test / y_true:
-        - compute self.prediction = model.predict(X_test)
-        - generate CSV, confusion matrix, ROC, comparison chart
-        """
-        # 1) Chạy dự đoán
-        self.prediction = self._model.predict(
-            x=X_test.astype("float32"),
-            batch_size=config.batch_size
-        )
+    # def evaluate_model(self, X_test, y_true, label_encoder, classification_type, runtime):
+    #     """
+    #     Evaluate on X_test / y_true:
+    #     - compute self.prediction = model.predict(X_test)
+    #     - generate CSV, confusion matrix, ROC, comparison chart
+    #     """
+    #     # 1) Chạy dự đoán
+    #     self.prediction = self._model.predict(
+    #         x=X_test.astype("float32"),
+    #         batch_size=config.batch_size
+    #     )
 
-        # 2) Chuyển ngược nhãn
-        if label_encoder.classes_.size == 2:
-            # NHỊ PHÂN: y_true đã là 1-D array [0/1], prediction là xác suất
-            y_true_inv = y_true
-            # làm tròn về 0 hoặc 1, rồi flatten về 1-D
-            y_pred_inv = np.round(self.prediction).astype(int).flatten()
+    #     # 2) Chuyển ngược nhãn
+    #     if label_encoder.classes_.size == 2:
+    #         # NHỊ PHÂN: y_true đã là 1-D array [0/1], prediction là xác suất
+    #         y_true_inv = y_true
+    #         # làm tròn về 0 hoặc 1, rồi flatten về 1-D
+    #         y_pred_inv = np.round(self.prediction).astype(int).flatten()
+    #     else:
+    #         # ĐA LỚP: y_true là one-hot, prediction là softmax → argmax
+    #         y_true_inv = label_encoder.inverse_transform(np.argmax(y_true, axis=1))
+    #         y_pred_inv = label_encoder.inverse_transform(np.argmax(self.prediction, axis=1))
+    def evaluate_model(self, X_test, y_test, label_encoder, cls_type, runtime):
+        # … trước đó bạn đã thu y_pred, y_true = y_test …
+        y_pred_prob = self._model.predict(X_test)
+        if cls_type == 'binary':
+            # threshold mặc định = 0.5
+            y_pred = (y_pred_prob > 0.5).astype(int).flatten()
         else:
-            # ĐA LỚP: y_true là one-hot, prediction là softmax → argmax
-            y_true_inv = label_encoder.inverse_transform(np.argmax(y_true, axis=1))
-            y_pred_inv = label_encoder.inverse_transform(np.argmax(self.prediction, axis=1))
+            y_pred = y_pred_prob  # nếu multiclass, giữ softmax output
+
+        # --- Chuyển y_true về dạng labels 1D ---
+        if y_test.ndim > 1:
+            y_true_labels = np.argmax(y_test, axis=1)
+        else:
+            y_true_labels = y_test.astype(int)
+
+        # --- Chuyển y_pred về dạng labels 1D nếu cần ---
+        if y_pred.ndim > 1:
+            y_pred_labels = np.argmax(y_pred, axis=1)
+        else:
+            y_pred_labels = y_pred
+
+        # Giờ map ngược về nhãn chuỗi
+        y_true_inv = label_encoder.inverse_transform(y_true_labels)
+        y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
 
         # 3) Tính accuracy
         acc = accuracy_score(y_true_inv, y_pred_inv)
