@@ -150,47 +150,116 @@ def plot_comparison_chart(df: pd.DataFrame) -> None:
 #     plt.legend(loc="upper right")
 #     plt.savefig("../output/dataset-{}_model-{}_{}-Accuracy.png".format(config.dataset, config.model, plot_name))
 #     # plt.show()
+# def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
+#     # Thiết lập thư mục output trên cùng project
+#     script_dir  = os.path.dirname(os.path.abspath(__file__))    # .../BreastMammo/src
+#     project_dir = os.path.dirname(script_dir)                   # .../BreastMammo
+#     out_dir     = os.path.join(project_dir, 'output')
+#     os.makedirs(out_dir, exist_ok=True)
+
+#     hist = hist_input.history
+#     n    = len(hist.get('loss', []))
+
+#     # -------- Loss --------
+#     plt.figure()
+#     plt.plot(np.arange(n), hist.get('loss', []),      label='train loss')
+#     if 'val_loss' in hist:
+#         plt.plot(np.arange(n), hist['val_loss'],       label='val loss')
+#     title = f"Training Loss on {config.dataset}"
+#     if not is_frozen_layers:
+#         title += " (unfrozen layers)"
+#     plt.title(title)
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Cross entropy loss")
+#     plt.legend(loc="upper right")
+#     loss_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Loss.png"
+#     plt.savefig(os.path.join(out_dir, loss_fn))
+#     plt.close()
+
+#     # -------- Accuracy --------
+#     plt.figure()
+#     # Chọn key accuracy phù hợp
+#     if config.dataset == "mini-MIAS":
+#         acc_key, val_acc_key = "categorical_accuracy", "val_categorical_accuracy"
+#     elif config.dataset in ["CBIS-DDSM","mini-MIAS-binary","CMMD","CMMD_binary"]:
+#         acc_key, val_acc_key = "binary_accuracy",      "val_binary_accuracy"
+#     else:
+#         acc_key     = next((k for k in hist if k.endswith("accuracy")), None)
+#         val_acc_key = f"val_{acc_key}" if acc_key and f"val_{acc_key}" in hist else None
+
+#     if acc_key:
+#         plt.plot(np.arange(n), hist.get(acc_key,[]),      label='train acc')
+#         if val_acc_key:
+#             plt.plot(np.arange(n), hist[val_acc_key],    label='val acc')
+
+#     title = f"Training Accuracy on {config.dataset}"
+#     if not is_frozen_layers:
+#         title += " (unfrozen layers)"
+#     plt.title(title)
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Accuracy")
+#     plt.ylim(0, 1.1)
+#     plt.legend(loc="upper right")
+#     acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy.png"
+#     plt.savefig(os.path.join(out_dir, acc_fn))
+#     plt.close()
+
 def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
-    # Thiết lập thư mục output trên cùng project
-    script_dir  = os.path.dirname(os.path.abspath(__file__))    # .../BreastMammo/src
-    project_dir = os.path.dirname(script_dir)                   # .../BreastMammo
+    """
+    Vẽ và lưu:
+      - Loss (train & val)
+      - Accuracy (train & val)
+    hist_input: History object trả về bởi model.fit()
+    plot_name: một chuỗi để phân biệt các giai đoạn (e.g. 'frozen' / 'unfrozen')
+    is_frozen_layers: nếu False, sẽ thêm note "(unfrozen layers)" lên title
+    """
+    # Thiết lập thư mục output
+    script_dir  = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(script_dir)
     out_dir     = os.path.join(project_dir, 'output')
     os.makedirs(out_dir, exist_ok=True)
 
     hist = hist_input.history
-    n    = len(hist.get('loss', []))
+    epochs = np.arange(len(hist.get('loss', [])))
 
     # -------- Loss --------
     plt.figure()
-    plt.plot(np.arange(n), hist.get('loss', []),      label='train loss')
+    plt.plot(epochs, hist.get('loss', []), label='train loss')
     if 'val_loss' in hist:
-        plt.plot(np.arange(n), hist['val_loss'],       label='val loss')
+        plt.plot(epochs, hist['val_loss'], label='val loss')
     title = f"Training Loss on {config.dataset}"
     if not is_frozen_layers:
         title += " (unfrozen layers)"
     plt.title(title)
     plt.xlabel("Epochs")
-    plt.ylabel("Cross entropy loss")
+    plt.ylabel("Loss")
     plt.legend(loc="upper right")
     loss_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Loss.png"
     plt.savefig(os.path.join(out_dir, loss_fn))
     plt.close()
 
     # -------- Accuracy --------
-    plt.figure()
-    # Chọn key accuracy phù hợp
-    if config.dataset == "mini-MIAS":
-        acc_key, val_acc_key = "categorical_accuracy", "val_categorical_accuracy"
-    elif config.dataset in ["CBIS-DDSM","mini-MIAS-binary","CMMD","CMMD_binary"]:
-        acc_key, val_acc_key = "binary_accuracy",      "val_binary_accuracy"
-    else:
-        acc_key     = next((k for k in hist if k.endswith("accuracy")), None)
-        val_acc_key = f"val_{acc_key}" if acc_key and f"val_{acc_key}" in hist else None
-
+    # Tự động tìm train-accuracy key
+    acc_key = None
+    for k in hist:
+        lk = k.lower()
+        if lk.endswith('accuracy') and not lk.startswith('val_'):
+            acc_key = k
+            break
+    # Tương ứng validation-accuracy
+    val_acc_key = None
     if acc_key:
-        plt.plot(np.arange(n), hist.get(acc_key,[]),      label='train acc')
+        candidate = f"val_{acc_key}"
+        if candidate in hist:
+            val_acc_key = candidate
+        elif 'val_accuracy' in hist:
+            val_acc_key = 'val_accuracy'
+
+    plt.figure()
+    if acc_key:
+        plt.plot(epochs, hist.get(acc_key, []), label='train acc')
         if val_acc_key:
-            plt.plot(np.arange(n), hist[val_acc_key],    label='val acc')
+            plt.plot(epochs, hist[val_acc_key], label='val acc')
 
     title = f"Training Accuracy on {config.dataset}"
     if not is_frozen_layers:
@@ -198,7 +267,7 @@ def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
     plt.title(title)
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")
-    plt.ylim(0, 1.1)
+    plt.ylim(0, 1.05)
     plt.legend(loc="upper right")
     acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy.png"
     plt.savefig(os.path.join(out_dir, acc_fn))
