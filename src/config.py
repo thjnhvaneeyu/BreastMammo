@@ -45,7 +45,7 @@ reduce_lr_factor        = 0.5
 min_learning_rate       = 1e-6
 # Batch size mặc định
 batch_size              = 8
-
+random_state            = 42
 # Kích thước ROI (Region of Interest)
 ROI_IMG_SIZE = {
     "HEIGHT": 224,

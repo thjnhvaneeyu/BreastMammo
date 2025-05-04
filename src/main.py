@@ -102,7 +102,7 @@ def main():
         X_test,  y_test  = import_cbisddsm_testing_dataset(le)
 
     elif config.dataset=="CMMD":
-        X, y = import_cmmd_dataset(config.DATA_ROOT_CMMD, le)
+        X, y = import_cmmd_dataset(DATA_ROOT_CMMD, le)
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, stratify=y, random_state=42
         )
