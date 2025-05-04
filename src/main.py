@@ -366,7 +366,7 @@ def main():
             # 4) Stratified split (sklearn đảm bảo mỗi lớp có test sample)
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y,
-                test_size=config.test_size,
+                test_size=0.2,
                 stratify=y,
                 random_state=config.RANDOM_SEED
             )
