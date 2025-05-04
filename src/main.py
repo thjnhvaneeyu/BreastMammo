@@ -183,69 +183,152 @@ def main():
         input_shape = X_train.shape[1:]
         # nếu y_train one-hot thì ndim>1, ngược lại binary (ndim==1)
         num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
+    # elif config.dataset.upper() == "INBREAST":
+    #     data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
+    #     if config.is_roi:
+    #         # --- ROI‐mode: tf.data.Dataset on‐the‐fly ---
+    #         ds = import_inbreast_roi_dataset(
+    #             data_dir, le,
+    #             target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                          config.INBREAST_IMG_SIZE["WIDTH"])
+    #         )
+    #         # Shuffle + split
+    #         ds = ds.shuffle(buffer_size=1000)
+    #         split = int(0.8 * 1000)
+    #         ds_train = ds.take(split).batch(config.batch_size)
+    #         ds_val   = ds.skip(split).batch(config.batch_size)
+
+    #         train_data, val_data = ds_train, ds_val
+    #         # Lấy input_shape từ element_spec của Dataset
+    #         input_shape = train_data.element_spec[0].shape[1:]
+    #         # Số lớp bằng số classes của LabelEncoder
+    #         num_classes = le.classes_.size
+
+    #     else:
+    #         # --- Full‐image mode: load all into numpy ---
+    #         X, y = import_inbreast_full_dataset(
+    #             data_dir, le,
+    #             target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                          config.INBREAST_IMG_SIZE["WIDTH"])
+    #         )
+    #         # Loại bỏ class 'Normal' khỏi dataset INbreast
+    #         normal_label = 'Normal'
+    #         if normal_label in le.classes_:
+    #             normal_idx = np.where(le.classes_ == normal_label)[0][0]
+    #             mask = (y != normal_idx)
+    #             X = X[mask]
+    #             y = y[mask]
+    #         X_train, X_test, y_train, y_test = \
+    #             data_preprocessing.dataset_stratified_split(0.2, X, y)
+
+    #         if config.augment_data:
+    #             X_train, y_train = generate_image_transforms(X_train, y_train)
+    #          # ------ New: expand grayscale → RGB for pretrained nets ------
+    #         if config.model != "CNN" and X_train.shape[-1] == 1:
+    #             # lặp kênh cuối 3 lần
+    #             X_train = np.repeat(X_train, 3, axis=-1)
+    #             X_test  = np.repeat(X_test,  3, axis=-1)
+    #             # # cập nhật lại train_data, val_data và input_shape
+    #             # train_data = (X_train, y_train)
+    #             # val_data   = (X_test,  y_test)
+    #             # input_shape = (input_shape[0], input_shape[1], 3)
+    #             # cập nhật lại train_data, val_data và input_shape từ X_train
+    #             train_data = (X_train, y_train)
+    #             val_data   = (X_test,  y_test)
+    #             input_shape = (X_train.shape[1], X_train.shape[2], 3)                
+    #         else:
+    #             train_data = (X_train, y_train)
+    #             val_data   = (X_test,  y_test)
+    #             input_shape = X_train.shape[1:]
+    #         # ------------------------------------------------------------
+    #         # num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
+    #         num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
+
+    # else:
+    #     raise ValueError(f"Unsupported dataset: {config.dataset}")
     elif config.dataset.upper() == "INBREAST":
         data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
+
         if config.is_roi:
             # --- ROI‐mode: tf.data.Dataset on‐the‐fly ---
             ds = import_inbreast_roi_dataset(
                 data_dir, le,
-                target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
-                             config.INBREAST_IMG_SIZE["WIDTH"])
+                target_size=(
+                    config.INBREAST_IMG_SIZE["HEIGHT"],
+                    config.INBREAST_IMG_SIZE["WIDTH"]
+                )
             )
-            # Shuffle + split
+
+            # ------ LOẠI BỎ CLASS "Normal" ------
+            # (1) đảm bảo đã import np, tf ở đầu file)
+            # import numpy as np
+            # import tensorflow as tf
+            normal_label = "Normal"
+            # tìm index của "Normal" trong LabelEncoder
+            normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
+            # filter dataset chỉ giữ những ROI không phải Normal
+            ds = ds.filter(lambda img, label: tf.not_equal(label, normal_idx))
+            # --------------------------------------
+
+            # ------ Mở rộng grayscale → RGB cho các model pre‐trained ------
+            if config.model.upper() != "CNN":
+                ds = ds.map(
+                    lambda img, label: (tf.repeat(img, repeats=3, axis=-1), label),
+                    num_parallel_calls=tf.data.AUTOTUNE
+                )
+            # --------------------------------------------------------------
+
+            # Shuffle + split + batch
             ds = ds.shuffle(buffer_size=1000)
             split = int(0.8 * 1000)
             ds_train = ds.take(split).batch(config.batch_size)
             ds_val   = ds.skip(split).batch(config.batch_size)
 
             train_data, val_data = ds_train, ds_val
-            # Lấy input_shape từ element_spec của Dataset
-            input_shape = train_data.element_spec[0].shape[1:]
-            # Số lớp bằng số classes của LabelEncoder
-            num_classes = le.classes_.size
-            # Loại bỏ class 'Normal' khỏi dataset INbreast
-            normal_label = 'Normal'
-            if normal_label in le.classes_:
-                normal_idx = np.where(le.classes_ == normal_label)[0][0]
-                mask = (y != normal_idx)
-                X = X[mask]
-                y = y[mask]
+
+            # Input shape và số class
+            input_shape = train_data.element_spec[0].shape[1:]  # (H, W, C)
+            num_classes = 2  # Chỉ còn Benign & Malignant
+
         else:
             # --- Full‐image mode: load all into numpy ---
             X, y = import_inbreast_full_dataset(
                 data_dir, le,
-                target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
-                             config.INBREAST_IMG_SIZE["WIDTH"])
+                target_size=(
+                    config.INBREAST_IMG_SIZE["HEIGHT"],
+                    config.INBREAST_IMG_SIZE["WIDTH"]
+                )
             )
 
+            # ------ LOẠI BỎ CLASS 'Normal' ------
+            normal_label = "Normal"
+            if normal_label in le.classes_:
+                normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
+                mask = (y != normal_idx)
+                X, y = X[mask], y[mask]
+            # -----------------------------------
+
             X_train, X_test, y_train, y_test = \
-                data_preprocessing.dataset_stratified_split(0.2, X, y)
+                data_preprocessing.dataset_stratified_split(
+                    config.test_size, X, y
+                )
 
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
-             # ------ New: expand grayscale → RGB for pretrained nets ------
-            if config.model != "CNN" and X_train.shape[-1] == 1:
-                # lặp kênh cuối 3 lần
+
+            # Expand grayscale → RGB nếu dùng pretrained net
+            if config.model.upper() != "CNN" and X_train.shape[-1] == 1:
                 X_train = np.repeat(X_train, 3, axis=-1)
                 X_test  = np.repeat(X_test,  3, axis=-1)
-                # # cập nhật lại train_data, val_data và input_shape
-                # train_data = (X_train, y_train)
-                # val_data   = (X_test,  y_test)
-                # input_shape = (input_shape[0], input_shape[1], 3)
-                # cập nhật lại train_data, val_data và input_shape từ X_train
-                train_data = (X_train, y_train)
-                val_data   = (X_test,  y_test)
-                input_shape = (X_train.shape[1], X_train.shape[2], 3)                
-            else:
-                train_data = (X_train, y_train)
-                val_data   = (X_test,  y_test)
-                input_shape = X_train.shape[1:]
-            # ------------------------------------------------------------
-            # num_classes = 2 if y_train.ndim == 1 else y_train.shape[1]
-            num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
+
+            train_data = (X_train, y_train)
+            val_data   = (X_test,  y_test)
+            input_shape = X_train.shape[1:]
+            num_classes = 2  # Chỉ còn Benign & Malignant
 
     else:
         raise ValueError(f"Unsupported dataset: {config.dataset}")
+
 
     # 4) Build & compile model
     #    Nếu dùng pretrained và ảnh grayscale thì cần convert sang 3-channel trước
