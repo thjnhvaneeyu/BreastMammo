@@ -19,20 +19,16 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
     # report_df = pd.DataFrame(classification_report(y_true_inv, y_pred_inv, target_names=label_encoder.classes_,
     #                                                output_dict=True)).transpose()
     # 1) Tập các nhãn chuỗi xuất hiện trong y_true_inv
+    # 1) Lấy tập nhãn chuỗi xuất hiện
     unique_labels = sorted(set(y_true_inv))
 
-    # 2) Lấy về target_names theo đúng thứ tự trong label_encoder nhưng chỉ bao gồm nhãn có thật
-    target_names = [
-        lbl for lbl in label_encoder.classes_
-        if lbl in unique_labels
-    ]
-    # 3) Xác định chỉ số số nguyên tương ứng với từng nhãn
-    labels = [
-        int(label_encoder.transform([lbl])[0])
-        for lbl in target_names
-    ]
+    # 2) target_names chính là unique_labels theo thứ tự của label_encoder
+    target_names = [lbl for lbl in label_encoder.classes_ if lbl in unique_labels]
 
-    # 4) In classification_report chỉ với các class hiện có
+    # 3) Dùng labels = target_names (chuỗi) khi y_true_inv là chuỗi
+    labels = target_names
+
+    # 4) In classification report
     report_str = classification_report(
         y_true_inv,
         y_pred_inv,
@@ -41,7 +37,7 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
     )
     print(report_str)
 
-    # 5) Tạo DataFrame từ báo cáo (dạng dict)
+    # 5) DataFrame từ báo cáo
     report_df = pd.DataFrame(
         classification_report(
             y_true_inv,
@@ -51,6 +47,8 @@ def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None
             output_dict=True
         )
     ).transpose()
+
+    # 6) Thêm hàng accuracy
     # Append accuracy.
     # report_df.append({'accuracy': accuracy}, ignore_index=True)
     # Append accuracy as a new row (using concat thay thế append)
