@@ -9,16 +9,48 @@ output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
 os.makedirs(output_dir, exist_ok=True)
 
 def generate_csv_report(y_true_inv, y_pred_inv, label_encoder, accuracy) -> None:
-    """
-    Print and save classification report for accuracy, precision, recall and f1 score metrics.
-    :return: None.
-    """
+    # """
+    # Print and save classification report for accuracy, precision, recall and f1 score metrics.
+    # :return: None.
+    # """
 
-    # Classification report.
-    print(classification_report(y_true_inv, y_pred_inv, target_names=label_encoder.classes_))
-    report_df = pd.DataFrame(classification_report(y_true_inv, y_pred_inv, target_names=label_encoder.classes_,
-                                                   output_dict=True)).transpose()
+    # # Classification report.
+    # print(classification_report(y_true_inv, y_pred_inv, target_names=label_encoder.classes_))
+    # report_df = pd.DataFrame(classification_report(y_true_inv, y_pred_inv, target_names=label_encoder.classes_,
+    #                                                output_dict=True)).transpose()
+    # 1) Tập các nhãn chuỗi xuất hiện trong y_true_inv
+    unique_labels = sorted(set(y_true_inv))
 
+    # 2) Lấy về target_names theo đúng thứ tự trong label_encoder nhưng chỉ bao gồm nhãn có thật
+    target_names = [
+        lbl for lbl in label_encoder.classes_
+        if lbl in unique_labels
+    ]
+    # 3) Xác định chỉ số số nguyên tương ứng với từng nhãn
+    labels = [
+        int(label_encoder.transform([lbl])[0])
+        for lbl in target_names
+    ]
+
+    # 4) In classification_report chỉ với các class hiện có
+    report_str = classification_report(
+        y_true_inv,
+        y_pred_inv,
+        labels=labels,
+        target_names=target_names
+    )
+    print(report_str)
+
+    # 5) Tạo DataFrame từ báo cáo (dạng dict)
+    report_df = pd.DataFrame(
+        classification_report(
+            y_true_inv,
+            y_pred_inv,
+            labels=labels,
+            target_names=target_names,
+            output_dict=True
+        )
+    ).transpose()
     # Append accuracy.
     # report_df.append({'accuracy': accuracy}, ignore_index=True)
     # Append accuracy as a new row (using concat thay thế append)
