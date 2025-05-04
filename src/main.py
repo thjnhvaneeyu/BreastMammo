@@ -13,6 +13,7 @@ from data_operations.data_preprocessing import (
     import_inbreast_roi_dataset,
     import_inbreast_full_dataset
 )
+from sklearn.model_selection import train_test_split
 
 # allow imports from project root
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -309,14 +310,21 @@ def main():
             # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
             if y.ndim > 1:
                 y = np.argmax(y, axis=1)
-
+            print("After filtering out Normal:")
+            print("  X.shape =", X.shape)
+            print("  y.shape =", y.shape)
             # 3) Stratified split đúng cú pháp
-            X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
-                0.2,
-                X,
-                y
+            # X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
+            #     0.2,
+            #     X,
+            #     y
+            # )
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y,
+                test_size=0.2,
+                stratify=y,
+                random_state=42
             )
-
             # 4) Augmentation nếu bật
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
@@ -445,7 +453,8 @@ def main():
     cnn.save_model()
 
     runtime  = time.time() - start_time
-    cls_type = 'B-M' if num_classes==2 else 'N-B-M'
+    # cls_type = 'B-M' if num_classes==2 else 'N-B-M'
+    cls_type = 'B-M' if num_classes==2 else 'multiclass'
     # cnn.save_weights()
     # cnn.make_prediction(X_test)
     cnn.evaluate_model(X_test, y_test, le, cls_type, runtime)
