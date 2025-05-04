@@ -312,7 +312,7 @@ def main():
 
             # 3) Stratified split đúng cú pháp
             X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
-                config.test_size,
+                0.2,
                 X,
                 y
             )
