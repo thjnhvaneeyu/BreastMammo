@@ -289,9 +289,9 @@ class CnnModel:
             with open('data_visualisation/other_paper_results.json') as f:
                 data = json.load(f)
             key = "mini-MIAS" if config.dataset == "mini-MIAS-binary" else config.dataset
-            if key in data and classification_type in data[key]:
+            if key in data and cls_type in data[key]:
                 df = pd.DataFrame.from_records(
-                    data[key][classification_type],
+                    data[key][cls_type],
                     columns=["paper", "accuracy"]
                 )
                 new = pd.DataFrame(
@@ -303,7 +303,7 @@ class CnnModel:
                 plot_comparison_chart(df)
             else:
                 if config.verbose_mode:
-                    print(f"[WARN] No comparison-data for dataset '{config.dataset}' / type '{classification_type}' – skipping chart.")
+                    print(f"[WARN] No comparison-data for dataset '{config.dataset}' / type '{cls_type}' – skipping chart.")
         except FileNotFoundError:
             if config.verbose_mode:
                 print("[WARN] other_paper_results.json not found – skipping comparison chart.")
