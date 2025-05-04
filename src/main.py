@@ -260,17 +260,14 @@ def main():
             )
 
             # ------ LOẠI BỎ CLASS "Normal" ------
-            # (1) đảm bảo đã import np, tf ở đầu file)
-            # import numpy as np
-            # import tensorflow as tf
             normal_label = "Normal"
-            # tìm index của "Normal" trong LabelEncoder
-            normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
-            # filter dataset chỉ giữ những ROI không phải Normal
-            ds = ds.filter(lambda img, label: tf.not_equal(label, normal_idx))
+            if normal_label in le.classes_:
+                normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
+                # filter để giữ chỉ những ROI không phải Normal
+                ds = ds.filter(lambda img, label: tf.not_equal(label, normal_idx))
             # --------------------------------------
 
-            # ------ Mở rộng grayscale → RGB cho các model pre‐trained ------
+            # ------ Mở rộng grayscale → RGB cho model pre‐trained ------
             if config.model.upper() != "CNN":
                 ds = ds.map(
                     lambda img, label: (tf.repeat(img, repeats=3, axis=-1), label),
@@ -286,7 +283,7 @@ def main():
 
             train_data, val_data = ds_train, ds_val
 
-            # Input shape và số class
+            # Lấy input_shape và số class
             input_shape = train_data.element_spec[0].shape[1:]  # (H, W, C)
             num_classes = 2  # Chỉ còn Benign & Malignant
 
@@ -304,19 +301,25 @@ def main():
             normal_label = "Normal"
             if normal_label in le.classes_:
                 normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
-                mask = (y != normal_idx)
+                # nếu y one-hot, chuyển về labels 1 chiều
+                if y.ndim > 1:
+                    y_int = np.argmax(y, axis=1)
+                else:
+                    y_int = y
+                mask = (y_int != normal_idx)
                 X, y = X[mask], y[mask]
             # -----------------------------------
 
-            X_train, X_test, y_train, y_test = \
-                data_preprocessing.dataset_stratified_split(
-                    config.test_size, X, y
-                )
+            # Chia train/test (stratified)
+            X_train, X_test, y_train, y_test = dataset_stratified_split(
+                config.test_size, X, y
+            )
 
+            # Augmentation nếu cần
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
 
-            # Expand grayscale → RGB nếu dùng pretrained net
+            # Expand grayscale → RGB cho pretrained nets
             if config.model.upper() != "CNN" and X_train.shape[-1] == 1:
                 X_train = np.repeat(X_train, 3, axis=-1)
                 X_test  = np.repeat(X_test,  3, axis=-1)
