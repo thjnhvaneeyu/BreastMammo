@@ -31,34 +31,56 @@ def make_class_weights(y):
     return dict(zip(classes, weights))
 
 def main():
-    # 1) Parse config from CLI
-    import argparse
-    p = argparse.ArgumentParser()
-    p.add_argument("-d","--dataset",
-                   choices=["mini-MIAS","mini-MIAS-binary","CBIS-DDSM","CMMD","INbreast"],
-                   required=True)
-    p.add_argument("-m","--model",
-                   choices=["CNN","VGG","VGG-common","ResNet","Inception","DenseNet","MobileNet"],
-                   required=True)
-    p.add_argument("--roi", action="store_true")
-    p.add_argument("--augment", action="store_true")
-    p.add_argument("-b","--batch_size", type=int, default=config.batch_size)
-    p.add_argument("-lr","--learning_rate", type=float, default=config.learning_rate)
-    p.add_argument("-e1","--max_epoch_frozen",  type=int, default=config.max_epoch_frozen)
-    p.add_argument("-e2","--max_epoch_unfrozen",type=int, default=config.max_epoch_unfrozen)
-    p.add_argument("--verbose", action="store_true")
-    args = p.parse_args()
+    # 1) CLI args
+    parser = argparse.ArgumentParser(description="Mammogram DL pipeline")
+    parser.add_argument("-d", "--dataset",
+                        choices=["mini-MIAS","mini-MIAS-binary","CBIS-DDSM","CMMD","INbreast"],
+                        required=True,
+                        help="Dataset to use")
+    parser.add_argument("-mt", "--mammogram_type",
+                        choices=["calc","mass","all"], default="all",
+                        help="For CBIS-DDSM only")
+    parser.add_argument("-m", "--model",
+                        choices=["CNN","VGG","VGG-common","ResNet","Inception","DenseNet","MobileNet"],
+                        required=True,
+                        help="Model backbone")
+    parser.add_argument("-r", "--runmode",
+                        choices=["train","test"], default="train",
+                        help="train or test")
+    parser.add_argument("-lr", "--learning_rate", type=float,
+                        default=config.learning_rate, help="Learning rate")
+    parser.add_argument("-b", "--batch_size", type=int,
+                        default=config.batch_size, help="Batch size")
+    parser.add_argument("-e1", "--max_epoch_frozen", type=int,
+                        default=config.max_epoch_frozen, help="Frozen epochs")
+    parser.add_argument("-e2", "--max_epoch_unfrozen", type=int,
+                        default=config.max_epoch_unfrozen, help="Unfrozen epochs")
+    parser.add_argument("--roi", action="store_true",
+                        help="Use ROI mode for INbreast / mini-MIAS")
+    parser.add_argument("--augment", action="store_true",
+                        help="Apply augmentation transforms")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Verbose logging")
+    parser.add_argument("-n", "--name", default=config.name,
+                        help="Experiment name")
+    args = parser.parse_args()
 
-    # Override config
+    # 2) Override config from args
     config.dataset            = args.dataset
+    config.mammogram_type     = args.mammogram_type
     config.model              = args.model
-    config.is_roi             = args.roi
-    config.augment_data       = args.augment
-    config.batch_size         = args.batch_size
+    config.run_mode           = args.runmode
     config.learning_rate      = args.learning_rate
+    config.batch_size         = args.batch_size
     config.max_epoch_frozen   = args.max_epoch_frozen
     config.max_epoch_unfrozen = args.max_epoch_unfrozen
+    config.is_roi             = args.roi
+    config.augment_data       = args.augment
     config.verbose_mode       = args.verbose
+    config.name               = args.name
+    
+    if config.verbose_mode:
+        print(f"[DEBUG] Config: dataset={config.dataset}, model={config.model}, roi={config.is_roi}, augment={config.augment_data}")
 
     # 2) Load & preprocess
     le = LabelEncoder()
