@@ -250,7 +250,7 @@ def main():
         data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
 
         if config.is_roi:
-            # --- ROI‐mode: tf.data.Dataset on‐the‐fly ---
+            # --- ROI-mode: tf.data.Dataset on-the-fly ---
             ds = import_inbreast_roi_dataset(
                 data_dir, le,
                 target_size=(
@@ -259,23 +259,20 @@ def main():
                 )
             )
 
-            # ------ LOẠI BỎ CLASS "Normal" ------
+            # 1) Lọc bỏ class "Normal"
             normal_label = "Normal"
             if normal_label in le.classes_:
                 normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
-                # filter để giữ chỉ những ROI không phải Normal
                 ds = ds.filter(lambda img, label: tf.not_equal(label, normal_idx))
-            # --------------------------------------
 
-            # ------ Mở rộng grayscale → RGB cho model pre‐trained ------
+            # 2) Expand grayscale→RGB cho các model pre-trained
             if config.model.upper() != "CNN":
                 ds = ds.map(
                     lambda img, label: (tf.repeat(img, repeats=3, axis=-1), label),
                     num_parallel_calls=tf.data.AUTOTUNE
                 )
-            # --------------------------------------------------------------
 
-            # Shuffle + split + batch
+            # 3) Shuffle, split, batch
             ds = ds.shuffle(buffer_size=1000)
             split = int(0.8 * 1000)
             ds_train = ds.take(split).batch(config.batch_size)
@@ -283,12 +280,12 @@ def main():
 
             train_data, val_data = ds_train, ds_val
 
-            # Lấy input_shape và số class
+            # 4) Input shape và số class
             input_shape = train_data.element_spec[0].shape[1:]  # (H, W, C)
-            num_classes = 2  # Chỉ còn Benign & Malignant
+            num_classes = 2  # Benign & Malignant
 
         else:
-            # --- Full‐image mode: load all into numpy ---
+            # --- Full-image mode: load all into numpy ---
             X, y = import_inbreast_full_dataset(
                 data_dir, le,
                 target_size=(
@@ -297,42 +294,45 @@ def main():
                 )
             )
 
-            # ------ LOẠI BỎ CLASS 'Normal' ------
+            # 1) Lọc bỏ class "Normal"
             normal_label = "Normal"
             if normal_label in le.classes_:
                 normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
-                # nếu y one-hot, chuyển về labels 1 chiều
+                # Nếu y one-hot (N,3) → y_int (N,)
                 if y.ndim > 1:
                     y_int = np.argmax(y, axis=1)
                 else:
                     y_int = y
                 mask = (y_int != normal_idx)
                 X, y = X[mask], y[mask]
-            # -----------------------------------
 
-            # Chia train/test (stratified)
+            # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
+            if y.ndim > 1:
+                y = np.argmax(y, axis=1)
+
+            # 3) Stratified split đúng cú pháp
             X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
-                0.2,  # ví dụ 0.2
+                config.test_size,
                 X,
                 y
             )
-            # Augmentation nếu cần
+
+            # 4) Augmentation nếu bật
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
 
-            # Expand grayscale → RGB cho pretrained nets
+            # 5) Expand grayscale→RGB cho pretrained nets
             if config.model.upper() != "CNN" and X_train.shape[-1] == 1:
                 X_train = np.repeat(X_train, 3, axis=-1)
                 X_test  = np.repeat(X_test,  3, axis=-1)
 
             train_data = (X_train, y_train)
             val_data   = (X_test,  y_test)
-            input_shape = X_train.shape[1:]
-            num_classes = 2  # Chỉ còn Benign & Malignant
+            input_shape = X_train.shape[1:]   # (H, W, C)
+            num_classes = 2                   # Benign & Malignant
 
     else:
         raise ValueError(f"Unsupported dataset: {config.dataset}")
-
 
     # 4) Build & compile model
     #    Nếu dùng pretrained và ảnh grayscale thì cần convert sang 3-channel trước
