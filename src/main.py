@@ -92,9 +92,9 @@ def main():
     ds_train = ds_val = None
 
     if config.dataset in ["mini-MIAS","mini-MIAS-binary"]:
-        X, y = import_minimias_dataset(os.path.join(config.DATA_ROOT_BREAST, config.dataset), le)
+        X, y = import_minimias_dataset(os.path.join(DATA_ROOT_BREAST, config.dataset), le)
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=config.RANDOM_SEED
+            X, y, test_size=0.2, stratify=y, random_state=42
         )
 
     elif config.dataset=="CBIS-DDSM":
@@ -104,11 +104,11 @@ def main():
     elif config.dataset=="CMMD":
         X, y = import_cmmd_dataset(config.DATA_ROOT_CMMD, le)
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=config.RANDOM_SEED
+            X, y, test_size=0.2, stratify=y, random_state=42
         )
 
     elif config.dataset.upper()=="INBREAST":
-        data_dir = os.path.join(config.DATA_ROOT_BREAST, "INbreast", "INbreast")
+        data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
         if config.is_roi:
             ds = import_inbreast_roi_dataset(
                 data_dir, le,
@@ -134,7 +134,7 @@ def main():
             mask = (y!=normal_idx)
             X, y = X[mask], y[mask]
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, stratify=y, random_state=config.RANDOM_SEED
+                X, y, test_size=0.2, stratify=y, random_state=42
             )
             class_weights = make_class_weights(y_train)
     else:
