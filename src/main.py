@@ -9,11 +9,7 @@ import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
-
-# Project imports
-SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-sys.path.insert(0, PROJECT_ROOT)
+from collections import Counter
 import config
 from data_operations.data_preprocessing import (
     import_minimias_dataset,
@@ -25,6 +21,13 @@ from data_operations.data_preprocessing import (
 )
 from cnn_models.cnn_model import CnnModel
 import argparse
+
+# Project imports
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+sys.path.insert(0, PROJECT_ROOT)
+DATA_ROOT_BREAST = '/kaggle/input/breastdata'
+DATA_ROOT_CMMD = '/kaggle/input/cmmddata/CMMD'
 
 def make_class_weights(y):
     classes = np.unique(y)
