@@ -21,7 +21,7 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJECT_ROOT)
 DATA_ROOT_BREAST = '/kaggle/input/breastdata'
 DATA_ROOT_CMMD = '/kaggle/input/cmmddata/CMMD'
-
+from collections import Counter
 import config
 from data_operations.data_transformations import generate_image_transforms
 from data_operations import data_preprocessing, data_transformations, dataset_feed
@@ -287,6 +287,58 @@ def main():
 
         else:
             # --- Full-image mode: load all into numpy ---
+            # X, y = import_inbreast_full_dataset(
+            #     data_dir, le,
+            #     target_size=(
+            #         config.INBREAST_IMG_SIZE["HEIGHT"],
+            #         config.INBREAST_IMG_SIZE["WIDTH"]
+            #     )
+            # )
+            # print("After filtering out Normal:")
+            # print("  X.shape =", X.shape)
+            # print("  y.shape =", y.shape)
+            # # 1) Lọc bỏ class "Normal"
+            # normal_label = "Normal"
+            # if normal_label in le.classes_:
+            #     normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
+            #     # Nếu y one-hot (N,3) → y_int (N,)
+            #     if y.ndim > 1:
+            #         y_int = np.argmax(y, axis=1)
+            #     else:
+            #         y_int = y
+            #     mask = (y_int != normal_idx)
+            #     X, y = X[mask], y[mask]
+            # print("After filtering out Normal:", X.shape, y.shape)
+
+            # # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
+            # if y.ndim > 1:
+            #     y = np.argmax(y, axis=1)
+            # # 3) Stratified split đúng cú pháp
+            # # X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
+            # #     0.2,
+            # #     X,
+            # #     y
+            # # )
+            # X_train, X_test, y_train, y_test = train_test_split(
+            #     X, y,
+            #     test_size=0.2,
+            #     stratify=y,
+            #     random_state=42
+            # )
+            # # 4) Augmentation nếu bật
+            # if config.augment_data:
+            #     X_train, y_train = generate_image_transforms(X_train, y_train)
+
+            # # 5) Expand grayscale→RGB cho pretrained nets
+            # if config.model.upper() != "CNN" and X_train.shape[-1] == 1:
+            #     X_train = np.repeat(X_train, 3, axis=-1)
+            #     X_test  = np.repeat(X_test,  3, axis=-1)
+
+            # train_data = (X_train, y_train)
+            # val_data   = (X_test,  y_test)
+            # input_shape = X_train.shape[1:]   # (H, W, C)
+            # num_classes = 2                   # Benign & Malignant
+# --- Full-image mode: load all into numpy ---
             X, y = import_inbreast_full_dataset(
                 data_dir, le,
                 target_size=(
@@ -294,51 +346,44 @@ def main():
                     config.INBREAST_IMG_SIZE["WIDTH"]
                 )
             )
-            print("After filtering out Normal:")
-            print("  X.shape =", X.shape)
-            print("  y.shape =", y.shape)
-            # 1) Lọc bỏ class "Normal"
-            normal_label = "Normal"
-            if normal_label in le.classes_:
-                normal_idx = int(np.where(le.classes_ == normal_label)[0][0])
-                # Nếu y one-hot (N,3) → y_int (N,)
-                if y.ndim > 1:
-                    y_int = np.argmax(y, axis=1)
-                else:
-                    y_int = y
-                mask = (y_int != normal_idx)
-                X, y = X[mask], y[mask]
-            print("After filtering out Normal:", X.shape, y.shape)
 
-            # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
+            # 1) In ra shape lúc mới load
+            print("Loaded INbreast full-image:", X.shape, y.shape)
+
+            # 2) Chuyển y (one-hot) → y_int (labels 1-d)
             if y.ndim > 1:
                 y = np.argmax(y, axis=1)
-            # 3) Stratified split đúng cú pháp
-            # X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
-            #     0.2,
-            #     X,
-            #     y
-            # )
+            print(" After converting y to 1-d labels:", X.shape, y.shape)
+            print(" Label counts:", Counter(y))
+
+            # 3) Lọc bỏ class "Normal"
+            normal_idx = int(np.where(le.classes_ == "Normal")[0][0])
+            mask = (y != normal_idx)
+            X, y = X[mask], y[mask]
+            print(" After filtering out Normal:", X.shape, y.shape)
+            print(" Remaining label counts:", Counter(y))
+
+            # 4) Stratified split (sklearn đảm bảo mỗi lớp có test sample)
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y,
-                test_size=0.2,
+                test_size=config.test_size,
                 stratify=y,
-                random_state=42
+                random_state=config.RANDOM_SEED
             )
-            # 4) Augmentation nếu bật
-            if config.augment_data:
-                X_train, y_train = generate_image_transforms(X_train, y_train)
+            print(" Final split:", X_train.shape, X_test.shape)
+            print(" Train labels:", Counter(y_train))
+            print(" Test  labels:", Counter(y_test))
 
-            # 5) Expand grayscale→RGB cho pretrained nets
+            # 5) Expand grayscale → RGB nếu pretrained
             if config.model.upper() != "CNN" and X_train.shape[-1] == 1:
                 X_train = np.repeat(X_train, 3, axis=-1)
                 X_test  = np.repeat(X_test,  3, axis=-1)
 
-            train_data = (X_train, y_train)
-            val_data   = (X_test,  y_test)
-            input_shape = X_train.shape[1:]   # (H, W, C)
-            num_classes = 2                   # Benign & Malignant
-
+            # 6) Gán lại train/val, input_shape, num_classes
+            train_data  = (X_train, y_train)
+            val_data    = (X_test,  y_test)
+            input_shape = X_train.shape[1:]
+            num_classes = 2
     else:
         raise ValueError(f"Unsupported dataset: {config.dataset}")
 
