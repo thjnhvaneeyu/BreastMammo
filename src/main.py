@@ -203,7 +203,13 @@ def main():
             input_shape = train_data.element_spec[0].shape[1:]
             # Số lớp bằng số classes của LabelEncoder
             num_classes = le.classes_.size
-
+            # Loại bỏ class 'Normal' khỏi dataset INbreast
+            normal_label = 'Normal'
+            if normal_label in le.classes_:
+                normal_idx = np.where(le.classes_ == normal_label)[0][0]
+                mask = (y != normal_idx)
+                X = X[mask]
+                y = y[mask]
         else:
             # --- Full‐image mode: load all into numpy ---
             X, y = import_inbreast_full_dataset(
@@ -211,6 +217,7 @@ def main():
                 target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
                              config.INBREAST_IMG_SIZE["WIDTH"])
             )
+
             X_train, X_test, y_train, y_test = \
                 data_preprocessing.dataset_stratified_split(0.2, X, y)
 
