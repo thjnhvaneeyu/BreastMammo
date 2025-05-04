@@ -308,6 +308,7 @@ def main():
                     y_int = y
                 mask = (y_int != normal_idx)
                 X, y = X[mask], y[mask]
+            print("After filtering out Normal:", X.shape, y.shape)
 
             # 2) Chuyển y về vector 1-chiều nếu cần (model CNN dùng sigmoid)
             if y.ndim > 1:
