@@ -17,6 +17,7 @@ from data_operations.data_transformations import generate_image_transforms
 from data_operations.data_transformations import load_roi_and_label
 import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
+from sklearn.utils.class_weight import compute_class_weight
 
 def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     """
