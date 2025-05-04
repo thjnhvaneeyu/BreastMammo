@@ -311,8 +311,11 @@ def main():
             # -----------------------------------
 
             # Chia train/test (stratified)
-            X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split((0.2, X, y))
-
+            X_train, X_test, y_train, y_test = data_preprocessing.dataset_stratified_split(
+                0.2,  # ví dụ 0.2
+                X,
+                y
+            )
             # Augmentation nếu cần
             if config.augment_data:
                 X_train, y_train = generate_image_transforms(X_train, y_train)
