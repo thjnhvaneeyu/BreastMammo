@@ -9,43 +9,83 @@ import config
 from utils import save_output_figure
 
 
-def plot_confusion_matrix(cm: np.ndarray, fmt: str, label_encoder, is_normalised: bool) -> None:
-    """
-    Plot confusion matrix.
-    Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
-    :param cm: Confusion matrix array.
-    :param fmt: The formatter for numbers in confusion matrix.
-    :param label_encoder: The label encoder used to get the number of classes.
-    :param is_normalised: Boolean specifying whether the confusion matrix is normalised or not.
-    :return: None.
-    """
-    title = str()
-    if is_normalised:
-        title = "Normalised Confusion Matrix"
-        vmax = 1  # Y scale.
-    elif not is_normalised:
-        title = "Confusion Matrix"
-        vmax = np.max(cm.sum(axis=1))  # Y scale.
+# def plot_confusion_matrix(cm: np.ndarray, fmt: str, label_encoder, is_normalised: bool) -> None:
+#     """
+#     Plot confusion matrix.
+#     Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
+#     :param cm: Confusion matrix array.
+#     :param fmt: The formatter for numbers in confusion matrix.
+#     :param label_encoder: The label encoder used to get the number of classes.
+#     :param is_normalised: Boolean specifying whether the confusion matrix is normalised or not.
+#     :return: None.
+#     """
+#     title = str()
+#     if is_normalised:
+#         title = "Normalised Confusion Matrix"
+#         vmax = 1  # Y scale.
+#     elif not is_normalised:
+#         title = "Confusion Matrix"
+#         vmax = np.max(cm.sum(axis=1))  # Y scale.
 
-    # Plot.
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.heatmap(cm, annot=True, ax=ax, fmt=fmt, cmap=plt.cm.Blues, vmin=0, vmax=vmax)  # annot=True to annotate cells
+#     # Plot.
+#     fig, ax = plt.subplots(figsize=(6, 4))
+#     sns.heatmap(cm, annot=True, ax=ax, fmt=fmt, cmap=plt.cm.Blues, vmin=0, vmax=vmax)  # annot=True to annotate cells
 
-    # Set labels, title, ticks and axis range.
-    ax.set_xlabel('Predicted classes')
-    ax.set_ylabel('True classes')
+#     # Set labels, title, ticks and axis range.
+#     ax.set_xlabel('Predicted classes')
+#     ax.set_ylabel('True classes')
+#     ax.set_title(title)
+#     ax.xaxis.set_ticklabels(label_encoder.classes_)
+#     ax.yaxis.set_ticklabels(label_encoder.classes_)
+#     plt.setp(ax.yaxis.get_majorticklabels(), rotation=0, ha='right', rotation_mode='anchor')
+#     plt.tight_layout()
+#     bottom, top = ax.get_ylim()
+#     if is_normalised:
+#         save_output_figure("CM-normalised")
+#     elif not is_normalised:
+#         save_output_figure("CM")
+#     # plt.show()
+def plot_confusion_matrix(cm, fmt, label_encoder, is_normalised=False):
+    """
+    Vẽ confusion matrix cm (K×K) với K = cm.shape[0].
+    Tự động lấy ra K nhãn đầu từ label_encoder.classes_ để tránh lỗi set_ticklabels.
+    """
+    # Số lớp hiện có
+    n_classes = cm.shape[0]
+    # Lấy K nhãn đầu từ label_encoder
+    class_names = list(label_encoder.classes_)[:n_classes]
+
+    # Vẽ heatmap
+    fig, ax = plt.subplots(figsize=(6, 6))
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.colorbar(im, ax=ax)
+
+    # Thiết lập ticks và nhãn
+    ax.set_xticks(np.arange(n_classes))
+    ax.set_yticks(np.arange(n_classes))
+    ax.set_xticklabels(class_names, rotation=45, ha='right')
+    ax.set_yticklabels(class_names)
+
+    # Ghi giá trị vào từng ô
+    thresh = cm.max() / 2.0
+    for i in range(n_classes):
+        for j in range(n_classes):
+            ax.text(
+                j, i,
+                format(cm[i, j], fmt),
+                ha='center', va='center',
+                color='white' if cm[i, j] > thresh else 'black'
+            )
+
+    # Tiêu đề, nhãn trục
+    ax.set_ylabel('True label')
+    ax.set_xlabel('Predicted label')
+    title = 'Normalized confusion matrix' if is_normalised else 'Confusion matrix'
     ax.set_title(title)
-    ax.xaxis.set_ticklabels(label_encoder.classes_)
-    ax.yaxis.set_ticklabels(label_encoder.classes_)
-    plt.setp(ax.yaxis.get_majorticklabels(), rotation=0, ha='right', rotation_mode='anchor')
-    plt.tight_layout()
-    bottom, top = ax.get_ylim()
-    if is_normalised:
-        save_output_figure("CM-normalised")
-    elif not is_normalised:
-        save_output_figure("CM")
-    # plt.show()
 
+    plt.tight_layout()
+    # Lưu hoặc hiển thị tuỳ bạn
+    plt.show()
 
 def plot_comparison_chart(df: pd.DataFrame) -> None:
     """
