@@ -708,19 +708,40 @@ def load_roi_and_label(
         return None, None
 
     # map BI-RADS number → 'Benign'/'Malignant' via your config
+    # label_name: Optional[str] = None
+    # for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
+    #     normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
+    #     if birad_val.strip() in normalized:
+    #         label_name = cls
+    #         break
+
+    # # skip unrecognized or "Normal"
+    # if label_name is None or label_name == "Normal":
+    #     return None, None
+
+    # return coords, label_name
+    # Lấy PID không kèm phần mở rộng rồi split
+    basename = os.path.basename(roi_path)
+    no_ext   = os.path.splitext(basename)[0]
+    pid      = no_ext.split('_', 1)[0]
+
+    birad_val = birad_map.get(pid)
+    if not birad_val:
+        return None, None
+
+    # Map BI-RADS → 'Benign'/'Malignant'
     label_name: Optional[str] = None
     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-        normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
+        normalized = [v.replace("BI-RADS", "").strip() for v in raw_vals]
         if birad_val.strip() in normalized:
             label_name = cls
             break
 
-    # skip unrecognized or "Normal"
+    # Bỏ 'Normal' hoặc unrecognized
     if label_name is None or label_name == "Normal":
         return None, None
 
     return coords, label_name
-
 def import_inbreast_full_dataset(
     data_dir: str,
     label_encoder,
