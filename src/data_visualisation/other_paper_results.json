@@ -1,3 +1,74 @@
+// {
+//   "mini-MIAS": {
+//     "N-B-M": [
+//       {
+//         "paper": "Hepsağ PU, Özel SA, Yazıcı A.",
+//         "accuracy": "0.68"
+//       },
+//       {
+//         "paper": "Kaur P, Singh G, Kaur P.",
+//         "accuracy": "0.98"
+//       }
+//     ],
+//     "B-M": [
+//       {
+//         "paper": "Dash JK, Sahoo L.",
+//         "accuracy": "0.8596"
+//       },
+//       {
+//         "paper": "Vishrutha V, Ravishankar M.",
+//         "accuracy": "0.92"
+//       },
+//       {
+//         "paper": "Rabidas R, Midya A, Chakraborty J.",
+//         "accuracy": "0.9457"
+//       },
+//       {
+//         "paper": "Hepsağ PU, Özel SA, Yazıcı A.",
+//         "accuracy": "0.87"
+//       }
+//     ],
+//     "N-A": [
+//       {
+//         "paper": "Deepa S, Bharathi VS.",
+//         "accuracy": "0.925"
+//       }
+//     ]
+//   },
+//   "CBIS-DDSM": {
+//     "B-M": [
+//       {
+//         "paper": "Agarwal R et al.",
+//         "accuracy": "0.92"
+//       },
+//       {
+//         "paper": "Sarosa SJ et al.",
+//         "accuracy": "0.6303"
+//       },
+//       {
+//         "paper": "Chen Y et al.",
+//         "accuracy": "0.9315"
+//       },
+//       {
+//         "paper": "Falconí LG et al.",
+//         "accuracy": "0.784"
+//       }
+//     ]
+//   },
+//   "CMMD": {
+//     "B-M": [
+//       {
+//         "paper": "Attention-Based Deep Learning System for Classification of Breast Lesions (CLAM)",
+//         "accuracy": "0.784"
+//       },
+//       {
+//         "paper": "Boudouh et al., Fine-tuned InceptionV3 on combined CMMD, Mini-MIAS & DDSM40",
+//         "accuracy": "0.9990"
+//       }
+//     ]
+//   }
+// }
+
 {
   "mini-MIAS": {
     "N-B-M": [
@@ -56,6 +127,16 @@
     ]
   },
   "CMMD": {
+    "Binary": [
+      {
+        "paper": "Attention-Based Deep Learning System for Classification of Breast Lesions (CLAM)",
+        "accuracy": "0.784"
+      },
+      {
+        "paper": "Boudouh et al., Fine-tuned InceptionV3 on combined CMMD, Mini-MIAS & DDSM40",
+        "accuracy": "0.9990"
+      }
+    ],
     "B-M": [
       {
         "paper": "Attention-Based Deep Learning System for Classification of Breast Lesions (CLAM)",
@@ -66,5 +147,18 @@
         "accuracy": "0.9990"
       }
     ]
+  },
+  "INbreast": {
+    "Binary": [
+      {
+        "paper": "Zebari D.A., Dheyaa A.B., Diyar Q.Z., Mazin A.M., Habibollah H., Nechirvan A.Z., Robertas D., Rytis M. Breast Cancer Detection Using Mammogram Images with Improved Multi-Fractal Dimension Approach and Feature Fusion. Appl. Sci. 2021, 11, 12122.",
+        "accuracy": "0.99"
+      },
+      {
+        "paper": "Chakravarthy S.S., Rajaguru H. Automatic detection and classification of mammograms using improved extreme learning machine with deep learning. IRBM. 2022;43:49–61.",
+        "accuracy": "0.983"
+      }
+    ]
   }
 }
+
