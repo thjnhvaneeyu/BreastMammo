@@ -260,7 +260,8 @@ def load_roi_and_label(
                 x, y = float(parts[0]), float(parts[1])
             except:
                 continue
-            if (abs(x)<1e-6 and abs(y)<1e-6) or (abs(x-75)<1e-6 and abs(y-19)<1e-6):
+            # if (abs(x)<1e-6 and abs(y)<1e-6) or (abs(x-75)<1e-6 and abs(y-19)<1e-6):
+            if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
                 continue
             coords.append((int(x), int(y)))
     if not coords:
@@ -270,7 +271,7 @@ def load_roi_and_label(
     birad_val = birad_map.get(pid)
     if not birad_val:
         return None, None
-    birad_val = birad_val.strip()
+    # birad_val = birad_val.strip()
 
     label_name = None
     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
