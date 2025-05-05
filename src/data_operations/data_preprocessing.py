@@ -679,44 +679,43 @@ def load_roi_and_label(
     birad_map: Dict[str,str]
 ) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
     """
-    Đọc file .roi, trả về:
-      - coords: List[(x,y)] vùng ROI
-      - label_name: 'Benign' / 'Malignant'
-    Nếu không tìm được coords hoặc nhãn (bao gồm 'Normal'), trả về (None, None).
+    Read a .roi file (lines of "x y"), return
+       - coords: List[(x,y)]
+       - label_name: one of 'Benign'/'Malignant' (we drop 'Normal')
+    or (None,None) if we can’t extract a valid ROI+label.
     """
-    raw = open(roi_path, 'rb').read().decode('utf-8', errors='ignore')
-
-    # 1) Regex tìm tất cả các cặp {x, y}
-    pts = re.findall(r'\{\s*([\d\.]+)\s*,\s*([\d\.]+)\s*\}', raw)
-    coords = []
-    for xs, ys in pts:
-        x, y = float(xs), float(ys)
-        # bỏ entry mặc định (75,19)
-        if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
-            continue
-        coords.append((int(x), int(y)))
+    coords: List[Tuple[int,int]] = []
+    with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            try:
+                x, y = float(parts[0]), float(parts[1])
+            except ValueError:
+                continue
+            # drop the meaningless default mark that INbreast .roi files include
+            if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
+                continue
+            coords.append((int(x), int(y)))
     if not coords:
         return None, None
 
-    # 2) Lấy PID từ tên file
-    fn = os.path.basename(roi_path)
-    pid = os.path.splitext(fn)[0].split('_',1)[0]
-
-    # 3) Lấy giá trị BI-RADS gốc
+    # map PID → BI-RADS from the CSV-derived dictionary
+    pid = os.path.basename(roi_path).split('_',1)[0]
     birad_val = birad_map.get(pid)
-    if not birad_val or not birad_val.strip():
+    if not birad_val:
         return None, None
-    birad_val = birad_val.strip()
 
-    # 4) Map BI-RADS → class name
-    label_name = None
-    for cls, raw_list in config.INBREAST_BIRADS_MAPPING.items():
-        normalized = [ v.replace("BI-RADS","").strip() for v in raw_list ]
-        if birad_val in normalized:
+    # map BI-RADS number → 'Benign'/'Malignant' via your config
+    label_name: Optional[str] = None
+    for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
+        normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
+        if birad_val.strip() in normalized:
             label_name = cls
             break
 
-    # Bỏ Normal
+    # skip unrecognized or "Normal"
     if label_name is None or label_name == "Normal":
         return None, None
 
