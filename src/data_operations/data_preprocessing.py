@@ -824,28 +824,47 @@ def import_inbreast_roi_dataset(
     print(f"[DEBUG] roi_dir = {roi_dir}")
     print(f"[DEBUG] contents = {os.listdir(roi_dir)}")
 
+    # for roi_fn in sorted(os.listdir(roi_dir)):
+    #     if not roi_fn.lower().endswith(".roi"):
+    #         continue
+    #     roi_path = os.path.join(roi_dir, roi_fn)
+
+    #     # (a) parse coords + label từ .roi
+    #     coords, label_name = load_roi_and_label(roi_path, birad_map)
+    #     if coords is None or label_name is None:
+    #         continue
+
+    #     # (b) tìm file .dcm tương ứng
+    #     pid = os.path.splitext(roi_fn)[0].split('_',1)[0]
+    #     dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
+    #     if not os.path.exists(dcm_fp):
+    #         continue
+
+    #     samples.append((dcm_fp, coords, label_name))
+    #     print(f"[DEBUG] thêm ROI sample #{len(samples)}: PID={pid}, label={label_name}")
+
+    # if not samples:
+    #     raise ValueError(f"No ROI samples found in {roi_dir}")
+    # 2) Duyệt .roi, lấy coords + label, ghép với .dcm
     for roi_fn in sorted(os.listdir(roi_dir)):
         if not roi_fn.lower().endswith(".roi"):
             continue
         roi_path = os.path.join(roi_dir, roi_fn)
-
-        # (a) parse coords + label từ .roi
         coords, label_name = load_roi_and_label(roi_path, birad_map)
-        if coords is None or label_name is None:
+        if coords is None:
             continue
 
-        # (b) tìm file .dcm tương ứng
-        pid = os.path.splitext(roi_fn)[0].split('_',1)[0]
+        # PID không phần mở rộng
+        pid = os.path.splitext(roi_fn)[0].split('_', 1)[0]
         dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
         if not os.path.exists(dcm_fp):
             continue
 
         samples.append((dcm_fp, coords, label_name))
-        print(f"[DEBUG] thêm ROI sample #{len(samples)}: PID={pid}, label={label_name}")
 
     if not samples:
         raise ValueError(f"No ROI samples found in {roi_dir}")
-
+    
     # 2) Fit LabelEncoder để có num_classes
     labels = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels)
