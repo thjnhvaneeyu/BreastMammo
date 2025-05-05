@@ -43,6 +43,63 @@
 #     # gọi chính hàm, in kết quả
 #     coords, label = load_roi_and_label(roi_path, birad_map)
 #     print(f" → load_roi_and_label returns coords={None if coords is None else len(coords)} points, label={label!r}")
+# import os
+# import pandas as pd
+# from data_operations.data_preprocessing import load_roi_and_label
+
+# # --- CẤU HÌNH ---
+# DATA_ROOT = "/kaggle/input/breastdata/INbreast/INbreast"
+# ROI_DIR   = os.path.join(DATA_ROOT, "AllROI")
+# CSV_PATH  = os.path.join(DATA_ROOT, "INbreast.csv")
+
+# # 1) Load bản đồ BI-RADS
+# df = pd.read_csv(CSV_PATH, sep=';')
+# df.columns = [c.strip() for c in df.columns]
+# birad_map = {
+#     str(fn).strip(): str(val).strip()
+#     for fn, val in zip(df['File Name'], df['Bi-Rads'])
+# }
+
+# # 2) Danh sách file .roi
+# roi_files = sorted(f for f in os.listdir(ROI_DIR) if f.lower().endswith(".roi"))
+
+# # 3) Thống kê
+# stats = {
+#     'total':       len(roi_files),
+#     'no_coords':   0,
+#     'no_label':    0,
+#     'success':     0,
+# }
+# examples = {
+#     'no_coords': [],
+#     'no_label':  [],
+#     'success':   [],
+# }
+
+# # 4) Chạy kiểm thử
+# for roi_fn in roi_files:
+#     path = os.path.join(ROI_DIR, roi_fn)
+#     coords, label = load_roi_and_label(path, birad_map)
+
+#     if coords is None:
+#         stats['no_coords'] += 1
+#         if len(examples['no_coords']) < 5:
+#             examples['no_coords'].append(roi_fn)
+#     elif label is None:
+#         stats['no_label'] += 1
+#         if len(examples['no_label']) < 5:
+#             examples['no_label'].append(roi_fn)
+#     else:
+#         stats['success'] += 1
+#         if len(examples['success']) < 5:
+#             examples['success'].append((roi_fn, label, len(coords)))
+
+# # 5) In kết quả
+# print("=== ROI TEST SUMMARY ===")
+# print(f"Total ROI files   : {stats['total']}")
+# print(f"No coords         : {stats['no_coords']}  (first examples: {examples['no_coords']})")
+# print(f"No label          : {stats['no_label']}  (first examples: {examples['no_label']})")
+# print(f"Successfully load : {stats['success']}  (first examples: {examples['success']})")
 import os
 import pandas as pd
 from data_operations.data_preprocessing import load_roi_and_label
@@ -52,7 +109,7 @@ DATA_ROOT = "/kaggle/input/breastdata/INbreast/INbreast"
 ROI_DIR   = os.path.join(DATA_ROOT, "AllROI")
 CSV_PATH  = os.path.join(DATA_ROOT, "INbreast.csv")
 
-# 1) Load bản đồ BI-RADS
+# 1) Load map BI-RADS
 df = pd.read_csv(CSV_PATH, sep=';')
 df.columns = [c.strip() for c in df.columns]
 birad_map = {
@@ -60,43 +117,22 @@ birad_map = {
     for fn, val in zip(df['File Name'], df['Bi-Rads'])
 }
 
-# 2) Danh sách file .roi
-roi_files = sorted(f for f in os.listdir(ROI_DIR) if f.lower().endswith(".roi"))
+# 2) Lấy 10 file .roi đầu
+roi_files = sorted([f for f in os.listdir(ROI_DIR) if f.lower().endswith(".roi")])[:10]
+print(f"Testing {len(roi_files)} ROI files:", roi_files)
 
-# 3) Thống kê
-stats = {
-    'total':       len(roi_files),
-    'no_coords':   0,
-    'no_label':    0,
-    'success':     0,
-}
-examples = {
-    'no_coords': [],
-    'no_label':  [],
-    'success':   [],
-}
+for fn in roi_files:
+    path   = os.path.join(ROI_DIR, fn)
+    raw_id = os.path.basename(fn).split('_',1)[0]
+    no_ext = os.path.splitext(fn)[0]
+    pid    = no_ext.split('_',1)[0]
 
-# 4) Chạy kiểm thử
-for roi_fn in roi_files:
-    path = os.path.join(ROI_DIR, roi_fn)
+    print("\n" + "-"*50)
+    print(f"ROI file      : {fn}")
+    print(f"  raw_id      : {raw_id!r}")
+    print(f"  pid (noext) : {pid!r}")
+    print(f"  birad_map.get(raw_id) = {birad_map.get(raw_id)!r}")
+    print(f"  birad_map.get(pid)    = {birad_map.get(pid)!r}")
+
     coords, label = load_roi_and_label(path, birad_map)
-
-    if coords is None:
-        stats['no_coords'] += 1
-        if len(examples['no_coords']) < 5:
-            examples['no_coords'].append(roi_fn)
-    elif label is None:
-        stats['no_label'] += 1
-        if len(examples['no_label']) < 5:
-            examples['no_label'].append(roi_fn)
-    else:
-        stats['success'] += 1
-        if len(examples['success']) < 5:
-            examples['success'].append((roi_fn, label, len(coords)))
-
-# 5) In kết quả
-print("=== ROI TEST SUMMARY ===")
-print(f"Total ROI files   : {stats['total']}")
-print(f"No coords         : {stats['no_coords']}  (first examples: {examples['no_coords']})")
-print(f"No label          : {stats['no_label']}  (first examples: {examples['no_label']})")
-print(f"Successfully load : {stats['success']}  (first examples: {examples['success']})")
+    print(f"→ load_roi_and_label → coords={'None' if coords is None else len(coords)} pts, label={label!r}")
