@@ -501,7 +501,7 @@ def import_inbreast_roi_dataset(
 
     ds = (ds
           .shuffle(len(samples))
-          .batch(config.BATCH_SIZE)
+          .batch(config.batch_size)
           .prefetch(tf.data.AUTOTUNE))
 
     return ds
