@@ -806,6 +806,9 @@ def import_inbreast_roi_dataset(
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
     roi_dir   = os.path.join(data_dir, "AllROI")
 
+    print(f"[DEBUG] roi_dir = {roi_dir}")
+    print(f"[DEBUG] contents = {os.listdir(roi_dir)}")
+
     for roi_fn in sorted(os.listdir(roi_dir)):
         if not roi_fn.lower().endswith(".roi"):
             continue
@@ -881,13 +884,12 @@ def import_inbreast_roi_dataset(
           .prefetch(tf.data.AUTOTUNE))
 
     return ds
-
-def dataset_stratified_split(split, data, labels):
-    return train_test_split(data, labels,
-                            test_size=split,
-                            stratify=labels,
-                            random_state=config.RANDOM_SEED,
-                            shuffle=True)
+# def dataset_stratified_split(split, data, labels):
+#     return train_test_split(data, labels,
+#                             test_size=split,
+#                             stratify=labels,
+#                             random_state=config.RANDOM_SEED,
+#                             shuffle=True)
 
 def calculate_class_weights(y_train, label_encoder):
     """
