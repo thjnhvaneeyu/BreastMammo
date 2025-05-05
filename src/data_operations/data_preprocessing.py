@@ -214,30 +214,50 @@ def load_roi_and_label(
         return None, None
 
     # 4) tìm PID từ tên file .roi
-    fn       = os.path.basename(roi_path)
-    pid_base = os.path.splitext(fn)[0].split('_',1)[0]
+    # fn       = os.path.basename(roi_path)
+    # pid_base = os.path.splitext(fn)[0].split('_',1)[0]
 
-    # 5) lấy giá trị BI-RADS gốc từ birad_map
-    birad_val = birad_map.get(pid_base)
-    if birad_val is None or not birad_val.strip():
+    # # 5) lấy giá trị BI-RADS gốc từ birad_map
+    # birad_val = birad_map.get(pid_base)
+    # if birad_val is None or not birad_val.strip():
+    #     return None, None
+    # birad_val = birad_val.strip()
+
+    # # 6) tìm nhãn cuối cùng qua config.INBREAST_BIRADS_MAPPING
+    # label_name: Optional[str] = None
+    # for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
+    #     # chuẩn hoá: xóa "BI-RADS" và khoảng trắng
+    #     normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
+    #     if birad_val in normalized:
+    #         label_name = cls
+    #         break
+
+    # # 7) nếu không map được hoặc là Normal, bỏ luôn
+    # if label_name is None or label_name == "Normal":
+    #     return None, None
+
+    # return coords, label_name
+    # 2) trích PID từ tên file .roi
+    pid = os.path.basename(roi_path).split('_',1)[0]
+
+    # 3) lấy giá trị BI-RADS gốc
+    birad_val = birad_map.get(pid)
+    if not birad_val:
         return None, None
-    birad_val = birad_val.strip()
 
-    # 6) tìm nhãn cuối cùng qua config.INBREAST_BIRADS_MAPPING
-    label_name: Optional[str] = None
+    # 4) chuyển BI-RADS → nhãn (“Benign”/“Malignant”) theo config.INBREAST_BIRADS_MAPPING
+    label_name = None
     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-        # chuẩn hoá: xóa "BI-RADS" và khoảng trắng
-        normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
-        if birad_val in normalized:
+        norm = [v.replace("BI-RADS","").strip() for v in raw_vals]
+        if birad_val.strip() in norm:
             label_name = cls
             break
 
-    # 7) nếu không map được hoặc là Normal, bỏ luôn
+    # 5) nếu không map được hoặc “Normal” thì bỏ
     if label_name is None or label_name == "Normal":
         return None, None
 
     return coords, label_name
-
 
 def import_inbreast_roi_dataset(
     data_dir: str,
@@ -273,6 +293,7 @@ def import_inbreast_roi_dataset(
             continue
         roi_path = os.path.join(roi_dir, roi_fn)
         coords, label_name = load_roi_and_label(roi_path, birad_map)
+        print("    coords:", coords, "→ label_name:", label_name)
         if coords is None:
             continue
 
