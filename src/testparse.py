@@ -24,6 +24,10 @@ print(f"Testing {len(roi_files)} ROI files:")
 for fn in roi_files:
     path = os.path.join(ROI_DIR, fn)
     coords, label = load_roi_and_label(path, birad_map)
-    print(f"- {fn:15s} → "
+    # print(f"- {fn:15s} → "
+    print(f"\nFile: {fn}"
           f"coords: {len(coords) if coords else None:4s} pts, "
           f"label: {label}")
+    # print(f"\nFile: {fn}")
+    # print(" → coords:", coords[:5], "... total", len(coords) if coords else 0)
+    # print(" → label:", label)
