@@ -185,100 +185,55 @@ def import_inbreast_full_dataset(
     return X, y_enc
 
 
-# def load_roi_and_label(
-#     roi_path: str,
-#     birad_map: Dict[str,str]
-# ) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
-#     """
-#     Đọc file .roi, trả về:
-#       - coords: List[(x,y)] vùng ROI
-#       - label_name: 'Benign' / 'Malignant' / 'Normal'
-#     Nếu không tìm được coords hoặc nhãn, trả về (None, None).
-#     """
-#     # 1) load text, bỏ qua lỗi decode
-#     raw = open(roi_path, 'rb').read().decode('utf-8', errors='ignore')
-
-#     # 2) regex tìm tất cả {x, y}
-#     pts = re.findall(r'\{\s*([\d\.]+)\s*,\s*([\d\.]+)\s*\}', raw)
-#     if not pts:
-#         return None, None
-
-#     # 3) chuyển float → int, bỏ cặp mặc định {75,19}
-#     # coords: List[Tuple[int,int]] = []
-#     coords = []
-#     for xs, ys in pts:
-#         x, y = float(xs), float(ys)
-#         if abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6:
-#             continue
-#         coords.append((int(x),int(y)))
-#     if not coords:
-#         return None, None
-
-#     # 4) tìm PID từ tên file .roi
-#     fn       = os.path.basename(roi_path)
-#     pid_base = os.path.splitext(fn)[0].split('_',1)[0]
-
-#     # 5) lấy giá trị BI-RADS gốc từ birad_map
-#     birad_val = birad_map.get(pid_base)
-#     if birad_val is None or not birad_val.strip():
-#         return None, None
-#     birad_val = birad_val.strip()
-
-#     # 6) tìm nhãn cuối cùng qua config.INBREAST_BIRADS_MAPPING
-#     label_name: Optional[str] = None
-#     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-#         # chuẩn hoá: xóa "BI-RADS" và khoảng trắng
-#         normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
-#         if birad_val in normalized:
-#             label_name = cls
-#             break
-
-#     # 7) nếu không map được hoặc là Normal, bỏ luôn
-#     if label_name is None or label_name == "Normal":
-#         return None, None
-
-#     return coords, label_name
-import os
-from typing import List, Tuple, Optional, Dict
-import config
-
 def load_roi_and_label(
     roi_path: str,
     birad_map: Dict[str,str]
 ) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
     """
-    Đọc .roi INbreast:
-      - coords: List[(x,y)] (loại bỏ (0,0),(75,19))
-      - label_name: 'Benign'/'Malignant' (bỏ Normal)
+    Đọc file .roi, trả về:
+      - coords: List[(x,y)] vùng ROI
+      - label_name: 'Benign' / 'Malignant' / 'Normal'
+    Nếu không tìm được coords hoặc nhãn, trả về (None, None).
     """
-    coords: List[Tuple[int,int]] = []
-    with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) < 2: continue
-            try:
-                x, y = float(parts[0]), float(parts[1])
-            except:
-                continue
-            # if (abs(x)<1e-6 and abs(y)<1e-6) or (abs(x-75)<1e-6 and abs(y-19)<1e-6):
-            if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
-                continue
-            coords.append((int(x), int(y)))
+    # 1) load text, bỏ qua lỗi decode
+    raw = open(roi_path, 'rb').read().decode('utf-8', errors='ignore')
+
+    # 2) regex tìm tất cả {x, y}
+    pts = re.findall(r'\{\s*([\d\.]+)\s*,\s*([\d\.]+)\s*\}', raw)
+    if not pts:
+        return None, None
+
+    # 3) chuyển float → int, bỏ cặp mặc định {75,19}
+    # coords: List[Tuple[int,int]] = []
+    coords = []
+    for xs, ys in pts:
+        x, y = float(xs), float(ys)
+        if abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6:
+            continue
+        coords.append((int(x),int(y)))
     if not coords:
         return None, None
 
-    pid = os.path.splitext(os.path.basename(roi_path))[0]
-    birad_val = birad_map.get(pid)
-    if not birad_val:
-        return None, None
-    # birad_val = birad_val.strip()
+    # 4) tìm PID từ tên file .roi
+    fn       = os.path.basename(roi_path)
+    pid_base = os.path.splitext(fn)[0].split('_',1)[0]
 
-    label_name = None
+    # 5) lấy giá trị BI-RADS gốc từ birad_map
+    birad_val = birad_map.get(pid_base)
+    if birad_val is None or not birad_val.strip():
+        return None, None
+    birad_val = birad_val.strip()
+
+    # 6) tìm nhãn cuối cùng qua config.INBREAST_BIRADS_MAPPING
+    label_name: Optional[str] = None
     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
+        # chuẩn hoá: xóa "BI-RADS" và khoảng trắng
         normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
         if birad_val in normalized:
             label_name = cls
             break
+
+    # 7) nếu không map được hoặc là Normal, bỏ luôn
     if label_name is None or label_name == "Normal":
         return None, None
 
