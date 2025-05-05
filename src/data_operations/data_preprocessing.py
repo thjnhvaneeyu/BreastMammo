@@ -404,57 +404,104 @@ def import_inbreast_roi_dataset(
     # --- 2) fit label encoder để có num_classes ---
     labels = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels)
-    num_classes = label_encoder.classes_.size
+    classes = list(label_encoder.classes_)
+    num_classes = len(classes)
+    # num_classes = label_encoder.classes_.size
     print(f"[DEBUG] INbreast ROI: num_samples={len(samples)}, num_classes={num_classes}, classes={label_encoder.classes_}")
-
+    label_to_idx = {cls: i for i, cls in enumerate(classes)}
     # --- 3) định nghĩa generator để generate ảnh + nhãn ---
-    def _gen():
+    # def _gen():
+    #     for dcm_fp, coords, label_name in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except InvalidDicomError:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         # normalize về [0,1]
+    #         arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+    #         # crop bounding-box
+    #         xs, ys = zip(*coords)
+    #         x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+    #         y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+    #         # resize
+    #         H, W = target_size or (
+    #             config.INBREAST_IMG_SIZE["HEIGHT"],
+    #             config.INBREAST_IMG_SIZE["WIDTH"]
+    #         )
+    #         roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+    #         yield roi[...,None], label_name.encode('utf-8')
+
+    # # --- 4) build tf.data.Dataset và encode nhãn ---
+    # H, W = target_size or (
+    #     config.INBREAST_IMG_SIZE["HEIGHT"],
+    #     config.INBREAST_IMG_SIZE["WIDTH"]
+    # )
+    # sig = (
+    #     tf.TensorSpec((H,W,1), tf.float32),
+    #     tf.TensorSpec((),     tf.string),
+    # )
+    # ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
+
+    # def _encode(img, lbl):
+    #     idx = tf.py_function(
+    #         lambda b: label_encoder.transform([b.decode()])[0],
+    #         [lbl], tf.int32
+    #     )
+    #     idx.set_shape([])
+    #     if num_classes > 2:
+    #         idx = tf.one_hot(idx, num_classes)
+    #     return img, idx
+
+    # ds = (ds
+    #       .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+    #       .shuffle(len(samples))
+    #       .batch(config.batch_size)
+    #       .prefetch(tf.data.AUTOTUNE))
+
+    # return ds
+    def gen():
         for dcm_fp, coords, label_name in samples:
             try:
                 ds = pydicom.dcmread(dcm_fp, force=True)
             except InvalidDicomError:
                 continue
             arr = ds.pixel_array.astype(np.float32)
-            # normalize về [0,1]
             arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
-            # crop bounding-box
+
             xs, ys = zip(*coords)
-            x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
-            y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+            x0, x1 = max(0, min(xs)), min(arr.shape[1], max(xs))
+            y0, y1 = max(0, min(ys)), min(arr.shape[0], max(ys))
             roi = arr[y0:y1, x0:x1]
-            # resize
+
             H, W = target_size or (
                 config.INBREAST_IMG_SIZE["HEIGHT"],
                 config.INBREAST_IMG_SIZE["WIDTH"]
             )
             roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
-            yield roi[...,None], label_name.encode('utf-8')
 
-    # --- 4) build tf.data.Dataset và encode nhãn ---
+            img = roi[..., np.newaxis]
+            lbl_idx = np.int32(label_to_idx[label_name])
+            yield img, lbl_idx
+
+    # --- 4) Build tf.data.Dataset & one-hot nếu cần ---
     H, W = target_size or (
         config.INBREAST_IMG_SIZE["HEIGHT"],
         config.INBREAST_IMG_SIZE["WIDTH"]
     )
     sig = (
-        tf.TensorSpec((H,W,1), tf.float32),
-        tf.TensorSpec((),     tf.string),
+        tf.TensorSpec((H, W, 1), tf.float32),
+        tf.TensorSpec((),     tf.int32),
     )
-    ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
+    ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
 
-    def _encode(img, lbl):
-        idx = tf.py_function(
-            lambda b: label_encoder.transform([b.decode()])[0],
-            [lbl], tf.int32
-        )
-        idx.set_shape([])
-        if num_classes > 2:
-            idx = tf.one_hot(idx, num_classes)
-        return img, idx
+    if num_classes > 2:
+        ds = ds.map(lambda im, lb: (im, tf.one_hot(lb, num_classes)),
+                    num_parallel_calls=tf.data.AUTOTUNE)
 
     ds = (ds
-          .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
           .shuffle(len(samples))
-          .batch(config.batch_size)
+          .batch(config.BATCH_SIZE)
           .prefetch(tf.data.AUTOTUNE))
 
     return ds
