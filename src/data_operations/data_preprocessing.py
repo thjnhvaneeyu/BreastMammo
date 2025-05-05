@@ -343,6 +343,20 @@ def load_roi_and_label(
 #           .prefetch(tf.data.AUTOTUNE))
 
 #     return ds
+
+def make_class_weights_from_labels(y: np.ndarray) -> dict:
+    """
+    Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
+    trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
+    """
+    classes = np.unique(y)
+    weights = compute_class_weight(
+        class_weight="balanced",
+        classes=classes,
+        y=y
+    )
+    return {int(c): w for c, w in zip(classes, weights)}
+
 def import_inbreast_roi_dataset(
     data_dir: str,
     label_encoder,
@@ -401,14 +415,25 @@ def import_inbreast_roi_dataset(
     if not samples:
         raise ValueError(f"No ROI samples found in {roi_dir} (sau khi lọc coords & labels)")
 
-    # --- 2) fit label encoder để có num_classes ---
-    labels = [lbl for _,_,lbl in samples]
-    label_encoder.fit(labels)
-    classes = list(label_encoder.classes_)
+#     # --- 2) fit label encoder để có num_classes ---
+#     labels = [lbl for _,_,lbl in samples]
+# # Cách đơn giản nhất:)
+#     label_encoder.fit(labels)
+#     classes = list(label_encoder.classes_)
+#     num_classes = len(classes)
+#     # num_classes = label_encoder.classes_.size
+#     print(f"[DEBUG] INbreast ROI: num_samples={len(samples)}, num_classes={num_classes}, classes={label_encoder.classes_}")
+#     label_to_idx = {cls: i for i, cls in enumerate(classes)}
+    # --- 2) Chuẩn bị label encoder & class_weights ---
+    labels_str = [lbl for _,_,lbl in samples]
+    label_encoder.fit(labels_str)
+    labels_int = label_encoder.transform(labels_str)             # array shape=(N,)
+    class_weights = make_class_weights_from_labels(labels_int)
+    classes     = list(label_encoder.classes_)                   # ['Benign','Malignant']
     num_classes = len(classes)
-    # num_classes = label_encoder.classes_.size
-    print(f"[DEBUG] INbreast ROI: num_samples={len(samples)}, num_classes={num_classes}, classes={label_encoder.classes_}")
-    label_to_idx = {cls: i for i, cls in enumerate(classes)}
+
+    # map text→int ngay
+    label_to_idx = {cls:i for i,cls in enumerate(classes)}
     # --- 3) định nghĩa generator để generate ảnh + nhãn ---
     # def _gen():
     #     for dcm_fp, coords, label_name in samples:
@@ -460,43 +485,77 @@ def import_inbreast_roi_dataset(
     #       .prefetch(tf.data.AUTOTUNE))
 
     # return ds
-    def gen():
-        for dcm_fp, coords, label_name in samples:
+    # def gen():
+    #     for dcm_fp, coords, label_name in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except InvalidDicomError:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+
+    #         xs, ys = zip(*coords)
+    #         x0, x1 = max(0, min(xs)), min(arr.shape[1], max(xs))
+    #         y0, y1 = max(0, min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+
+    #         H, W = target_size or (
+    #             config.INBREAST_IMG_SIZE["HEIGHT"],
+    #             config.INBREAST_IMG_SIZE["WIDTH"]
+    #         )
+    #         roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+
+    #         img = roi[..., np.newaxis]
+    #         lbl_idx = np.int32(label_to_idx[label_name])
+    #         yield img, lbl_idx
+
+    # # --- 4) Build tf.data.Dataset & one-hot nếu cần ---
+    # H, W = target_size or (
+    #     config.INBREAST_IMG_SIZE["HEIGHT"],
+    #     config.INBREAST_IMG_SIZE["WIDTH"]
+    # )
+    # sig = (
+    #     tf.TensorSpec((H, W, 1), tf.float32),
+    #     tf.TensorSpec((),     tf.int32),
+    # )
+    # ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
+
+    # if num_classes > 2:
+    #     ds = ds.map(lambda im, lb: (im, tf.one_hot(lb, num_classes)),
+    #                 num_parallel_calls=tf.data.AUTOTUNE)
+
+    # ds = (ds
+    #       .shuffle(len(samples))
+    #       .batch(config.batch_size)
+    #       .prefetch(tf.data.AUTOTUNE))
+
+    # return ds
+    def _gen():
+        for dcm_fp, coords, lbl_txt in samples:
             try:
                 ds = pydicom.dcmread(dcm_fp, force=True)
-            except InvalidDicomError:
+            except:
                 continue
             arr = ds.pixel_array.astype(np.float32)
-            arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
-
+            arr = (arr - arr.min())/(arr.max()-arr.min()+1e-8)
             xs, ys = zip(*coords)
-            x0, x1 = max(0, min(xs)), min(arr.shape[1], max(xs))
-            y0, y1 = max(0, min(ys)), min(arr.shape[0], max(ys))
+            x0,x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+            y0,y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
             roi = arr[y0:y1, x0:x1]
+            H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+                                 config.INBREAST_IMG_SIZE["WIDTH"])
+            roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
+            yield roi[...,None], np.int32(label_to_idx[lbl_txt])
 
-            H, W = target_size or (
-                config.INBREAST_IMG_SIZE["HEIGHT"],
-                config.INBREAST_IMG_SIZE["WIDTH"]
-            )
-            roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+    # --- 4) build Dataset và optional one-hot ---
+    H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+                         config.INBREAST_IMG_SIZE["WIDTH"])
+    sig = (tf.TensorSpec((H,W,1), tf.float32),
+           tf.TensorSpec((), tf.int32))
+    ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
-            img = roi[..., np.newaxis]
-            lbl_idx = np.int32(label_to_idx[label_name])
-            yield img, lbl_idx
-
-    # --- 4) Build tf.data.Dataset & one-hot nếu cần ---
-    H, W = target_size or (
-        config.INBREAST_IMG_SIZE["HEIGHT"],
-        config.INBREAST_IMG_SIZE["WIDTH"]
-    )
-    sig = (
-        tf.TensorSpec((H, W, 1), tf.float32),
-        tf.TensorSpec((),     tf.int32),
-    )
-    ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
-
-    if num_classes > 2:
-        ds = ds.map(lambda im, lb: (im, tf.one_hot(lb, num_classes)),
+    if num_classes>2:
+        ds = ds.map(lambda x,y: (x, tf.one_hot(y, num_classes)),
                     num_parallel_calls=tf.data.AUTOTUNE)
 
     ds = (ds
@@ -504,7 +563,8 @@ def import_inbreast_roi_dataset(
           .batch(config.batch_size)
           .prefetch(tf.data.AUTOTUNE))
 
-    return ds
+    print(f"[DEBUG] ROI dataset ready: N={len(samples)}, classes={classes}, class_weights={class_weights}")
+    return ds, class_weights, num_classes
 # def dataset_stratified_split(split, data, labels):
 #     return train_test_split(data, labels,
 #                             test_size=split,
