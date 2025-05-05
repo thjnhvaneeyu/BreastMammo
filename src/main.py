@@ -129,12 +129,18 @@ def main():
         data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
         if config.is_roi:
             # --- ROI‐mode: tf.data.Dataset on‐the‐fly ---
-            ds = import_inbreast_roi_dataset(
-                data_dir, le,
-                target_size=(
-                    config.INBREAST_IMG_SIZE["HEIGHT"],
-                    config.INBREAST_IMG_SIZE["WIDTH"]
-                )
+            # ds = import_inbreast_roi_dataset(
+            #     data_dir, le,
+            #     target_size=(
+            #         config.INBREAST_IMG_SIZE["HEIGHT"],
+            #         config.INBREAST_IMG_SIZE["WIDTH"]
+            #     )
+            # )
+            ds, class_weights, num_classes = import_inbreast_roi_dataset(
+                data_dir, le, target_size=(
+                     config.INBREAST_IMG_SIZE["HEIGHT"],
+                     config.INBREAST_IMG_SIZE["WIDTH"]
+                 ), csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv" 
             )
             # Shuffle + split
             ds = ds.shuffle(buffer_size=1000)
