@@ -213,7 +213,7 @@ def load_roi_and_label(
     if not coords:
         return None, None
 
-    4) tìm PID từ tên file .roi
+    # 4) tìm PID từ tên file .roi
     fn       = os.path.basename(roi_path)
     pid_base = os.path.splitext(fn)[0].split('_',1)[0]
 
