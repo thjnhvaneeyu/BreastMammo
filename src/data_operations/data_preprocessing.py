@@ -674,38 +674,53 @@ from typing import List, Tuple, Optional, Dict
 #         return None, None
 
 #     return coords, label_name
-def load_roi_and_label(roi_path: str, birad_map: Dict[str,str]) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
+def load_roi_and_label(
+    roi_path: str,
+    birad_map: Dict[str,str]
+) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
+    """
+    Đọc file .roi, trả về:
+      - coords: List[(x,y)] vùng ROI
+      - label_name: 'Benign' / 'Malignant'
+    Nếu không tìm được coords hoặc nhãn (bao gồm 'Normal'), trả về (None, None).
+    """
+    raw = open(roi_path, 'rb').read().decode('utf-8', errors='ignore')
+
+    # 1) Regex tìm tất cả các cặp {x, y}
+    pts = re.findall(r'\{\s*([\d\.]+)\s*,\s*([\d\.]+)\s*\}', raw)
     coords = []
-    with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) < 2: continue
-            try:
-                x,y = float(parts[0]), float(parts[1])
-            except:
-                continue
-            if abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6:
-                continue
-            coords.append((int(x),int(y)))
+    for xs, ys in pts:
+        x, y = float(xs), float(ys)
+        # bỏ entry mặc định (75,19)
+        if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
+            continue
+        coords.append((int(x), int(y)))
     if not coords:
         return None, None
 
-    pid = os.path.basename(roi_path).split('_',1)[0]
+    # 2) Lấy PID từ tên file
+    fn = os.path.basename(roi_path)
+    pid = os.path.splitext(fn)[0].split('_',1)[0]
+
+    # 3) Lấy giá trị BI-RADS gốc
     birad_val = birad_map.get(pid)
-    if not birad_val:
+    if not birad_val or not birad_val.strip():
         return None, None
     birad_val = birad_val.strip()
 
-    label = None
-    for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-        norm = [v.replace("BI-RADS","").strip() for v in raw_vals]
-        if birad_val in norm:
-            label = cls
+    # 4) Map BI-RADS → class name
+    label_name = None
+    for cls, raw_list in config.INBREAST_BIRADS_MAPPING.items():
+        normalized = [ v.replace("BI-RADS","").strip() for v in raw_list ]
+        if birad_val in normalized:
+            label_name = cls
             break
-    if label is None or label=="Normal":
+
+    # Bỏ Normal
+    if label_name is None or label_name == "Normal":
         return None, None
 
-    return coords, label
+    return coords, label_name
 
 def import_inbreast_full_dataset(
     data_dir: str,
@@ -802,7 +817,8 @@ def import_inbreast_roi_dataset(
     }
 
     # 1) Duyệt các file .roi trong AllROI
-    samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+    # samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+    samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
     roi_dir   = os.path.join(data_dir, "AllROI")
 
