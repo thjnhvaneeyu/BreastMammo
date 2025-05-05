@@ -237,118 +237,202 @@ def load_roi_and_label(
         return None, None
 
     return coords, label_name
-    # 2) trích PID từ tên file .roi
-    # pid = os.path.basename(roi_path).split('_',1)[0]
 
-    # # 3) lấy giá trị BI-RADS gốc
-    # birad_val = birad_map.get(pid)
-    # if not birad_val:
-    #     return None, None
+# def import_inbreast_roi_dataset(
+#     data_dir: str,
+#     label_encoder,
+#     target_size=None,
+#     csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"
+# ):
+#     """
+#     Load & crop ROI on-the-fly từ INbreast:
+#      - Dùng load_roi_and_label() để parse .roi
+#      - Trả về tf.data.Dataset(img: H×W×1, lbl: int or one-hot)
+#      - Đã tự loại bỏ 'Normal' vì load_roi_and_label trả về None cho nó.
+#     """
+#     # 0) Đọc CSV BI-RADS để tạo birad_map
+#     df = pd.read_csv(csv_path, sep=';')
+#     df.columns = [c.strip() for c in df.columns]
+#     birad_map: Dict[str,str] = {
+#         str(fn).strip(): str(val).strip()
+#         for fn, val in zip(df['File Name'], df['Bi-Rads'])
+#     }
 
-    # # 4) chuyển BI-RADS → nhãn (“Benign”/“Malignant”) theo config.INBREAST_BIRADS_MAPPING
-    # label_name = None
-    # for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-    #     norm = [v.replace("BI-RADS","").strip() for v in raw_vals]
-    #     if birad_val.strip() in norm:
-    #         label_name = cls
-    #         break
+#     # 1) Duyệt các file .roi trong AllROI
+#     samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+#     dicom_dir = os.path.join(data_dir, "AllDICOMs")
+#     roi_dir   = os.path.join(data_dir, "AllROI")
 
-    # # 5) nếu không map được hoặc “Normal” thì bỏ
-    # if label_name is None or label_name == "Normal":
-    #     return None, None
+#     print(f"[DEBUG] roi_dir = {roi_dir}")
+#     print(f"[DEBUG] contents = {os.listdir(roi_dir)}")
 
-    # return coords, label_name
+#     # ---- đây là khối for đã được **lùi về đúng** ----
+#     for roi_fn in sorted(os.listdir(roi_dir)):
+#         if not roi_fn.lower().endswith(".roi"):
+#             continue
+#         roi_path = os.path.join(roi_dir, roi_fn)
+#         coords, label_name = load_roi_and_label(roi_path, birad_map)
+#         print("    coords:", coords, "→ label_name:", label_name)
+#         if coords is None:
+#             continue
 
+#         # PID không phần mở rộng
+#         pid = os.path.splitext(roi_fn)[0].split('_', 1)[0]
+#         dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
+#         if not os.path.exists(dcm_fp):
+#             continue
+
+#         samples.append((dcm_fp, coords, label_name))
+
+#     # ---- kết thúc khối for ----
+
+#     if not samples:
+#         raise ValueError(f"No ROI samples found in {roi_dir}")
+
+#     # 2) Fit LabelEncoder để có num_classes
+#     labels = [lbl for _,_,lbl in samples]
+#     label_encoder.fit(labels)
+#     num_classes = label_encoder.classes_.size
+
+#     # 3) Tạo generator đọc DICOM, crop, resize, normalize
+#     def gen():
+#         for dcm_fp, coords, label_name in samples:
+#             try:
+#                 ds = pydicom.dcmread(dcm_fp, force=True)
+#             except InvalidDicomError:
+#                 continue
+#             arr = ds.pixel_array.astype(np.float32)
+#             # normalize 0–1
+#             arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+#             # crop bounding box từ coords
+#             xs, ys = zip(*coords)
+#             x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+#             y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+#             roi = arr[y0:y1, x0:x1]
+#             # resize về target_size
+#             H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+#                                    config.INBREAST_IMG_SIZE["WIDTH"])
+#             roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+#             # thêm channel dim
+#             yield roi[..., np.newaxis], label_name.encode('utf-8')
+
+#     # 4) Xây Dataset và encode label → int (và one-hot nếu cần)
+#     H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+#                            config.INBREAST_IMG_SIZE["WIDTH"])
+#     sig = (
+#         tf.TensorSpec((H, W, 1), tf.float32),
+#         tf.TensorSpec((),     tf.string),
+#     )
+#     ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
+
+#     def _encode(img, lbl):
+#         idx = tf.py_function(
+#             lambda b: label_encoder.transform([b.decode('utf-8')])[0],
+#             [lbl], tf.int32
+#         )
+#         idx.set_shape([])
+#         if num_classes > 2:
+#             idx = tf.one_hot(idx, num_classes)
+#         return img, idx
+
+#     ds = (ds
+#           .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+#           .shuffle(len(samples))
+#           .batch(config.batch_size)
+#           .prefetch(tf.data.AUTOTUNE))
+
+#     return ds
 def import_inbreast_roi_dataset(
     data_dir: str,
     label_encoder,
-    target_size=None,
-    csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"
+    target_size: Tuple[int,int]=None,
+    csv_path: str="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"
 ):
     """
-    Load & crop ROI on-the-fly từ INbreast:
-     - Dùng load_roi_and_label() để parse .roi
-     - Trả về tf.data.Dataset(img: H×W×1, lbl: int or one-hot)
-     - Đã tự loại bỏ 'Normal' vì load_roi_and_label trả về None cho nó.
+    Load & crop ROI on-the-fly:
+     - Đọc CSV BI-RADS để build birad_map: pid → Bi-Rads
+     - Duyệt AllROI/*.roi, parse coords + label qua load_roi_and_label
+     - Crop DICOM, resize, normalize
+     - Encode nhãn thành int / one-hot
+     - Trả về tf.data.Dataset
     """
-    # 0) Đọc CSV BI-RADS để tạo birad_map
+    # --- 0) đọc CSV, build PID→Bi-Rads ---
     df = pd.read_csv(csv_path, sep=';')
     df.columns = [c.strip() for c in df.columns]
-    birad_map: Dict[str,str] = {
-        str(fn).strip(): str(val).strip()
-        for fn, val in zip(df['File Name'], df['Bi-Rads'])
-    }
+    birad_map: Dict[str,str] = {}
+    for fn, val in zip(df['File Name'], df['Bi-Rads']):
+        pid = str(fn).strip().split('_',1)[0]
+        birad_map[pid] = str(val).strip()
 
-    # 1) Duyệt các file .roi trong AllROI
+    # --- 1) scan thư mục ROI ---
     samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
     roi_dir   = os.path.join(data_dir, "AllROI")
 
-    print(f"[DEBUG] roi_dir = {roi_dir}")
-    print(f"[DEBUG] contents = {os.listdir(roi_dir)}")
-
-    # ---- đây là khối for đã được **lùi về đúng** ----
+    print("[DEBUG] roi_dir =", roi_dir, "contains:", os.listdir(roi_dir)[:5], "...")
     for roi_fn in sorted(os.listdir(roi_dir)):
         if not roi_fn.lower().endswith(".roi"):
             continue
         roi_path = os.path.join(roi_dir, roi_fn)
+
         coords, label_name = load_roi_and_label(roi_path, birad_map)
-        print("    coords:", coords, "→ label_name:", label_name)
         if coords is None:
             continue
 
-        # PID không phần mở rộng
-        pid = os.path.splitext(roi_fn)[0].split('_', 1)[0]
+        pid = roi_fn.split('.',1)[0]
         dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
         if not os.path.exists(dcm_fp):
             continue
 
         samples.append((dcm_fp, coords, label_name))
-
-    # ---- kết thúc khối for ----
+        print(f"[DEBUG] added ROI sample #{len(samples)} → PID={pid}, label={label_name}")
 
     if not samples:
-        raise ValueError(f"No ROI samples found in {roi_dir}")
+        raise ValueError(f"No ROI samples found in {roi_dir} (sau khi lọc coords & labels)")
 
-    # 2) Fit LabelEncoder để có num_classes
+    # --- 2) fit label encoder để có num_classes ---
     labels = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels)
     num_classes = label_encoder.classes_.size
+    print(f"[DEBUG] INbreast ROI: num_samples={len(samples)}, num_classes={num_classes}, classes={label_encoder.classes_}")
 
-    # 3) Tạo generator đọc DICOM, crop, resize, normalize
-    def gen():
+    # --- 3) định nghĩa generator để generate ảnh + nhãn ---
+    def _gen():
         for dcm_fp, coords, label_name in samples:
             try:
                 ds = pydicom.dcmread(dcm_fp, force=True)
             except InvalidDicomError:
                 continue
             arr = ds.pixel_array.astype(np.float32)
-            # normalize 0–1
+            # normalize về [0,1]
             arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
-            # crop bounding box từ coords
+            # crop bounding-box
             xs, ys = zip(*coords)
             x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
             y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
             roi = arr[y0:y1, x0:x1]
-            # resize về target_size
-            H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
-                                   config.INBREAST_IMG_SIZE["WIDTH"])
+            # resize
+            H, W = target_size or (
+                config.INBREAST_IMG_SIZE["HEIGHT"],
+                config.INBREAST_IMG_SIZE["WIDTH"]
+            )
             roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
-            # thêm channel dim
-            yield roi[..., np.newaxis], label_name.encode('utf-8')
+            yield roi[...,None], label_name.encode('utf-8')
 
-    # 4) Xây Dataset và encode label → int (và one-hot nếu cần)
-    H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
-                           config.INBREAST_IMG_SIZE["WIDTH"])
+    # --- 4) build tf.data.Dataset và encode nhãn ---
+    H, W = target_size or (
+        config.INBREAST_IMG_SIZE["HEIGHT"],
+        config.INBREAST_IMG_SIZE["WIDTH"]
+    )
     sig = (
-        tf.TensorSpec((H, W, 1), tf.float32),
+        tf.TensorSpec((H,W,1), tf.float32),
         tf.TensorSpec((),     tf.string),
     )
-    ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
+    ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
     def _encode(img, lbl):
         idx = tf.py_function(
-            lambda b: label_encoder.transform([b.decode('utf-8')])[0],
+            lambda b: label_encoder.transform([b.decode()])[0],
             [lbl], tf.int32
         )
         idx.set_shape([])
@@ -363,7 +447,6 @@ def import_inbreast_roi_dataset(
           .prefetch(tf.data.AUTOTUNE))
 
     return ds
-
 # def dataset_stratified_split(split, data, labels):
 #     return train_test_split(data, labels,
 #                             test_size=split,
