@@ -850,7 +850,6 @@ def import_inbreast_roi_dataset(
 
     return ds
 
-
 def dataset_stratified_split(split, data, labels):
     return train_test_split(data, labels,
                             test_size=split,
