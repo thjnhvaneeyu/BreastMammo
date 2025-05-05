@@ -674,32 +674,39 @@ from typing import List, Tuple, Optional, Dict
 #         return None, None
 
 #     return coords, label_name
-def load_roi_and_label(
-    roi_path: str,
-    birad_map: Dict[str, str]
-) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
-    """
-    Đọc .roi, trả về:
-      - coords: List[(x,y)] vùng ROI
-      - label_name: 'Benign' / 'Malignant' (bỏ Normal)
-    """
-    # 1) Đọc file từng dòng, split
-    coords: List[Tuple[int,int]] = []
+def load_roi_and_label(roi_path: str, birad_map: Dict[str,str]):
+    coords = []
     with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
             parts = line.strip().split()
-            if len(parts) < 2:
-                continue
+            if len(parts) < 2: continue
             try:
-                x, y = float(parts[0]), float(parts[1])
-            except ValueError:
+                x,y = float(parts[0]), float(parts[1])
+            except:
                 continue
-            # bỏ entry mặc định (75,19) nếu cần
-            if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
+            if abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6:
                 continue
-            coords.append((int(x), int(y)))
+            coords.append((int(x),int(y)))
     if not coords:
         return None, None
+
+    pid = os.path.basename(roi_path).split('_',1)[0]
+    birad_val = birad_map.get(pid)
+    if not birad_val:
+        return None, None
+    birad_val = birad_val.strip()
+
+    label = None
+    for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
+        norm = [v.replace("BI-RADS","").strip() for v in raw_vals]
+        if birad_val in norm:
+            label = cls
+            break
+    if label is None or label=="Normal":
+        return None, None
+
+    return coords, label
+
 def import_inbreast_full_dataset(
     data_dir: str,
     label_encoder,
@@ -795,32 +802,48 @@ def import_inbreast_roi_dataset(
     }
 
     # 1) Duyệt các file .roi trong AllROI
-    samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
-    dicom_dir = os.path.join(data_dir, "AllDICOMs")
-    roi_dir   = os.path.join(data_dir, "AllROI")
+    # samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+    # dicom_dir = os.path.join(data_dir, "AllDICOMs")
+    # roi_dir   = os.path.join(data_dir, "AllROI")
 
-    for roi_fn in sorted(os.listdir(roi_dir)):
-        if not roi_fn.lower().endswith(".roi"):
-            continue
-        roi_path = os.path.join(roi_dir, roi_fn)
+    # for roi_fn in sorted(os.listdir(roi_dir)):
+    #     if not roi_fn.lower().endswith(".roi"):
+    #         continue
+    #     roi_path = os.path.join(roi_dir, roi_fn)
 
-        # (a) parse coords + label từ .roi
-        coords, label_name = load_roi_and_label(roi_path, birad_map)
-        if coords is None or label_name is None:
-            continue
+    #     # (a) parse coords + label từ .roi
+    #     coords, label_name = load_roi_and_label(roi_path, birad_map)
+    #     if coords is None or label_name is None:
+    #         continue
 
-        # (b) tìm file .dcm tương ứng
-        pid = os.path.splitext(roi_fn)[0].split('_',1)[0]
-        dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
-        if not os.path.exists(dcm_fp):
-            continue
+    #     # (b) tìm file .dcm tương ứng
+    #     pid = os.path.splitext(roi_fn)[0].split('_',1)[0]
+    #     dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
+    #     if not os.path.exists(dcm_fp):
+    #         continue
 
-        samples.append((dcm_fp, coords, label_name))
-        print(f"[DEBUG] thêm ROI sample #{len(samples)}: PID={pid}, label={label_name}")
+    #     samples.append((dcm_fp, coords, label_name))
+    #     print(f"[DEBUG] thêm ROI sample #{len(samples)}: PID={pid}, label={label_name}")
+
+    # if not samples:
+    #     raise ValueError(f"No ROI samples found in {roi_dir}")
+    samples=[]
+    dicom_dir = os.path.join(data_dir,"AllDICOMs")
+    roi_dir   = os.path.join(data_dir,"AllROI")
+
+    for fn in sorted(os.listdir(roi_dir)):
+        if not fn.lower().endswith(".roi"): continue
+        p = os.path.join(roi_dir, fn)
+        coords,label = load_roi_and_label(p, birad_map)
+        if coords and label:
+            pid = fn.split('_',1)[0]
+            dcm = os.path.join(dicom_dir, f"{pid}.dcm")
+            if os.path.exists(dcm):
+                samples.append((dcm,coords,label))
+                print(f"[DEBUG] ROI#{len(samples)} → {fn} → {label}")
 
     if not samples:
         raise ValueError(f"No ROI samples found in {roi_dir}")
-
     # 2) Fit LabelEncoder để có num_classes
     labels = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels)
