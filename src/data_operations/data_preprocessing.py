@@ -674,38 +674,34 @@ from typing import List, Tuple, Optional, Dict
 #         return None, None
 
 #     return coords, label_name
+_COORD_PATTERN = re.compile(r"[-+]?\d*\.\d+|[-+]?\d+")
+
 def load_roi_and_label(
     roi_path: str,
     birad_map: Dict[str,str]
 ) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
     """
-    Read a .roi file (lines of "x y"), return
-       - coords: List[(x,y)]
-       - label_name: one of 'Benign'/'Malignant' (we drop 'Normal')
-    or (None,None) if we can’t extract a valid ROI+label.
+    Đọc .roi (có coords dạng số bất kỳ), trả về:
+      - coords: List[(x, y)]
+      - label_name: 'Benign'/'Malignant'
+    Hoặc (None,None) nếu:
+      • coords trống
+      • không tìm được giá trị BI-RADS
+      • label_name là 'Normal' hoặc unrecognized
     """
-
+    # 1) Parse tất cả toạ độ
     coords: List[Tuple[int,int]] = []
     with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
-            parts = line.strip().split()
-            if len(parts) < 2:
+            nums = _COORD_PATTERN.findall(line)
+            if len(nums) < 2:
                 continue
-            try:
-                x, y = float(parts[0]), float(parts[1])
-            except ValueError:
-                continue
-            # drop the meaningless default mark that INbreast .roi files include
+            x, y = float(nums[0]), float(nums[1])
+            # bỏ default mark vô nghĩa
             if abs(x - 75.0) < 1e-6 and abs(y - 19.0) < 1e-6:
                 continue
             coords.append((int(x), int(y)))
     if not coords:
-        return None, None
-
-    # map PID → BI-RADS from the CSV-derived dictionary
-    pid = os.path.basename(roi_path).split('_',1)[0]
-    birad_val = birad_map.get(pid)
-    if not birad_val:
         return None, None
 
     # map BI-RADS number → 'Benign'/'Malignant' via your config

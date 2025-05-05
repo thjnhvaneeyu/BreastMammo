@@ -68,45 +68,45 @@ def generate_image_transforms(images, labels):
             labels_with_transforms = np.append(labels_with_transforms, new_label, axis=0)
     return images_with_transforms, labels_with_transforms
 
-def load_roi_and_label(roi_file_path: str):
-    """
-    Đọc file .roi, trả về:
-      - coords: List[(x:int,y:int)]  
-      - label_name: str (lấy từ BI-RADS mapping trong config)
-    """
-    # 1) Đọc tọa độ
-    coords = []
-    with open(roi_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                x, y = map(float, parts[:2])
-                coords.append((int(x), int(y)))
-    # Nếu không có coords, trả về None để skip
-    if not coords:
-        return None, None
+# def load_roi_and_label(roi_file_path: str):
+#     """
+#     Đọc file .roi, trả về:
+#       - coords: List[(x:int,y:int)]  
+#       - label_name: str (lấy từ BI-RADS mapping trong config)
+#     """
+#     # 1) Đọc tọa độ
+#     coords = []
+#     with open(roi_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+#         for line in f:
+#             parts = line.strip().split()
+#             if len(parts) >= 2:
+#                 x, y = map(float, parts[:2])
+#                 coords.append((int(x), int(y)))
+#     # Nếu không có coords, trả về None để skip
+#     if not coords:
+#         return None, None
 
-    # 2) Lấy PID (image ID) từ tên file .roi
-    #    Ví dụ roi_file_path = ".../22678622_1.roi" -> pid_base = "22678622"
-    fn = os.path.basename(roi_file_path)
-    pid_base = os.path.splitext(fn)[0].split('_', 1)[0]
+#     # 2) Lấy PID (image ID) từ tên file .roi
+#     #    Ví dụ roi_file_path = ".../22678622_1.roi" -> pid_base = "22678622"
+#     fn = os.path.basename(roi_file_path)
+#     pid_base = os.path.splitext(fn)[0].split('_', 1)[0]
 
-    # 3) Xác định BI-RADS value (giả sử bạn đã load map birad_map ở đâu đó)
-    birad_val = config.INBREAST_BIRADS_MAPPING_RAW.get(pid_base)
-    # Nếu không tìm thấy, bạn có thể ném warning hoặc skip
-    if birad_val is None:
-        return coords, None
+#     # 3) Xác định BI-RADS value (giả sử bạn đã load map birad_map ở đâu đó)
+#     birad_val = config.INBREAST_BIRADS_MAPPING_RAW.get(pid_base)
+#     # Nếu không tìm thấy, bạn có thể ném warning hoặc skip
+#     if birad_val is None:
+#         return coords, None
 
-    # 4) Map BI-RADS number sang class name theo config.INBREAST_BIRADS_MAPPING
-    label_name = None
-    for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
-        # vals là danh sách các string như "BI-RADS 2", "BI-RADS 3",…
-        normalized = [v.replace("BI-RADS", "").strip() for v in vals]
-        if str(birad_val) in normalized:
-            label_name = cls
-            break
+#     # 4) Map BI-RADS number sang class name theo config.INBREAST_BIRADS_MAPPING
+#     label_name = None
+#     for cls, vals in config.INBREAST_BIRADS_MAPPING.items():
+#         # vals là danh sách các string như "BI-RADS 2", "BI-RADS 3",…
+#         normalized = [v.replace("BI-RADS", "").strip() for v in vals]
+#         if str(birad_val) in normalized:
+#             label_name = cls
+#             break
 
-    return coords, label_name
+#     return coords, label_name
 
 
 def label_is_binary(labels):
