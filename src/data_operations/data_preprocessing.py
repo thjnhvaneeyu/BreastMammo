@@ -697,7 +697,6 @@ def import_inbreast_full_dataset(
         str(fn).strip(): str(val).strip()
         for fn, val in zip(df['File Name'], df['Bi-Rads'])
     }
-
     # 2) Build list samples (dcm_path, label_name)
     samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
