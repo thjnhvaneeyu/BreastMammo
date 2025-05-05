@@ -204,7 +204,8 @@ def load_roi_and_label(
         return None, None
 
     # 3) chuyển float → int, bỏ cặp mặc định {75,19}
-    coords: List[Tuple[int,int]] = []
+    # coords: List[Tuple[int,int]] = []
+    coords = []
     for xs, ys in pts:
         x, y = float(xs), float(ys)
         if abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6:
