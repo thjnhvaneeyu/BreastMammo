@@ -689,14 +689,10 @@ def import_inbreast_full_dataset(
     df = pd.read_csv(csv_path, sep=';')
     # đảm bảo cột đúng tên, strip space
     df.columns = [c.strip() for c in df.columns]
-    # birad_map = dict(zip(
-    #     df['File Name'].astype(str).str.strip(),
-    #     df['Bi-Rads'].astype(str).str.strip()
-    # ))
-    birad_map = {
-        str(fn).strip(): str(val).strip()
-        for fn, val in zip(df['File Name'], df['Bi-Rads'])
-    }
+    birad_map = dict(zip(
+        df['File Name'].astype(str).str.strip(),
+        df['Bi-Rads'].astype(str).str.strip()
+    ))
     # 2) Build list samples (dcm_path, label_name)
     samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
@@ -769,7 +765,7 @@ def import_inbreast_roi_dataset(
     df = pd.read_csv(csv_path, sep=';')
     df.columns = [c.strip() for c in df.columns]
     birad_map = {
-        fn.strip(): val.strip()
+        str(fn).strip(): str(val).strip()
         for fn, val in zip(df['File Name'], df['Bi-Rads'])
     }
 
