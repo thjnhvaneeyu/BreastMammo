@@ -816,8 +816,8 @@ def import_inbreast_roi_dataset(
     }
 
     # 1) Duyệt các file .roi trong AllROI
-    # samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
-    samples = []
+    samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+    # samples = []
     dicom_dir = os.path.join(data_dir, "AllDICOMs")
     roi_dir   = os.path.join(data_dir, "AllROI")
 
