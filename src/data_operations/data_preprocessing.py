@@ -684,6 +684,7 @@ def load_roi_and_label(
        - label_name: one of 'Benign'/'Malignant' (we drop 'Normal')
     or (None,None) if we can’t extract a valid ROI+label.
     """
+
     coords: List[Tuple[int,int]] = []
     with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
