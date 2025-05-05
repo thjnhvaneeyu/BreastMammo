@@ -238,57 +238,51 @@ def import_inbreast_full_dataset(
 #         return None, None
 
 #     return coords, label_name
+import os
+from typing import List, Tuple, Optional, Dict
+import config
+
 def load_roi_and_label(
     roi_path: str,
     birad_map: Dict[str,str]
 ) -> Tuple[Optional[List[Tuple[int,int]]], Optional[str]]:
     """
-    Đọc .roi INbreast (mỗi dòng 'x y'), trả về:
-      - coords: List[(x,y)] vùng ROI (loại bỏ (0,0) hoặc (75,19) nếu có)
-      - label_name: 'Benign' hoặc 'Malignant' (bỏ Normal)
-    Nếu không tìm được coords hoặc nhãn, trả về (None, None).
+    Đọc .roi INbreast:
+      - coords: List[(x,y)] (loại bỏ (0,0),(75,19))
+      - label_name: 'Benign'/'Malignant' (bỏ Normal)
     """
     coords: List[Tuple[int,int]] = []
-    # 1) đọc từng dòng, split whitespace
     with open(roi_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
             parts = line.strip().split()
-            if len(parts) < 2:
-                continue
+            if len(parts) < 2: continue
             try:
                 x, y = float(parts[0]), float(parts[1])
-            except ValueError:
+            except:
                 continue
-            # bỏ entry padding (0,0) và mặc định (75,19)
-            if (abs(x) < 1e-6 and abs(y) < 1e-6) or (abs(x-75.0)<1e-6 and abs(y-19.0)<1e-6):
+            if (abs(x)<1e-6 and abs(y)<1e-6) or (abs(x-75)<1e-6 and abs(y-19)<1e-6):
                 continue
             coords.append((int(x), int(y)))
     if not coords:
         return None, None
 
-    # 2) Lấy PID từ tên file .roi
     pid = os.path.splitext(os.path.basename(roi_path))[0]
-
-    # 3) Lấy giá trị BI-RADS gốc
     birad_val = birad_map.get(pid)
-    if birad_val is None or not birad_val.strip():
+    if not birad_val:
         return None, None
     birad_val = birad_val.strip()
 
-    # 4) Map BI-RADS → class name via config.INBREAST_BIRADS_MAPPING
-    label_name: Optional[str] = None
+    label_name = None
     for cls, raw_vals in config.INBREAST_BIRADS_MAPPING.items():
-        # ví dụ raw_vals = ["BI-RADS 2", "BI-RADS 3"]
         normalized = [v.replace("BI-RADS","").strip() for v in raw_vals]
         if birad_val in normalized:
             label_name = cls
             break
-
-    # 5) Nếu không map được hoặc là Normal thì bỏ luôn
     if label_name is None or label_name == "Normal":
         return None, None
 
     return coords, label_name
+
 # def import_inbreast_roi_dataset(
 #     data_dir: str,
 #     label_encoder,
