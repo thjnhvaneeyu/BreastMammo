@@ -19,44 +19,44 @@ import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
 from sklearn.utils.class_weight import compute_class_weight
 
-# def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
-#     """
-#     Import the dataset by pre-processing the images and encoding the labels.
-#     Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
-#     :param data_dir: Directory to the mini-MIAS images.
-#     :param label_encoder: The label encoder.
-#     :return: Two NumPy arrays, one for the processed images and one for the encoded labels.
-#     """
-#     # Initialise variables.
-#     images = list()
-#     labels = list()
+def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
+    """
+    Import the dataset by pre-processing the images and encoding the labels.
+    Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
+    :param data_dir: Directory to the mini-MIAS images.
+    :param label_encoder: The label encoder.
+    :return: Two NumPy arrays, one for the processed images and one for the encoded labels.
+    """
+    # Initialise variables.
+    images = list()
+    labels = list()
 
-#     if not config.is_roi:
-#         # Loop over the image paths and update the data and labels lists with the pre-processed images & labels.
-#         print("Loading whole images")
-#         for image_path in list(paths.list_images(data_dir)):
-#             images.append(preprocess_image(image_path))
-#             labels.append(image_path.split(os.path.sep)[-2])  # Extract label from path.
-#     else:
-#         # Use the CSV file to get the images and their labels, and crop the images around the specified ROI.
-#         print("Loading cropped ROI images")
-#         images, labels = crop_roi_image(data_dir)
+    if not config.is_roi:
+        # Loop over the image paths and update the data and labels lists with the pre-processed images & labels.
+        print("Loading whole images")
+        for image_path in list(paths.list_images(data_dir)):
+            images.append(preprocess_image(image_path))
+            labels.append(image_path.split(os.path.sep)[-2])  # Extract label from path.
+    else:
+        # Use the CSV file to get the images and their labels, and crop the images around the specified ROI.
+        print("Loading cropped ROI images")
+        images, labels = crop_roi_image(data_dir)
 
-#     # Convert the data and labels lists to NumPy arrays.
-#     images = np.array(images, dtype="float32")  # Convert images to a batch.
-#     labels = np.array(labels)
+    # Convert the data and labels lists to NumPy arrays.
+    images = np.array(images, dtype="float32")  # Convert images to a batch.
+    labels = np.array(labels)
 
-#     # Encode labels.
-#     labels = encode_labels(labels, label_encoder)
-#     return images, labels
+    # Encode labels.
+    labels = encode_labels(labels, label_encoder)
+    return images, labels
 
-#     # X = np.array(images, dtype="float32")
-#     # y = label_encoder.fit_transform(labels)
-#     # if label_encoder.classes_.size > 2:
-#     #     y = to_categorical(y)
+    # X = np.array(images, dtype="float32")
+    # y = label_encoder.fit_transform(labels)
+    # if label_encoder.classes_.size > 2:
+    #     y = to_categorical(y)
 
-#     # if config.augment_data:
-#     #     X, y = generate_image_transforms(X, y)
+    # if config.augment_data:
+    #     X, y = generate_image_transforms(X, y)
 
 #     # return X, y
 def import_cmmd_dataset(data_dir: str, label_encoder, target_size=None) -> (np.ndarray, np.ndarray):
