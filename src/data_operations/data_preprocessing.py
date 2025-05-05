@@ -788,7 +788,7 @@ def import_inbreast_roi_dataset(
         dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
         if not os.path.exists(dcm_fp):
             continue
-
+        print(f"[DEBUG] loaded ROI samples: {len(samples)}")
         samples.append((dcm_fp, coords, label_name))
 
     if not samples:
