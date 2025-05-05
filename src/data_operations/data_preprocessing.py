@@ -424,10 +424,19 @@ def import_inbreast_roi_dataset(
         if coords is None:
             continue
 
-        pid = roi_fn.split('.',1)[0]
-        dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
-        if not os.path.exists(dcm_fp):
+        # pid = roi_fn.split('.',1)[0]
+        # dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
+        # if not os.path.exists(dcm_fp):
+        #     continue
+
+        # samples.append((dcm_fp, coords, label_name))
+        pid = os.path.splitext(roi_fn)[0]
+        # 3) tìm DICOM file bất kỳ bắt đầu bằng pid + '_'
+        matches = [f for f in os.listdir(dicom_dir)
+                if f.startswith(pid + "_") and f.lower().endswith(".dcm")]
+        if not matches:
             continue
+        dcm_fp = os.path.join(dicom_dir, matches[0])
 
         samples.append((dcm_fp, coords, label_name))
         print(f"[DEBUG] added ROI sample #{len(samples)} → PID={pid}, label={label_name}")
