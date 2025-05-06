@@ -45,18 +45,19 @@ from utils import save_output_figure
 #     elif not is_normalised:
 #         save_output_figure("CM")
 #     plt.show()
-def plot_confusion_matrix(
-    cm: np.ndarray,
-    fmt: str,
-    label_encoder,
-    is_normalised: bool
-) -> None:
+def plot_confusion_matrix(cm: np.ndarray,
+                          fmt: str,
+                          label_encoder,
+                          is_normalised: bool) -> None:
     """
-    Vẽ confusion matrix (có/hay không normalised).
+    Vẽ confusion matrix cm (K×K) với K = cm.shape[0].
+    Tự động chỉ lấy K nhãn đầu từ label_encoder.classes_.
     """
-    # 1) Chuẩn bị tiêu đề và vẽ heatmap
-    title = "Normalised Confusion Matrix" if is_normalised else "Confusion Matrix"
-    vmax = 1.0 if is_normalised else cm.max().sum()
+    n_classes = cm.shape[0]
+    class_names = list(label_encoder.classes_)[:n_classes]
+
+    title = "Normalized Confusion Matrix" if is_normalised else "Confusion Matrix"
+    vmax = 1.0 if is_normalised else None
 
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
     sns.heatmap(
@@ -70,17 +71,22 @@ def plot_confusion_matrix(
         cbar_kws={"shrink": 0.8}
     )
 
-    # 2) Gắn nhãn
     ax.set_title(title)
     ax.set_xlabel("Predicted classes")
     ax.set_ylabel("True classes")
-    ax.set_xticklabels(label_encoder.classes_, rotation=45, ha="right")
-    ax.set_yticklabels(label_encoder.classes_, rotation=0, ha="right")
 
-    # 3) Lưu hình (nếu cần) rồi show
+    ax.set_xticks(np.arange(n_classes) + 0.5)  # heatmap centers ticks on cell centers
+    ax.set_yticks(np.arange(n_classes) + 0.5)
+
+    ax.set_xticklabels(class_names, rotation=45, ha="right")
+    ax.set_yticklabels(class_names, rotation=0, ha="right")
+
+    # Lưu hình nếu bạn có hàm này
     fname = "CM-normalised.png" if is_normalised else "CM.png"
     save_output_figure(fname)
+
     plt.show()
+
 
 
 # def plot_comparison_chart(df: pd.DataFrame) -> None:
