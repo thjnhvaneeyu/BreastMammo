@@ -576,9 +576,9 @@ def import_inbreast_roi_dataset(
 
     ds = (ds
           .shuffle(len(samples))
-          .batch(config.batch_size)
-          .prefetch(tf.data.AUTOTUNE))
-
+        #   .batch(config.batch_size)
+        #   .prefetch(tf.data.AUTOTUNE))
+)
     print(f"[DEBUG] ROI dataset ready: N={len(samples)}, classes={classes}, class_weights={class_weights}")
     return ds, class_weights, num_classes
 # def dataset_stratified_split(split, data, labels):

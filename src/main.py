@@ -140,7 +140,7 @@ def main():
             )
             ds = ds.unbatch()
             # Shuffle + split
-            ds = ds.shuffle(buffer_size=1000)
+            ds = ds.shuffle(buffer_size=343)
             split = int(0.8 * 1000)
             ds_train = ds.take(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
             ds_val   = ds.skip(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
