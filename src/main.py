@@ -138,7 +138,7 @@ def main():
                      config.INBREAST_IMG_SIZE["WIDTH"]
                  ), csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv" 
             )
-            ds = ds.unbatch()
+            # ds = ds.unbatch()
             # Shuffle + split
             ds = ds.shuffle(buffer_size=343)
             split = int(0.8 * 1000)
