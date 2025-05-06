@@ -56,7 +56,7 @@ def plot_confusion_matrix(cm, fmt, label_encoder, is_normalised=False):
     class_names = list(label_encoder.classes_)[:n_classes]
 
     # Vẽ heatmap
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     plt.colorbar(im, ax=ax)
 
