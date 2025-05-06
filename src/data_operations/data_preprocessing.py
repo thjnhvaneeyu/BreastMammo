@@ -24,6 +24,16 @@ def make_class_weights(y):
     weights = compute_class_weight("balanced", classes=classes, y=y)
     return dict(zip(classes, weights))
 
+def make_class_weights_in(y) -> Dict[int, float]:
+    # đảm bảo y là 1-D numpy array
+    y_arr = np.asarray(y).ravel()
+    # các lớp duy nhất
+    classes = np.unique(y_arr)
+    # compute_class_weight chỉ chấp nhận y dạng 1-D array
+    weights = compute_class_weight("balanced", classes=classes, y=y_arr)
+    # trả về dict int→float
+    return {int(c): float(w) for c, w in zip(classes, weights)}
+
 def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     """
     Import the dataset by pre-processing the images and encoding the labels.
@@ -433,7 +443,7 @@ def import_inbreast_roi_dataset(
     labels_str = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels_str)
     labels_int = label_encoder.transform(labels_str)             # array shape=(N,)
-    class_weights = make_class_weights(labels_int)
+    class_weights = make_class_weights_in(labels_int)
     classes     = list(label_encoder.classes_)                   # ['Benign','Malignant']
     num_classes = len(classes)
 
