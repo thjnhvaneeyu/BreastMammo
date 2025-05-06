@@ -153,7 +153,7 @@ def main():
             X_test_list, y_test_list = [], []
             for img, lbl in ds_val.unbatch().as_numpy_iterator():
                 # chuyển Tensor → numpy
-                X_test_list.append(img.numpy())
+                X_test_list.append(img)
                 y_test_list.append(int(lbl))
             X_test = np.stack(X_test_list, axis=0)
             y_test = np.array(y_test_list)
