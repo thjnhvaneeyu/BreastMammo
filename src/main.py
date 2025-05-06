@@ -132,7 +132,7 @@ def main():
             #         config.INBREAST_IMG_SIZE["WIDTH"]
             #     )
             # )
-            ds, class_weights, num_classes = import_inbreast_roi_dataset(
+            ds, class_weights, num_classes, num_samples = import_inbreast_roi_dataset(
                 data_dir, le, target_size=(
                      config.INBREAST_IMG_SIZE["HEIGHT"],
                      config.INBREAST_IMG_SIZE["WIDTH"]
@@ -140,8 +140,8 @@ def main():
             )
             # ds = ds.unbatch()
             # Shuffle + split
-            ds = ds.shuffle(buffer_size=343)
-            split = int(0.8 * 1000)
+            ds = ds.shuffle(buffer_size=num_samples)
+            split = int(0.8 * num_samples)
             ds_train = ds.take(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
             ds_val   = ds.skip(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
 
