@@ -139,10 +139,13 @@ def main():
                  ), csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv" 
             )
             # Shuffle + split
-            ds = ds.shuffle(buffer_size=1000)
-            split = int(0.8 * 1000)
-            ds_train = ds.take(split).batch(config.batch_size)
-            ds_val   = ds.skip(split).batch(config.batch_size)
+            ds = ds.shuffle(buffer_size=342)
+            # split = int(0.8 * 1000)
+            # ds_train = ds.take(split).batch(config.batch_size)
+            # ds_val   = ds.skip(split).batch(config.batch_size)
+            train_size = int(0.8 * 343)
+            ds_train = ds.take(train_size)
+            ds_val   = ds.skip(train_size)
 
             # 1) Tính class_weights
             labels = [int(l) for _, l in ds_train.unbatch().as_numpy_iterator()]
