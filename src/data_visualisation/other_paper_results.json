@@ -56,7 +56,7 @@
     ]
   },
   "CMMD": {
-    "Binary": [
+    "binary": [
       {
         "paper": "Attention-Based Deep Learning System for Classification of Breast Lesions (CLAM)",
         "accuracy": "0.784"
@@ -78,7 +78,7 @@
     ]
   },
   "INbreast": {
-    "Binary": [
+    "binary": [
       {
         "paper": "Zebari D.A., Dheyaa A.B., Diyar Q.Z., Mazin A.M., Habibollah H., Nechirvan A.Z., Robertas D., Rytis M. Breast Cancer Detection Using Mammogram Images with Improved Multi-Fractal Dimension Approach and Feature Fusion. Appl. Sci. 2021, 11, 12122.",
         "accuracy": "0.99"
