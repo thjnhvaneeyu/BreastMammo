@@ -44,73 +44,90 @@ from utils import save_output_figure
 #         save_output_figure("CM-normalised")
 #     elif not is_normalised:
 #         save_output_figure("CM")
-#     # plt.show()
-def plot_confusion_matrix(cm, fmt, label_encoder, is_normalised=False):
+#     plt.show()
+def plot_confusion_matrix(
+    cm: np.ndarray,
+    fmt: str,
+    label_encoder,
+    is_normalised: bool
+) -> None:
     """
-    Vẽ confusion matrix cm (K×K) với K = cm.shape[0].
-    Tự động lấy ra K nhãn đầu từ label_encoder.classes_ để tránh lỗi set_ticklabels.
+    Vẽ confusion matrix (có/hay không normalised).
     """
-    # Số lớp hiện có
-    n_classes = cm.shape[0]
-    # Lấy K nhãn đầu từ label_encoder
-    class_names = list(label_encoder.classes_)[:n_classes]
+    # 1) Chuẩn bị tiêu đề và vẽ heatmap
+    title = "Normalised Confusion Matrix" if is_normalised else "Confusion Matrix"
+    vmax = 1.0 if is_normalised else cm.max().sum()
 
-    # Vẽ heatmap
-    fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
-    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.colorbar(im, ax=ax)
+    fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt=fmt,
+        cmap="Blues",
+        vmin=0,
+        vmax=vmax,
+        ax=ax,
+        cbar_kws={"shrink": 0.8}
+    )
 
-    # Thiết lập ticks và nhãn
-    ax.set_xticks(np.arange(n_classes))
-    ax.set_yticks(np.arange(n_classes))
-    ax.set_xticklabels(class_names, rotation=45, ha='right')
-    ax.set_yticklabels(class_names)
-
-    # Ghi giá trị vào từng ô
-    thresh = cm.max() / 2.0
-    for i in range(n_classes):
-        for j in range(n_classes):
-            ax.text(
-                j, i,
-                format(cm[i, j], fmt),
-                ha='center', va='center',
-                color='white' if cm[i, j] > thresh else 'black'
-            )
-
-    # Tiêu đề, nhãn trục
-    ax.set_ylabel('True label')
-    ax.set_xlabel('Predicted label')
-    title = 'Normalized confusion matrix' if is_normalised else 'Confusion matrix'
+    # 2) Gắn nhãn
     ax.set_title(title)
+    ax.set_xlabel("Predicted classes")
+    ax.set_ylabel("True classes")
+    ax.set_xticklabels(label_encoder.classes_, rotation=45, ha="right")
+    ax.set_yticklabels(label_encoder.classes_, rotation=0, ha="right")
 
-    plt.tight_layout()
-    # Lưu hoặc hiển thị tuỳ bạn
+    # 3) Lưu hình (nếu cần) rồi show
+    fname = "CM-normalised.png" if is_normalised else "CM.png"
+    save_output_figure(fname)
     plt.show()
 
+
+# def plot_comparison_chart(df: pd.DataFrame) -> None:
+#     """
+#     Plot comparison bar chart.
+#     Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
+#     :param df: Compare data from json file.
+#     :return: None.
+#     """
+#     title = "Accuracy Comparison"
+
+#     # Plot.
+#     fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
+#     sns.barplot(x='paper', y='accuracy', data=df)
+
+#     # Add number at the top of the bar.
+#     for p in ax.patches:
+#         height = p.get_height()
+#         ax.text(p.get_x() + p.get_width() / 2., height + 0.01, height, ha='center')
+
+#     # Set title.
+#     plt.title(title)
+#     plt.setp(ax.xaxis.get_majorticklabels(), rotation=60, ha='right', rotation_mode='anchor')
+#     # plt.tight_layout()
+#     plt.show()
+#     save_output_figure(title)
+#     # plt.show()
 def plot_comparison_chart(df: pd.DataFrame) -> None:
     """
-    Plot comparison bar chart.
-    Originally written as a group for the common pipeline. Later amended by Adam Jaamour.
-    :param df: Compare data from json file.
-    :return: None.
+    Vẽ bar chart so sánh accuracy.
     """
-    title = "Accuracy Comparison"
+    fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
+    sns.barplot(x="paper", y="accuracy", data=df, ax=ax)
 
-    # Plot.
-    fig, ax = plt.subplots(figsize=(6, 5))
-    sns.barplot(x='paper', y='accuracy', data=df)
-
-    # Add number at the top of the bar.
+    # Ghi số lên đầu mỗi bar
     for p in ax.patches:
-        height = p.get_height()
-        ax.text(p.get_x() + p.get_width() / 2., height + 0.01, height, ha='center')
+        ax.text(
+            p.get_x() + p.get_width() / 2,
+            p.get_height() + 0.005,
+            f"{p.get_height():.2f}",
+            ha="center"
+        )
 
-    # Set title.
-    plt.title(title)
-    plt.setp(ax.xaxis.get_majorticklabels(), rotation=60, ha='right', rotation_mode='anchor')
-    plt.tight_layout()
-    save_output_figure(title)
-    # plt.show()
+    ax.set_title("Accuracy Comparison")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
+    save_output_figure("Accuracy Comparison.png")
+    plt.show()
 
 
 # def plot_training_results(hist_input, plot_name: str, is_frozen_layers) -> None:
