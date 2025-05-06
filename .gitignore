@@ -10,7 +10,7 @@ saved_models
 setup.sh
 src/main.py
 src/mainmain.py
-
+src/data_visualisation/i.json
 # ______________________________________________________________________________________________________________________
 
 # Byte-compiled / optimized / DLL files

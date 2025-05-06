@@ -24,6 +24,19 @@ def make_class_weights(y):
     weights = compute_class_weight("balanced", classes=classes, y=y)
     return dict(zip(classes, weights))
 
+# def make_class_weights_from_labels(y: np.ndarray) -> dict:
+#     """
+#     Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
+#     trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
+#     """
+#     classes = np.unique(y)
+#     weights = compute_class_weight(
+#         class_weight="balanced",
+#         classes=classes,
+#         y=y
+#     )
+#     return {int(c): w for c, w in zip(classes, weights)}
+
 def make_class_weights_in(y) -> Dict[int, float]:
     # đảm bảo y là 1-D numpy array
     y_arr = np.asarray(y).ravel()
@@ -359,18 +372,6 @@ def load_roi_and_label(
 
 #     return ds
 
-# def make_class_weights_from_labels(y: np.ndarray) -> dict:
-#     """
-#     Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
-#     trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
-#     """
-#     classes = np.unique(y)
-#     weights = compute_class_weight(
-#         class_weight="balanced",
-#         classes=classes,
-#         y=y
-#     )
-#     return {int(c): w for c, w in zip(classes, weights)}
 
 def import_inbreast_roi_dataset(
     data_dir: str,
