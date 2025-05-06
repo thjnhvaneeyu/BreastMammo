@@ -9,6 +9,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.data.experimental import cardinality
 
 import config
 from cnn_models.basic_cnn     import create_basic_cnn_model
@@ -89,30 +90,60 @@ class CnnModel:
         """
         if self.model_name != "CNN":
             # Phase 1: freeze base
+            # if config.max_epoch_frozen > 0:
+            #     for layer in self._model.layers:
+            #         layer.trainable = False
+            #     self.compile_model(config.learning_rate)
+            #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+            #               epochs=config.max_epoch_frozen, frozen=True)
+            #     plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
             if config.max_epoch_frozen > 0:
                 for layer in self._model.layers:
-                    layer.trainable = False
-                self.compile_model(config.learning_rate)
-                self._fit(X_train, X_val, y_train, y_val, class_weights,
-                          epochs=config.max_epoch_frozen, frozen=True)
-                plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+                    # nếu là Dense (head) thì trainable, ngược lại freeze
+                    if isinstance(layer, tf.keras.layers.Dense):
+                        layer.trainable = True
+                    else:
+                        layer.trainable = False
 
+                self.compile_model(config.learning_rate)
+                self._fit(X_train, X_val, y_train, y_val,
+                          class_weights,
+                          epochs=config.max_epoch_frozen,
+                          frozen=True)
+                
             # Phase 2: unfreeze all
+        #     if config.max_epoch_unfrozen > 0:
+        #         for layer in self._model.layers:
+        #             layer.trainable = True
+        #         self.compile_model(1e-5)
+        #         self._fit(X_train, X_val, y_train, y_val, class_weights,
+        #                   epochs=config.max_epoch_unfrozen, frozen=False)
+        #         plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+
+        # else:
+        #     # Custom CNN from scratch
+        #     self.compile_model(config.learning_rate)
+        #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+        #               epochs=config.max_epoch_unfrozen, frozen=False)
+        #     plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
             if config.max_epoch_unfrozen > 0:
                 for layer in self._model.layers:
                     layer.trainable = True
+
+                # learning rate thấp để fine-tune
                 self.compile_model(1e-5)
-                self._fit(X_train, X_val, y_train, y_val, class_weights,
-                          epochs=config.max_epoch_unfrozen, frozen=False)
-                plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+                self._fit(X_train, X_val, y_train, y_val,
+                          class_weights,
+                          epochs=config.max_epoch_unfrozen,
+                          frozen=False)
 
         else:
-            # Custom CNN from scratch
+            # custom CNN from scratch
             self.compile_model(config.learning_rate)
-            self._fit(X_train, X_val, y_train, y_val, class_weights,
-                      epochs=config.max_epoch_unfrozen, frozen=False)
-            plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
-
+            self._fit(X_train, X_val, y_train, y_val,
+                      class_weights,
+                      epochs=config.max_epoch_unfrozen,
+                      frozen=False)
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
         # patience = max(1, epochs // 10)
         # callbacks = [
@@ -136,13 +167,29 @@ class CnnModel:
         )
         callbacks = [es, rlrp]
         if isinstance(X_train, tf.data.Dataset):
+            # tính số batch mỗi epoch
+            train_steps = int(cardinality(X_train).numpy())
+            val_steps   = int(cardinality(X_val).numpy())
+
+            # .repeat() để không hết data giữa chừng
+            ds_train = X_train.repeat()
+            ds_val   = X_val.repeat()
             self.history = self._model.fit(
-                X_train,
-                validation_data=X_val,
-                class_weight=class_weights,
+                ds_train,
                 epochs=epochs,
+                steps_per_epoch=train_steps,
+                validation_data=ds_val,
+                validation_steps=val_steps,
+                class_weight=class_weights,
                 callbacks=callbacks
             )
+            # self.history = self._model.fit(
+            #     X_train,
+            #     validation_data=X_val,
+            #     class_weight=class_weights,
+            #     epochs=epochs,
+            #     callbacks=callbacks
+            # )
         else:
             self.history = self._model.fit(
                 x=X_train, y=y_train,

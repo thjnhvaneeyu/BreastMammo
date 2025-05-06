@@ -426,8 +426,6 @@ def import_inbreast_roi_dataset(
         dcm_fp = os.path.join(dicom_dir, matches[0])
 
         samples.append((dcm_fp, coords, label_name))
-        print(f"[DEBUG] added ROI sample #{len(samples)} → PID={pid}, label={label_name}")
-
     if not samples:
         raise ValueError(f"No ROI samples found in {roi_dir} (sau khi lọc coords & labels)")
 
