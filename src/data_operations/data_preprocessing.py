@@ -581,7 +581,7 @@ def import_inbreast_roi_dataset(
 )
     num_samples = len(samples)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
-    return ds, class_weights, num_classes
+    return ds, class_weights, num_classes, num_samples
 # def dataset_stratified_split(split, data, labels):
 #     return train_test_split(data, labels,
 #                             test_size=split,
