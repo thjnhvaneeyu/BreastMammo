@@ -19,6 +19,11 @@ from pydicom.errors import InvalidDicomError
 from sklearn.utils.class_weight import compute_class_weight
 from typing import List, Tuple, Optional, Dict
 
+def make_class_weights(y):
+    classes = np.unique(y)
+    weights = compute_class_weight("balanced", classes=classes, y=y)
+    return dict(zip(classes, weights))
+
 def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     """
     Import the dataset by pre-processing the images and encoding the labels.
@@ -344,18 +349,18 @@ def load_roi_and_label(
 
 #     return ds
 
-def make_class_weights_from_labels(y: np.ndarray) -> dict:
-    """
-    Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
-    trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
-    """
-    classes = np.unique(y)
-    weights = compute_class_weight(
-        class_weight="balanced",
-        classes=classes,
-        y=y
-    )
-    return {int(c): w for c, w in zip(classes, weights)}
+# def make_class_weights_from_labels(y: np.ndarray) -> dict:
+#     """
+#     Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
+#     trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
+#     """
+#     classes = np.unique(y)
+#     weights = compute_class_weight(
+#         class_weight="balanced",
+#         classes=classes,
+#         y=y
+#     )
+#     return {int(c): w for c, w in zip(classes, weights)}
 
 def import_inbreast_roi_dataset(
     data_dir: str,
@@ -428,7 +433,7 @@ def import_inbreast_roi_dataset(
     labels_str = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels_str)
     labels_int = label_encoder.transform(labels_str)             # array shape=(N,)
-    class_weights = make_class_weights_from_labels(labels_int)
+    class_weights = make_class_weights(labels_int)
     classes     = list(label_encoder.classes_)                   # ['Benign','Malignant']
     num_classes = len(classes)
 

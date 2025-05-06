@@ -22,6 +22,7 @@ from data_operations.data_preprocessing import (
 from cnn_models.cnn_model import CnnModel
 import argparse
 from data_operations.data_preprocessing import dataset_stratified_split
+from data_operations.data_preprocessing import make_class_weights
 
 # Project imports
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -29,11 +30,6 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJECT_ROOT)
 DATA_ROOT_BREAST = '/kaggle/input/breastdata'
 DATA_ROOT_CMMD = '/kaggle/input/cmmddata/CMMD'
-
-def make_class_weights(y):
-    classes = np.unique(y)
-    weights = compute_class_weight("balanced", classes=classes, y=y)
-    return dict(zip(classes, weights))
 
 def main():
     # 1) CLI args
@@ -150,7 +146,7 @@ def main():
 
             # 1) Tính class_weights
             labels = [int(l) for _, l in ds_train.unbatch().as_numpy_iterator()]
-            class_weights = make_class_weights(np.array(labels))
+            # class_weights = make_class_weights(np.array(labels))
 
             # 2) Trích xuất X_test, y_test từ ds_val để dùng cho evaluate
             X_test_list, y_test_list = [], []
