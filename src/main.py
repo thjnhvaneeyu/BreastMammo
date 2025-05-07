@@ -205,7 +205,13 @@ def main():
     # 5) TRAIN mode
     if ds_train is not None:
         # INbreast ROI
-        cnn.train_model(ds_train, ds_val, None, None, class_weights)
+        # cnn.train_model(ds_train, ds_val, None, None, class_weights)
+# main.py, ROI‐mode branch:
+        cnn.train_model(
+            ds_train,
+            ds_val,
+            class_weights=class_weights
+        )
     else:
         # numpy arrays
         cnn.train_model(X_train, X_test, y_train, y_test, class_weights)
