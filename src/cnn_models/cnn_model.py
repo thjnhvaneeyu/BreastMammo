@@ -166,14 +166,48 @@ class CnnModel:
             verbose=1
         )
         callbacks = [es, rlrp]
-        if isinstance(X_train, tf.data.Dataset):
-            # tính số batch mỗi epoch
-            train_steps = int(cardinality(X_train).numpy())
-            val_steps   = int(cardinality(X_val).numpy())
+        # if isinstance(X_train, tf.data.Dataset):
+        #     # tính số batch mỗi epoch
+        #     train_steps = int(cardinality(X_train).numpy())
+        #     val_steps   = int(cardinality(X_val).numpy())
 
-            # .repeat() để không hết data giữa chừng
+        #     # .repeat() để không hết data giữa chừng
+        #     ds_train = X_train.repeat()
+        #     ds_val   = X_val.repeat()
+        #     self.history = self._model.fit(
+        #         ds_train,
+        #         epochs=epochs,
+        #         steps_per_epoch=train_steps,
+        #         validation_data=ds_val,
+        #         validation_steps=val_steps,
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
+        #     # self.history = self._model.fit(
+        #     #     X_train,
+        #     #     validation_data=X_val,
+        #     #     class_weight=class_weights,
+        #     #     epochs=epochs,
+        #     #     callbacks=callbacks
+        #     # )
+        # else:
+        #     self.history = self._model.fit(
+        #         x=X_train, y=y_train,
+        #         validation_data=(X_val, y_val),
+        #         batch_size=config.batch_size,
+        #         epochs=epochs,
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
+        if isinstance(X_train, tf.data.Dataset):
+            # Tính steps mỗi epoch dựa trên số batch có sẵn
+            train_steps = tf.data.experimental.cardinality(X_train).numpy()
+            val_steps   = tf.data.experimental.cardinality(X_val).numpy()
+
+            # .repeat() để dataset không bao giờ hết giữa chừng
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
+
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -183,23 +217,18 @@ class CnnModel:
                 class_weight=class_weights,
                 callbacks=callbacks
             )
-            # self.history = self._model.fit(
-            #     X_train,
-            #     validation_data=X_val,
-            #     class_weight=class_weights,
-            #     epochs=epochs,
-            #     callbacks=callbacks
-            # )
+
+        # --- 3) Nếu là numpy arrays (full-image mode) ---
         else:
             self.history = self._model.fit(
-                x=X_train, y=y_train,
-                validation_data=(X_val, y_val),
+                x=X_train,
+                y=y_train,
                 batch_size=config.batch_size,
                 epochs=epochs,
+                validation_data=(X_val, y_val),
                 class_weight=class_weights,
                 callbacks=callbacks
             )
-
     # ... (rest of evaluate_model, save_model, etc. unchanged) ...
 
     # def evaluate_model(self,
