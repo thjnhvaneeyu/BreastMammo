@@ -407,7 +407,7 @@ def import_inbreast_roi_dataset(
         roi_path = os.path.join(roi_dir, roi_fn)
 
         coords, label_name = load_roi_and_label(roi_path, birad_map)
-        print("   → ROI", roi_fn, "gives", len(coords or []), "points and label=", label_name)
+        # print("   → ROI", roi_fn, "gives", len(coords or []), "points and label=", label_name)
         if coords is None:
             continue
 
