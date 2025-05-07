@@ -207,6 +207,7 @@ def main():
         # INbreast ROI
         # cnn.train_model(ds_train, ds_val, None, None, class_weights)
 # main.py, ROI‐mode branch:
+        cnn.compile_model(config.learning_rate)
         cnn.train_model(
             ds_train,
             ds_val,
