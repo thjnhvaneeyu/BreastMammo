@@ -183,6 +183,22 @@ class CnnModel:
         #         class_weight=class_weights,
         #         callbacks=callbacks
         #     )
+            # self.history = self._model.fit(
+            #     X_train,
+            #     validation_data=X_val,
+            #     class_weight=class_weights,
+            #     epochs=epochs,
+            #     callbacks=callbacks
+            # )
+        # else:
+        #     self.history = self._model.fit(
+        #         x=X_train, y=y_train,
+        #         validation_data=(X_val, y_val),
+        #         batch_size=config.batch_size,
+        #         epochs=epochs,
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
         if isinstance(X_train, tf.data.Dataset):
             # X_train, X_val đã được batch() & prefetch() ở pipeline
             self.history = self._model.fit(
@@ -198,22 +214,6 @@ class CnnModel:
                 batch_size=config.batch_size,
                 epochs=epochs,
                 validation_data=(X_val, y_val),
-                class_weight=class_weights,
-                callbacks=callbacks
-            )
-            # self.history = self._model.fit(
-            #     X_train,
-            #     validation_data=X_val,
-            #     class_weight=class_weights,
-            #     epochs=epochs,
-            #     callbacks=callbacks
-            # )
-        else:
-            self.history = self._model.fit(
-                x=X_train, y=y_train,
-                validation_data=(X_val, y_val),
-                batch_size=config.batch_size,
-                epochs=epochs,
                 class_weight=class_weights,
                 callbacks=callbacks
             )
