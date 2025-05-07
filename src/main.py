@@ -210,6 +210,8 @@ def main():
         cnn.train_model(
             ds_train,
             ds_val,
+            y_train=None,
+            y_val=None,
             class_weights=class_weights
         )
     else:
