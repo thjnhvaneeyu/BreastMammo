@@ -884,92 +884,92 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray):
 # import random
 # import config
 
-# def generate_image_transforms(images: np.ndarray,
-#                               labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-#     """
-#     - images: np.ndarray, shape (N, H, W, C) or (N, H, W)
-#     - labels: np.ndarray, shape (N,) for binary or (N, num_classes) for one-hot
-#     Returns augmented images & labels với logic mix ngẫu nhiên 1–N phép.
-#     """
-#     available_transforms = {
-#         'rotate': random_rotation,
-#         'noise': random_noise,
-#         'horizontal_flip': horizontal_flip,
-#         'shear': random_shearing
-#     }
-#     # 1. Khởi tạo lists
-#     imgs = list(images)
-#     labs = list(labels)
+def generate_image_transforms(images: np.ndarray,
+                              labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    - images: np.ndarray, shape (N, H, W, C) or (N, H, W)
+    - labels: np.ndarray, shape (N,) for binary or (N, num_classes) for one-hot
+    Returns augmented images & labels với logic mix ngẫu nhiên 1–N phép.
+    """
+    available_transforms = {
+        'rotate': random_rotation,
+        'noise': random_noise,
+        'horizontal_flip': horizontal_flip,
+        'shear': random_shearing
+    }
+    # 1. Khởi tạo lists
+    imgs = list(images)
+    labs = list(labels)
 
-#     # 2. Oversampling multiplier
-#     multiplier = 3 if config.dataset in ["mini-MIAS-binary", "CMMD-binary"] else 1
+    # 2. Oversampling multiplier
+    multiplier = 3 if config.dataset in ["mini-MIAS-binary", "CMMD-binary"] else 1
 
-#     # 3. Tính to_add cho mỗi lớp
-#     class_counts = get_class_balances(labels)  # e.g. [n0, n1, ...]
-#     max_count = max(class_counts) * multiplier
-#     to_add = [int(max_count - cnt) for cnt in class_counts]
+    # 3. Tính to_add cho mỗi lớp
+    class_counts = get_class_balances(labels)  # e.g. [n0, n1, ...]
+    max_count = max(class_counts) * multiplier
+    to_add = [int(max_count - cnt) for cnt in class_counts]
 
-#     # 4. Với từng lớp i, tạo thêm đúng to_add[i] ảnh
-#     for i, add_count in enumerate(to_add):
-#         if add_count <= 0:
-#             continue
+    # 4. Với từng lớp i, tạo thêm đúng to_add[i] ảnh
+    for i, add_count in enumerate(to_add):
+        if add_count <= 0:
+            continue
 
-#         # 4.1 Lấy indices của lớp i
-#         if label_is_binary(labels):
-#             indices = [j for j, v in enumerate(labels) if v == i]
-#             base_label = i
-#         else:
-#             vec = np.zeros(len(class_counts), dtype=labels.dtype)
-#             vec[i] = 1
-#             indices = [j for j, v in enumerate(labels) if np.array_equal(v, vec)]
-#             base_label = vec
+        # 4.1 Lấy indices của lớp i
+        if label_is_binary(labels):
+            indices = [j for j, v in enumerate(labels) if v == i]
+            base_label = i
+        else:
+            vec = np.zeros(len(class_counts), dtype=labels.dtype)
+            vec[i] = 1
+            indices = [j for j, v in enumerate(labels) if np.array_equal(v, vec)]
+            base_label = vec
 
-#         if not indices:
-#             continue
+        if not indices:
+            continue
 
-#         # 4.2 Sinh từng ảnh mới bằng mix ngẫu nhiên 1–len(available_transforms) phép
-#         for k in range(add_count):
-#             orig = images[indices[k % len(indices)]]
-#             ops = random.randint(1, len(available_transforms))
-#             aug = orig.copy()
-#             for _ in range(ops):
-#                 func = random.choice(list(available_transforms.values()))
-#                 aug = func(aug)
+        # 4.2 Sinh từng ảnh mới bằng mix ngẫu nhiên 1–len(available_transforms) phép
+        for k in range(add_count):
+            orig = images[indices[k % len(indices)]]
+            ops = random.randint(1, len(available_transforms))
+            aug = orig.copy()
+            for _ in range(ops):
+                func = random.choice(list(available_transforms.values()))
+                aug = func(aug)
 
-#             # 4.3 Nếu cần reshape theo model/ROI
-#             if getattr(config, "is_roi", False) or config.model == "CNN":
-#                 aug = aug.reshape(1,
-#                                   config.ROI_IMG_SIZE['HEIGHT'],
-#                                   config.ROI_IMG_SIZE['WIDTH'],
-#                                   1)
-#             elif config.model in ("VGG", "Inception"):
-#                 aug = aug.reshape(1,
-#                                   config.MINI_MIAS_IMG_SIZE['HEIGHT'],
-#                                   config.MINI_MIAS_IMG_SIZE['WIDTH'],
-#                                   1)
-#             elif config.model == "VGG-common":
-#                 aug = aug.reshape(1,
-#                                   config.VGG_IMG_SIZE['HEIGHT'],
-#                                   config.VGG_IMG_SIZE['WIDTH'],
-#                                   1)
-#             elif config.model == "ResNet":
-#                 aug = aug.reshape(1,
-#                                   config.RESNET_IMG_SIZE['HEIGHT'],
-#                                   config.RESNET_IMG_SIZE['WIDTH'],
-#                                   1)
-#             elif config.model == "MobileNet":
-#                 aug = aug.reshape(1,
-#                                   config.MOBILE_NET_IMG_SIZE['HEIGHT'],
-#                                   config.MOBILE_NET_IMG_SIZE['WIDTH'],
-#                                   1)
-#             elif config.model in ("DenseNet", "Inception"):
-#                 aug = aug.reshape(1,
-#                                   config.INCEPTION_IMG_SIZE['HEIGHT'],
-#                                   config.INCEPTION_IMG_SIZE['WIDTH'],
-#                                   1)
+            # 4.3 Nếu cần reshape theo model/ROI
+            if getattr(config, "is_roi", False) or config.model == "CNN":
+                aug = aug.reshape(1,
+                                  config.ROI_IMG_SIZE['HEIGHT'],
+                                  config.ROI_IMG_SIZE['WIDTH'],
+                                  1)
+            elif config.model in ("VGG", "Inception"):
+                aug = aug.reshape(1,
+                                  config.MINI_MIAS_IMG_SIZE['HEIGHT'],
+                                  config.MINI_MIAS_IMG_SIZE['WIDTH'],
+                                  1)
+            elif config.model == "VGG-common":
+                aug = aug.reshape(1,
+                                  config.VGG_IMG_SIZE['HEIGHT'],
+                                  config.VGG_IMG_SIZE['WIDTH'],
+                                  1)
+            elif config.model == "ResNet":
+                aug = aug.reshape(1,
+                                  config.RESNET_IMG_SIZE['HEIGHT'],
+                                  config.RESNET_IMG_SIZE['WIDTH'],
+                                  1)
+            elif config.model == "MobileNet":
+                aug = aug.reshape(1,
+                                  config.MOBILE_NET_IMG_SIZE['HEIGHT'],
+                                  config.MOBILE_NET_IMG_SIZE['WIDTH'],
+                                  1)
+            elif config.model in ("DenseNet", "Inception"):
+                aug = aug.reshape(1,
+                                  config.INCEPTION_IMG_SIZE['HEIGHT'],
+                                  config.INCEPTION_IMG_SIZE['WIDTH'],
+                                  1)
 
-#             imgs.append(aug)
-#             labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
+            imgs.append(aug)
+            labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
 
-#     # 5. Trả về mảng
-#     return np.vstack(imgs), np.array(labs)
+    # 5. Trả về mảng
+    return np.vstack(imgs), np.array(labs)
