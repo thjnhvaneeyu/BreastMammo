@@ -10,6 +10,7 @@ from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.data.experimental import cardinality
+from tensorflow.keras.mixed_precision import LossScaleOptimizer
 
 import config
 from cnn_models.basic_cnn     import create_basic_cnn_model
@@ -66,9 +67,17 @@ class CnnModel:
         #         metrics=[CategoricalAccuracy()]
         #     )
         # Khởi tạo optimizer và alias để callback tìm attribute 'lr'
-        opt = Adam(learning_rate=learning_rate)
-        # Thiết lập alias cho legacy callbacks
-        setattr(opt, 'lr', opt.learning_rate)
+        # opt = Adam(learning_rate=learning_rate)
+        # # Thiết lập alias cho legacy callbacks
+        # setattr(opt, 'lr', opt.learning_rate)
+    # 1. Tạo Adam gốc
+        base_opt = Adam(learning_rate=learning_rate)
+        # 2. Wrap để mixed precision (nếu policy = 'mixed_float16')
+        opt = LossScaleOptimizer(base_opt)
+
+        # 3. Thiết lập alias 'lr' lên LossScaleOptimizer → trỏ về base_opt.learning_rate
+        setattr(opt, 'lr', base_opt.learning_rate)
+
 
         if self.num_classes == 2:
             self._model.compile(
