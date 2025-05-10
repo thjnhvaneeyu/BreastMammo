@@ -145,6 +145,7 @@ class CnnModel:
                       epochs=config.max_epoch_unfrozen,
                       frozen=False)
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
+        self._model.optimizer.lr = self._model.optimizer.learning_rate
         # patience = max(1, epochs // 10)
         # callbacks = [
         #     EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),

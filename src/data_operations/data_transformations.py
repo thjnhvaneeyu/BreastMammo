@@ -936,37 +936,37 @@ def generate_image_transforms(images: np.ndarray,
                 func = random.choice(list(available_transforms.values()))
                 aug = func(aug)
 
-            # 4.3 Nếu cần reshape theo model/ROI
-            if getattr(config, "is_roi", False) or config.model == "CNN":
-                aug = aug.reshape(1,
-                                  config.ROI_IMG_SIZE['HEIGHT'],
-                                  config.ROI_IMG_SIZE['WIDTH'],
-                                  1)
-            elif config.model in ("VGG", "Inception"):
-                aug = aug.reshape(1,
-                                  config.MINI_MIAS_IMG_SIZE['HEIGHT'],
-                                  config.MINI_MIAS_IMG_SIZE['WIDTH'],
-                                  1)
-            elif config.model == "VGG-common":
-                aug = aug.reshape(1,
-                                  config.VGG_IMG_SIZE['HEIGHT'],
-                                  config.VGG_IMG_SIZE['WIDTH'],
-                                  1)
-            elif config.model == "ResNet":
-                aug = aug.reshape(1,
-                                  config.RESNET_IMG_SIZE['HEIGHT'],
-                                  config.RESNET_IMG_SIZE['WIDTH'],
-                                  1)
-            elif config.model == "MobileNet":
-                aug = aug.reshape(1,
-                                  config.MOBILE_NET_IMG_SIZE['HEIGHT'],
-                                  config.MOBILE_NET_IMG_SIZE['WIDTH'],
-                                  1)
-            elif config.model in ("DenseNet", "Inception"):
-                aug = aug.reshape(1,
-                                  config.INCEPTION_IMG_SIZE['HEIGHT'],
-                                  config.INCEPTION_IMG_SIZE['WIDTH'],
-                                  1)
+            # # 4.3 Nếu cần reshape theo model/ROI
+            # if getattr(config, "is_roi", False) or config.model == "CNN":
+            #     aug = aug.reshape(1,
+            #                       config.ROI_IMG_SIZE['HEIGHT'],
+            #                       config.ROI_IMG_SIZE['WIDTH'],
+            #                       1)
+            # elif config.model in ("VGG", "Inception"):
+            #     aug = aug.reshape(1,
+            #                       config.MINI_MIAS_IMG_SIZE['HEIGHT'],
+            #                       config.MINI_MIAS_IMG_SIZE['WIDTH'],
+            #                       1)
+            # elif config.model == "VGG-common":
+            #     aug = aug.reshape(1,
+            #                       config.VGG_IMG_SIZE['HEIGHT'],
+            #                       config.VGG_IMG_SIZE['WIDTH'],
+            #                       1)
+            # elif config.model == "ResNet":
+            #     aug = aug.reshape(1,
+            #                       config.RESNET_IMG_SIZE['HEIGHT'],
+            #                       config.RESNET_IMG_SIZE['WIDTH'],
+            #                       1)
+            # elif config.model == "MobileNet":
+            #     aug = aug.reshape(1,
+            #                       config.MOBILE_NET_IMG_SIZE['HEIGHT'],
+            #                       config.MOBILE_NET_IMG_SIZE['WIDTH'],
+            #                       1)
+            # elif config.model in ("DenseNet", "Inception"):
+            #     aug = aug.reshape(1,
+            #                       config.INCEPTION_IMG_SIZE['HEIGHT'],
+            #                       config.INCEPTION_IMG_SIZE['WIDTH'],
+            #                       1)
 
             imgs.append(aug)
             labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
