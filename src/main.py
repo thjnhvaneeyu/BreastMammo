@@ -23,6 +23,11 @@ from cnn_models.cnn_model import CnnModel
 import argparse
 from data_operations.data_preprocessing import dataset_stratified_split
 from data_operations.data_preprocessing import make_class_weights
+from tensorflow.keras import mixed_precision
+
+# === Bật mixed-precision toàn cục ===
+policy = mixed_precision.Policy("mixed_float16")
+mixed_precision.set_global_policy(policy)
 
 # Project imports
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
