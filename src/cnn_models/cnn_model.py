@@ -384,15 +384,30 @@ class CnnModel:
                 print("[WARN] other_paper_results.json not found – skipping comparison chart.")
 
 
+    # def save_model(self) -> None:
+    #     os.makedirs("../saved_models", exist_ok=True)
+    #     self._model.save(
+    #         f"../saved_models/"
+    #         f"dataset-{config.dataset}_type-{config.mammogram_type}_"
+    #         f"model-{config.model}_lr-{config.learning_rate}_"
+    #         f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
+    #         f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
+    #     )
     def save_model(self) -> None:
         os.makedirs("../saved_models", exist_ok=True)
-        self._model.save(
+        # 1. Tạo biến path
+        path = (
             f"../saved_models/"
             f"dataset-{config.dataset}_type-{config.mammogram_type}_"
             f"model-{config.model}_lr-{config.learning_rate}_"
             f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
             f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
         )
+        # 2. Xóa file cũ (nếu có) để tránh lỗi HDF5
+        if os.path.exists(path):
+            os.remove(path)
+        # 3. Save model duy nhất với overwrite=True (nếu TF hỗ trợ)
+        self._model.save(path, overwrite=True)
 
     @property
     def model(self):
