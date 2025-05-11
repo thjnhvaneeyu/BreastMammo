@@ -12,7 +12,7 @@ from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 # from tensorflow.data.experimental import cardinality
 from tensorflow.keras.mixed_precision import LossScaleOptimizer
 from tensorflow.data import experimental as tfdata_exp
-from tensorflow.data.experimental import assert_cardinality
+from tensorflow.data.experimental import assert_cardinality, cardinality
 
 import config
 from cnn_models.basic_cnn     import create_basic_cnn_model
@@ -314,8 +314,8 @@ class CnnModel:
         if isinstance(X_train, tf.data.Dataset):
             # train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
             # val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
-            train_steps = X_train.apply(assert_cardinality(X_train).numpy())
-            val_steps   = X_val.apply(assert_cardinality(X_val).numpy())
+            train_steps = X_train.apply(cardinality(X_train).numpy())
+            val_steps   = X_val.apply(cardinality(X_val).numpy())
             if train_steps < 0 or val_steps < 0:
                 raise ValueError("Cannot infer dataset size…")
 
