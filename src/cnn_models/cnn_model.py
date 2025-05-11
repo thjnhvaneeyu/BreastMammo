@@ -362,6 +362,9 @@ class CnnModel:
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
         if isinstance(X_train, tf.data.Dataset):
+            # 0) Unbatch trước để đảm bảo X_train hoàn toàn "phẳng"
+            X_train = X_train.unbatch()
+            X_val   = X_val.unbatch()
             # 1) Lấy số sample THỰC (trước khi repeat/batch)
             num_train = int(cardinality(X_train).numpy())
             num_val   = int(cardinality(X_val).numpy())
