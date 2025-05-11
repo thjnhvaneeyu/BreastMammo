@@ -574,6 +574,8 @@ def import_inbreast_roi_dataset(
                     num_parallel_calls=tf.data.AUTOTUNE)
     num_samples = len(samples)
     ds = ds.apply(assert_cardinality(num_samples))
+    ds = ds.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+            num_parallel_calls=tf.data.AUTOTUNE)
     ds = (ds
           .shuffle(len(samples))
           .batch(config.batch_size)

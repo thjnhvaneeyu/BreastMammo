@@ -276,8 +276,8 @@ class CnnModel:
 
         # Otherwise, NumPy arrays / Sequence branch
         # **Cast labels to int32 so both branches produce the same dtype**
-        y_train = y_train.astype('int32')
-        y_val   = y_val.astype('int32')
+        y_train = y_train.astype('int64')
+        y_val   = y_val.astype('int64')
 
         self.history = self._model.fit(
             x=X_train,
