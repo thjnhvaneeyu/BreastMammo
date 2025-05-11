@@ -574,8 +574,8 @@ def import_inbreast_roi_dataset(
 
     ds = (ds
           .shuffle(len(samples))
-        #   .batch(config.batch_size)
-        #   .prefetch(tf.data.AUTOTUNE))
+          .batch(config.batch_size)
+          .prefetch(tf.data.AUTOTUNE)
 )
     num_samples = len(samples)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
