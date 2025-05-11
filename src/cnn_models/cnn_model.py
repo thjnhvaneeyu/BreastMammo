@@ -312,9 +312,9 @@ class CnnModel:
         # --- Dataset branch ---
         if isinstance(X_train, tf.data.Dataset):
             # 1) Ensure labels from the dataset are int64
-            X_train = X_train.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+            X_train = X_train.map(lambda x, y: (x, tf.cast(y, tf.float32)),
                                 num_parallel_calls=tf.data.AUTOTUNE)
-            X_val   = X_val.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+            X_val   = X_val.map(lambda x, y: (x, tf.cast(y, tf.float32)),
                                 num_parallel_calls=tf.data.AUTOTUNE)
 
             # 2) Compute number of batches per epoch
@@ -343,8 +343,8 @@ class CnnModel:
 
         # --- NumPy branch ---
         # Cast labels to int64 so both branches produce the same dtype
-        y_train = y_train.astype('int64')
-        y_val   = y_val.astype('int64')
+        y_train = y_train.astype('float32')
+        y_val   = y_val.astype('float32')
 
         self.history = self._model.fit(
             x=X_train,

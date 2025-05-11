@@ -566,7 +566,7 @@ def import_inbreast_roi_dataset(
     H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
                          config.INBREAST_IMG_SIZE["WIDTH"])
     sig = (tf.TensorSpec((H,W,1), tf.float32),
-           tf.TensorSpec((), tf.int64))
+           tf.TensorSpec((), tf.int32))
     ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
     if num_classes>2:
@@ -574,7 +574,7 @@ def import_inbreast_roi_dataset(
                     num_parallel_calls=tf.data.AUTOTUNE)
     num_samples = len(samples)
     ds = ds.apply(assert_cardinality(num_samples))
-    ds = ds.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+    ds = ds.map(lambda x, y: (x, tf.cast(y, tf.float32)),
             num_parallel_calls=tf.data.AUTOTUNE)
     ds = (ds
           .shuffle(len(samples))
