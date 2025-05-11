@@ -229,16 +229,26 @@ class CnnModel:
         #         class_weight=class_weights,
         #         callbacks=callbacks
         #     )
-        else:
-            self.history = self._model.fit(
-                x=X_train, y=y_train,
-                batch_size=config.batch_size,
-                epochs=epochs,
-                validation_data=(X_val, y_val),
-                class_weight=class_weights,
-                callbacks=callbacks
-            )
-
+        # else:
+        #     self.history = self._model.fit(
+        #         x=X_train, y=y_train,
+        #         batch_size=config.batch_size,
+        #         epochs=epochs,
+        #         validation_data=(X_val, y_val),
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
+        # ensure labels are int32 so tf.cond branches match
+        y_train = y_train.astype('int32')
+        y_val   = y_val.astype('int32')
+        self.history = self._model.fit(
+            x=X_train, y=y_train,
+            batch_size=config.batch_size,
+            epochs=epochs,
+            validation_data=(X_val, y_val),
+            class_weight=class_weights,
+            callbacks=callbacks
+        )
     # ... (rest of evaluate_model, save_model, etc. unchanged) ...
 
     # def evaluate_model(self,
