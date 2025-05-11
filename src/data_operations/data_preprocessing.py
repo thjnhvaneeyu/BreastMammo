@@ -565,22 +565,33 @@ def import_inbreast_roi_dataset(
     # --- 4) build Dataset và optional one-hot ---
     H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
                          config.INBREAST_IMG_SIZE["WIDTH"])
-    sig = (tf.TensorSpec((H,W,1), tf.float32),
-           tf.TensorSpec((), tf.int32))
+    # 1) Generator _gen vẫn yield roi,..., np.int64(label_idx) hoặc np.int32(label_idx)
+    #    nhưng chúng ta sẽ ngay lập tức chuyển thành float32.
+
+    sig = (tf.TensorSpec((H, W, 1), tf.float32),
+        tf.TensorSpec((), tf.float32))      # <-- dùng float32 cho nhãn luôn
+
     ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
-    if num_classes>2:
-        ds = ds.map(lambda x,y: (x, tf.one_hot(y, num_classes)),
-                    num_parallel_calls=tf.data.AUTOTUNE)
+    # 2) Chuyển nhãn số thành float32 (0.0,1.0) trước khi one-hot hoặc song song
+    ds = ds.map(
+        lambda x, y: (x, tf.cast(y, tf.float32)),
+        num_parallel_calls=tf.data.AUTOTUNE
+    )
+
+    # 3) Nếu categorical, one-hot lên float32
+    if num_classes > 2:
+        ds = ds.map(
+            lambda x, y: (x, tf.one_hot(tf.cast(y, tf.int32), num_classes)),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+
+    # 4) Giữ nguyên assert_cardinality, shuffle, batch, prefetch
+    ds = ds.apply(assert_cardinality(len(samples)))
+    ds = ds.shuffle(len(samples)) \
+        .batch(config.batch_size) \
+        .prefetch(tf.data.AUTOTUNE)
     num_samples = len(samples)
-    ds = ds.apply(assert_cardinality(num_samples))
-    ds = ds.map(lambda x, y: (x, tf.cast(y, tf.float32)),
-            num_parallel_calls=tf.data.AUTOTUNE)
-    ds = (ds
-          .shuffle(len(samples))
-          .batch(config.batch_size)
-          .prefetch(tf.data.AUTOTUNE)
-)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
     return ds, class_weights, num_classes, num_samples
 # def dataset_stratified_split(split, data, labels):
