@@ -337,7 +337,7 @@ class CnnModel:
         #     )
         #     return
 
-        if isinstance(X_train, tf.data.Dataset):
+        # if isinstance(X_train, tf.data.Dataset):
             import math
             # # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
             # num_train = int(cardinality(X_train).numpy())
@@ -362,22 +362,28 @@ class CnnModel:
             # # 4) Tính số bước trên mỗi epoch dựa trên batch size
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
-            num_train = self.X_train
-            num_val   = self.X_val
+        if isinstance(X_train, tf.data.Dataset):
+            # 1) Lấy số sample THỰC (trước khi repeat/batch)
+            num_train = int(cardinality(X_train).numpy())
+            num_val   = int(cardinality(X_val).numpy())
 
+            # 2) Gán cardinality cố định và repeat để tạo dataset vô hạn
             ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
             ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
 
+            # 3) Tính steps_per_epoch dựa trên batch_size
             train_steps = math.ceil(num_train / config.batch_size)
             val_steps   = math.ceil(num_val   / config.batch_size)
-            # === DEBUG: kiểm tra shape của một batch đầu tiên ===
+
+            # 4) DEBUG: kiểm tra shape batch đầu tiên
             for x_batch, y_batch in ds_train.take(1):
                 print("DEBUG: x_batch.shape =", x_batch.shape)
                 print("DEBUG: y_batch.shape =", y_batch.shape)
+                # Kết quả ôn: x_batch.shape == (batch_size, H, W, 1)
+                #             y_batch.shape == (batch_size,)  hoặc (batch_size, num_classes)
                 break
-            # =====================================================
 
-            # 5) Fit model
+            # 5) Chạy fit
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -388,13 +394,12 @@ class CnnModel:
                 callbacks=callbacks
             )
             return
-        # --- NumPy branch ---
-        # Cast labels to int64 so both branches produce the same dtype
+
+        # --- NumPy branch: cast label về int32 hoặc float32 ---
         if y_train.ndim == 1:
             y_train = y_train.astype('int32')
             y_val   = y_val.astype('int32')
         else:
-            # nếu one-hot arrays
             y_train = y_train.astype('float32')
             y_val   = y_val.astype('float32')
 
@@ -407,7 +412,6 @@ class CnnModel:
             class_weight=class_weights,
             callbacks=callbacks
         )
-
     # def evaluate_model(self,
     #                    X_test: np.ndarray,
     #                    y_true: np.ndarray,
