@@ -176,23 +176,23 @@ class CnnModel:
             verbose=1
         )
         callbacks = [es, rlrp]
-        # if isinstance(X_train, tf.data.Dataset):
-        #     # tính số batch mỗi epoch
-        #     train_steps = int(cardinality(X_train).numpy())
-        #     val_steps   = int(cardinality(X_val).numpy())
+        if isinstance(X_train, tf.data.Dataset):
+            # tính số batch mỗi epoch
+            train_steps = int(cardinality(X_train).numpy())
+            val_steps   = int(cardinality(X_val).numpy())
 
-        #     # .repeat() để không hết data giữa chừng
-        #     ds_train = X_train.repeat()
-        #     ds_val   = X_val.repeat()
-        #     self.history = self._model.fit(
-        #         ds_train,
-        #         epochs=epochs,
-        #         steps_per_epoch=train_steps,
-        #         validation_data=ds_val,
-        #         validation_steps=val_steps,
-        #         class_weight=class_weights,
-        #         callbacks=callbacks
-        #     )
+            # .repeat() để không hết data giữa chừng
+            ds_train = X_train.repeat()
+            ds_val   = X_val.repeat()
+            self.history = self._model.fit(
+                ds_train,
+                epochs=epochs,
+                steps_per_epoch=train_steps,
+                validation_data=ds_val,
+                validation_steps=val_steps,
+                class_weight=class_weights,
+                callbacks=callbacks
+            )
             # self.history = self._model.fit(
             #     X_train,
             #     validation_data=X_val,
@@ -209,15 +209,15 @@ class CnnModel:
         #         class_weight=class_weights,
         #         callbacks=callbacks
         #     )
-        if isinstance(X_train, tf.data.Dataset):
-            # X_train, X_val đã được batch() & prefetch() ở pipeline
-            self.history = self._model.fit(
-                X_train,
-                validation_data=X_val,
-                epochs=epochs,
-                class_weight=class_weights,
-                callbacks=callbacks
-            )
+        # if isinstance(X_train, tf.data.Dataset):
+        #     # X_train, X_val đã được batch() & prefetch() ở pipeline
+        #     self.history = self._model.fit(
+        #         X_train,
+        #         validation_data=X_val,
+        #         epochs=epochs,
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
         else:
             self.history = self._model.fit(
                 x=X_train, y=y_train,
