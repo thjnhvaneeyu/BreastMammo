@@ -319,26 +319,12 @@ class CnnModel:
 
         # 2) Dataset branch: flatten volume→slice nếu cần rồi batch/repeat/prefetch
         if isinstance(X_train, tf.data.Dataset):
-            # 1) Tính số batch mỗi epoch & validation steps
-            train_steps = int(tfdata_exp.cardinality(X_train).numpy())
-            val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
-            if train_steps < 0 or val_steps < 0:
-                raise ValueError(
-                    "Không thể tính kích thước dataset. Hãy đảm bảo X_train/X_val có cardinality xác định "
-                    "hoặc chuyển sang sử dụng numpy inputs."
-                )
-
-            # 2) Tạo dataset lặp vô hạn (đã được batch() phía ngoài)
-            ds_train = X_train.repeat()
-            ds_val   = X_val.repeat()
-
-            # 3) Fit với steps_per_epoch & validation_steps
+            # Vì ở main.py bạn đã batch() & prefetch() rồi, ta chỉ cần feed dataset
+            # vào fit() để Keras tự lặp hết mỗi epoch mà không cần steps_per_epoch.
             self.history = self._model.fit(
-                ds_train,
+                X_train,
+                validation_data=X_val,
                 epochs=epochs,
-                steps_per_epoch=train_steps,
-                validation_data=ds_val,
-                validation_steps=val_steps,
                 class_weight=class_weights,
                 callbacks=callbacks
             )
