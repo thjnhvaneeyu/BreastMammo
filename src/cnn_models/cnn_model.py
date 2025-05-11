@@ -311,7 +311,13 @@ class CnnModel:
 
         # --- Dataset branch ---
         if isinstance(X_train, tf.data.Dataset):
-            # 1) Compute number of batches per epoch
+            # 1) Ensure labels from the dataset are int64
+            X_train = X_train.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+                                num_parallel_calls=tf.data.AUTOTUNE)
+            X_val   = X_val.map(lambda x, y: (x, tf.cast(y, tf.int64)),
+                                num_parallel_calls=tf.data.AUTOTUNE)
+
+            # 2) Compute number of batches per epoch
             train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
             val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
             if train_steps < 0 or val_steps < 0:
@@ -319,11 +325,11 @@ class CnnModel:
                     "Cannot infer dataset size. Ensure X_train/X_val have known cardinality."
                 )
 
-            # 2) Repeat so Keras stops at steps_per_epoch
+            # 3) Repeat so Keras stops at steps_per_epoch
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
 
-            # 3) Fit
+            # 4) Fit
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
