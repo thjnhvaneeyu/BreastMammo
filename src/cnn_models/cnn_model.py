@@ -361,32 +361,23 @@ class CnnModel:
             # # 4) Tính số bước trên mỗi epoch dựa trên batch size
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
-        # if isinstance(X_train, tf.data.Dataset):
-        #     # 0) Unbatch trước để đảm bảo X_train hoàn toàn "phẳng"
-        #     X_train = X_train.unbatch()
-        #     X_val   = X_val.unbatch()
-        #     # 1) Lấy số sample THỰC (trước khi repeat/batch)
-        #     num_train = int(cardinality(X_train).numpy())
-        #     num_val   = int(cardinality(X_val).numpy())
-
-        #     # 2) Gán cardinality cố định và repeat để tạo dataset vô hạn
-        #     ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
-        #     ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
-
-        #     # 3) Tính steps_per_epoch dựa trên batch_size
-        #     train_steps = math.ceil(num_train / config.batch_size)
-        #     val_steps   = math.ceil(num_val   / config.batch_size)
         if isinstance(X_train, tf.data.Dataset):
-            # 1) Build lại ROI dataset từ samples và lấy num_samples
-            #    Giả sử bạn lưu 'samples_train' và 'samples_val' (list of tuples) trước đó
-            ds_train, class_weights, num_classes, num_train_samples = \
-                self._build_roi_dataset(samples_train, class_weights, num_classes)
-            ds_val,   _,             _,               num_val_samples   = \
-                self._build_roi_dataset(samples_val,   class_weights, num_classes)
+            # 0) Unbatch trước để đảm bảo X_train hoàn toàn "phẳng"
+            X_train = X_train.unbatch()
+            X_val   = X_val.unbatch()
 
-            # 2) Tính số bước mỗi epoch
-            train_steps = math.ceil(num_train_samples / config.batch_size)
-            val_steps   = math.ceil(num_val_samples   / config.batch_size)
+            # 1) Lấy số sample THỰC (trước khi repeat/batch)
+            num_train = int(cardinality(X_train).numpy())
+            num_val   = int(cardinality(X_val).numpy())
+
+            # 2) Gán cardinality cố định và repeat để tạo dataset vô hạn
+            ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
+            ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
+
+            # 3) Tính steps_per_epoch dựa trên batch_size
+            train_steps = math.ceil(num_train / config.batch_size)
+            val_steps   = math.ceil(num_val   / config.batch_size)
+
             # 4) DEBUG: kiểm tra shape batch đầu tiên
             for x_batch, y_batch in ds_train.take(1):
                 print("DEBUG: x_batch.shape =", x_batch.shape)
