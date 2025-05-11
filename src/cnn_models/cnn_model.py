@@ -178,13 +178,22 @@ class CnnModel:
         )
         callbacks = [es, rlrp]
         if isinstance(X_train, tf.data.Dataset):
-            # tính số batch mỗi epoch
+            # 1. Tính số batch train/val mỗi epoch
             train_steps = int(tfdata_exp.cardinality(X_train).numpy())
-            val_steps   = int(tfdata_exp.cardinality(X_train).numpy())
+            val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
 
-            # .repeat() để không hết data giữa chừng
+            # 2. Nếu UNKNOWN (–2), tính thủ công
+            if train_steps < 0:
+                # thay bằng len(images)//batch_size nếu biết n_samples
+                train_steps = int(np.ceil(len(y_train) / config.batch_size))
+            if val_steps < 0:
+                val_steps = int(np.ceil(len(y_val) / config.batch_size))
+
+            # 3. Tạo dataset vô hạn
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
+
+            # 4. Fit với steps_per_epoch và validation_steps
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -194,6 +203,7 @@ class CnnModel:
                 class_weight=class_weights,
                 callbacks=callbacks
             )
+            return  # thoát hàm sau khi fit
             # self.history = self._model.fit(
             #     X_train,
             #     validation_data=X_val,
