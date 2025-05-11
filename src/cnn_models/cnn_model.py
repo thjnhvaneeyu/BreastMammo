@@ -154,15 +154,146 @@ class CnnModel:
                       class_weights,
                       epochs=config.max_epoch_unfrozen,
                       frozen=False)
-    def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
-        self._model.optimizer.lr = self._model.optimizer.learning_rate
-        # patience = max(1, epochs // 10)
-        # callbacks = [
-        #     EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),
-        #     ReduceLROnPlateau(monitor='val_loss', patience=max(1, patience//2))
-        # ]
-        # Dùng thẳng config.py để điều khiển callback
+    # def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
+    #     self._model.optimizer.lr = self._model.optimizer.learning_rate
+    #     # patience = max(1, epochs // 10)
+    #     # callbacks = [
+    #     #     EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True),
+    #     #     ReduceLROnPlateau(monitor='val_loss', patience=max(1, patience//2))
+    #     # ]
+    #     # Dùng thẳng config.py để điều khiển callback
 
+    #     es = EarlyStopping(
+    #         monitor='val_loss',
+    #         patience=config.early_stopping_patience,
+    #         restore_best_weights=True,
+    #         verbose=1
+    #     )
+    #     rlrp = ReduceLROnPlateau(
+    #         monitor='val_loss',
+    #         patience=config.reduce_lr_patience,
+    #         factor=config.reduce_lr_factor,
+    #         min_lr=config.min_learning_rate,
+    #         verbose=1
+    #     )
+    #     callbacks = [es, rlrp]
+    #     if isinstance(X_train, tf.data.Dataset):
+    #         # 1. Tính số batch mỗi epoch qua cardinality
+    #         train_steps = int(tfdata_exp.cardinality(X_train).numpy())
+    #         val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
+
+    #         # 2. Nếu cardinality unknown, báo rõ ràng
+    #         if train_steps < 0 or val_steps < 0:
+    #             raise ValueError(
+    #                 "Cannot infer dataset size. Please ensure X_train/X_val have known cardinality "
+    #                 "or switch to numpy inputs."
+    #             )
+
+    #         # 3. Đặt dataset lặp vô hạn
+    #         ds_train = X_train.repeat()
+    #         ds_val   = X_val.repeat()
+
+    #         # 4. Fit với steps_per_epoch và validation_steps
+    #         self.history = self._model.fit(
+    #             ds_train,
+    #             epochs=epochs,
+    #             steps_per_epoch=train_steps,
+    #             validation_data=ds_val,
+    #             validation_steps=val_steps,
+    #             class_weight=class_weights,
+    #             callbacks=callbacks
+    #         )
+    #         return
+    #         # self.history = self._model.fit(
+    #         #     X_train,
+    #         #     validation_data=X_val,
+    #         #     class_weight=class_weights,
+    #         #     epochs=epochs,
+    #         #     callbacks=callbacks
+    #         # )
+    #     # else:
+    #     #     self.history = self._model.fit(
+    #     #         x=X_train, y=y_train,
+    #     #         validation_data=(X_val, y_val),
+    #     #         batch_size=config.batch_size,
+    #     #         epochs=epochs,
+    #     #         class_weight=class_weights,
+    #     #         callbacks=callbacks
+    #     #     )
+    #     # if isinstance(X_train, tf.data.Dataset):
+    #     #     # X_train, X_val đã được batch() & prefetch() ở pipeline
+    #     #     self.history = self._model.fit(
+    #     #         X_train,
+    #     #         validation_data=X_val,
+    #     #         epochs=epochs,
+    #     #         class_weight=class_weights,
+    #     #         callbacks=callbacks
+    #     #     )
+    #     # else:
+    #     #     self.history = self._model.fit(
+    #     #         x=X_train, y=y_train,
+    #     #         batch_size=config.batch_size,
+    #     #         epochs=epochs,
+    #     #         validation_data=(X_val, y_val),
+    #     #         class_weight=class_weights,
+    #     #         callbacks=callbacks
+    #     #     )
+    #     # ensure labels are int32 so tf.cond branches match
+    #     # y_train = y_train.astype('int32')
+    #     # y_val   = y_val.astype('int32')
+    #     # self.history = self._model.fit(
+    #     #     x=X_train, y=y_train,
+    #     #     batch_size=config.batch_size,
+    #     #     epochs=epochs,
+    #     #     validation_data=(X_val, y_val),
+    #     #     class_weight=class_weights,
+    #     #     callbacks=callbacks
+    #     # )
+    # # If using a tf.data.Dataset
+    #     if isinstance(X_train, tf.data.Dataset):
+    #         # compute number of batches per epoch
+    #         train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
+    #         val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
+    #         if train_steps < 0 or val_steps < 0:
+    #             raise ValueError(
+    #                 "Cannot infer dataset size. Ensure X_train/X_val have known cardinality."
+    #             )
+
+    #         # make them infinite but Keras will stop at steps_per_epoch
+    #         ds_train = X_train.repeat()
+    #         ds_val   = X_val.repeat()
+
+    #         self.history = self._model.fit(
+    #             ds_train,
+    #             epochs=epochs,
+    #             steps_per_epoch=train_steps,
+    #             validation_data=ds_val,
+    #             validation_steps=val_steps,
+    #             class_weight=class_weights,
+    #             callbacks=callbacks
+    #         )
+    #         return
+
+    #     # Otherwise, NumPy arrays / Sequence branch
+    #     # **Cast labels to int32 so both branches produce the same dtype**
+    #     y_train = y_train.astype('int64')
+    #     y_val   = y_val.astype('int64')
+
+    #     self.history = self._model.fit(
+    #         x=X_train,
+    #         y=y_train,
+    #         batch_size=config.batch_size,
+    #         epochs=epochs,
+    #         validation_data=(X_val, y_val),
+    #         class_weight=class_weights,
+    #         callbacks=callbacks
+    #     )
+    # ... (rest of evaluate_model, save_model, etc. unchanged) ...
+    def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
+        # Alias optimizer.lr for legacy callbacks
+        self._model.optimizer.lr = self._model.optimizer.learning_rate
+
+        # Callbacks
         es = EarlyStopping(
             monitor='val_loss',
             patience=config.early_stopping_patience,
@@ -177,81 +308,10 @@ class CnnModel:
             verbose=1
         )
         callbacks = [es, rlrp]
+
+        # --- Dataset branch ---
         if isinstance(X_train, tf.data.Dataset):
-            # 1. Tính số batch mỗi epoch qua cardinality
-            train_steps = int(tfdata_exp.cardinality(X_train).numpy())
-            val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
-
-            # 2. Nếu cardinality unknown, báo rõ ràng
-            if train_steps < 0 or val_steps < 0:
-                raise ValueError(
-                    "Cannot infer dataset size. Please ensure X_train/X_val have known cardinality "
-                    "or switch to numpy inputs."
-                )
-
-            # 3. Đặt dataset lặp vô hạn
-            ds_train = X_train.repeat()
-            ds_val   = X_val.repeat()
-
-            # 4. Fit với steps_per_epoch và validation_steps
-            self.history = self._model.fit(
-                ds_train,
-                epochs=epochs,
-                steps_per_epoch=train_steps,
-                validation_data=ds_val,
-                validation_steps=val_steps,
-                class_weight=class_weights,
-                callbacks=callbacks
-            )
-            return
-            # self.history = self._model.fit(
-            #     X_train,
-            #     validation_data=X_val,
-            #     class_weight=class_weights,
-            #     epochs=epochs,
-            #     callbacks=callbacks
-            # )
-        # else:
-        #     self.history = self._model.fit(
-        #         x=X_train, y=y_train,
-        #         validation_data=(X_val, y_val),
-        #         batch_size=config.batch_size,
-        #         epochs=epochs,
-        #         class_weight=class_weights,
-        #         callbacks=callbacks
-        #     )
-        # if isinstance(X_train, tf.data.Dataset):
-        #     # X_train, X_val đã được batch() & prefetch() ở pipeline
-        #     self.history = self._model.fit(
-        #         X_train,
-        #         validation_data=X_val,
-        #         epochs=epochs,
-        #         class_weight=class_weights,
-        #         callbacks=callbacks
-        #     )
-        # else:
-        #     self.history = self._model.fit(
-        #         x=X_train, y=y_train,
-        #         batch_size=config.batch_size,
-        #         epochs=epochs,
-        #         validation_data=(X_val, y_val),
-        #         class_weight=class_weights,
-        #         callbacks=callbacks
-        #     )
-        # ensure labels are int32 so tf.cond branches match
-        # y_train = y_train.astype('int32')
-        # y_val   = y_val.astype('int32')
-        # self.history = self._model.fit(
-        #     x=X_train, y=y_train,
-        #     batch_size=config.batch_size,
-        #     epochs=epochs,
-        #     validation_data=(X_val, y_val),
-        #     class_weight=class_weights,
-        #     callbacks=callbacks
-        # )
-    # If using a tf.data.Dataset
-        if isinstance(X_train, tf.data.Dataset):
-            # compute number of batches per epoch
+            # 1) Compute number of batches per epoch
             train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
             val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
             if train_steps < 0 or val_steps < 0:
@@ -259,10 +319,11 @@ class CnnModel:
                     "Cannot infer dataset size. Ensure X_train/X_val have known cardinality."
                 )
 
-            # make them infinite but Keras will stop at steps_per_epoch
+            # 2) Repeat so Keras stops at steps_per_epoch
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
 
+            # 3) Fit
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -274,8 +335,8 @@ class CnnModel:
             )
             return
 
-        # Otherwise, NumPy arrays / Sequence branch
-        # **Cast labels to int32 so both branches produce the same dtype**
+        # --- NumPy branch ---
+        # Cast labels to int64 so both branches produce the same dtype
         y_train = y_train.astype('int64')
         y_val   = y_val.astype('int64')
 
@@ -288,7 +349,6 @@ class CnnModel:
             class_weight=class_weights,
             callbacks=callbacks
         )
-    # ... (rest of evaluate_model, save_model, etc. unchanged) ...
 
     # def evaluate_model(self,
     #                    X_test: np.ndarray,
