@@ -239,10 +239,49 @@ class CnnModel:
         #         callbacks=callbacks
         #     )
         # ensure labels are int32 so tf.cond branches match
+        # y_train = y_train.astype('int32')
+        # y_val   = y_val.astype('int32')
+        # self.history = self._model.fit(
+        #     x=X_train, y=y_train,
+        #     batch_size=config.batch_size,
+        #     epochs=epochs,
+        #     validation_data=(X_val, y_val),
+        #     class_weight=class_weights,
+        #     callbacks=callbacks
+        # )
+    # If using a tf.data.Dataset
+        if isinstance(X_train, tf.data.Dataset):
+            # compute number of batches per epoch
+            train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
+            val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
+            if train_steps < 0 or val_steps < 0:
+                raise ValueError(
+                    "Cannot infer dataset size. Ensure X_train/X_val have known cardinality."
+                )
+
+            # make them infinite but Keras will stop at steps_per_epoch
+            ds_train = X_train.repeat()
+            ds_val   = X_val.repeat()
+
+            self.history = self._model.fit(
+                ds_train,
+                epochs=epochs,
+                steps_per_epoch=train_steps,
+                validation_data=ds_val,
+                validation_steps=val_steps,
+                class_weight=class_weights,
+                callbacks=callbacks
+            )
+            return
+
+        # Otherwise, NumPy arrays / Sequence branch
+        # **Cast labels to int32 so both branches produce the same dtype**
         y_train = y_train.astype('int32')
         y_val   = y_val.astype('int32')
+
         self.history = self._model.fit(
-            x=X_train, y=y_train,
+            x=X_train,
+            y=y_train,
             batch_size=config.batch_size,
             epochs=epochs,
             validation_data=(X_val, y_val),
