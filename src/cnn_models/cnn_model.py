@@ -314,13 +314,13 @@ class CnnModel:
         if isinstance(X_train, tf.data.Dataset):
             # train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
             # val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
-            train_steps = X_train.apply(cardinality(X_train).numpy())
-            val_steps   = X_val.apply(cardinality(X_val).numpy())
+            train_steps = int(cardinality(X_train).numpy())
+            val_steps   = int(cardinality(X_val).numpy())
             if train_steps < 0 or val_steps < 0:
                 raise ValueError("Cannot infer dataset size…")
 
-            ds_train = X_train.repeat()
-            ds_val   = X_val.repeat()
+            ds_train = X_train.apply(assert_cardinality(train_steps)).repeat()
+            ds_val   = X_val  .apply(assert_cardinality(val_steps)).repeat()
         # === DEBUG: kiểm tra shape của một batch đầu tiên ===
             for x_batch, y_batch in ds_train.take(1):
                 print("DEBUG: x_batch.shape =", x_batch.shape)
