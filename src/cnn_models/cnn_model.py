@@ -314,7 +314,7 @@ class CnnModel:
             train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
             val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
             if train_steps < 0 or val_steps < 0:
-                raise ValueError(...)
+                raise ValueError("Cannot infer dataset size…")
 
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
@@ -331,8 +331,13 @@ class CnnModel:
 
         # --- NumPy branch ---
         # Cast labels to int64 so both branches produce the same dtype
-        y_train = y_train.astype('float32')
-        y_val   = y_val.astype('float32')
+        if y_train.ndim == 1:
+            y_train = y_train.astype('int32')
+            y_val   = y_val.astype('int32')
+        else:
+            # nếu one-hot arrays
+            y_train = y_train.astype('float32')
+            y_val   = y_val.astype('float32')
 
         self.history = self._model.fit(
             x=X_train,

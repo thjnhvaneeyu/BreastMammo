@@ -560,7 +560,7 @@ def import_inbreast_roi_dataset(
             H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
                                  config.INBREAST_IMG_SIZE["WIDTH"])
             roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
-            yield roi[...,None], np.int64(label_to_idx[lbl_txt])
+            yield roi[...,None], np.int32(label_to_idx[lbl_txt])
 
     # --- 4) build Dataset và optional one-hot ---
     H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
@@ -569,7 +569,7 @@ def import_inbreast_roi_dataset(
     #    nhưng chúng ta sẽ ngay lập tức chuyển thành float32.
 
     sig = (tf.TensorSpec((H, W, 1), tf.float32),
-        tf.TensorSpec((), tf.float32))      # <-- dùng float32 cho nhãn luôn
+        tf.TensorSpec((), tf.int32))      # <-- dùng float32 cho nhãn luôn
 
     ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
@@ -582,7 +582,7 @@ def import_inbreast_roi_dataset(
     # 3) Nếu categorical, one-hot lên float32
     if num_classes > 2:
         ds = ds.map(
-            lambda x, y: (x, tf.one_hot(tf.cast(y, tf.int32), num_classes)),
+            lambda x, y: (x, tf.one_hot(tf.cast(y, tf.float32), num_classes)),
             num_parallel_calls=tf.data.AUTOTUNE
         )
 
