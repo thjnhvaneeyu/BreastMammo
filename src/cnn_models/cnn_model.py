@@ -362,8 +362,8 @@ class CnnModel:
             # # 4) Tính số bước trên mỗi epoch dựa trên batch size
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
-            num_train = self.num_train_samples
-            num_val   = self.num_val_samples
+            num_train = self.X_train
+            num_val   = self.X_val
 
             ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
             ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
