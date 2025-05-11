@@ -339,30 +339,37 @@ class CnnModel:
 
         if isinstance(X_train, tf.data.Dataset):
             import math
-            # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
-            num_train = int(cardinality(X_train).numpy())
-            num_val   = int(cardinality(X_val).numpy())
+            # # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
+            # num_train = int(cardinality(X_train).numpy())
+            # num_val   = int(cardinality(X_val).numpy())
 
-            # 2) Nếu cardinality <0 (unknown), bạn có thể set thủ công:
-            #    ví dụ num_train = fallback_train_samples  (nếu bạn biết)
-            #    hoặc raise warning/log và tiếp tục.
-            if num_train < 0 or num_val < 0:
-                print("WARN: dataset cardinality unknown, dùng fallback batch count")
-                # fallback: giả sử mỗi epoch có 1 lượt qua toàn bộ X_train
-                # bạn cần thiết lập biến này từ bên ngoài, ví dụ self.num_train_samples
-                num_train = getattr(self, "num_train_samples", None)
-                num_val   = getattr(self, "num_val_samples", None)
-                if num_train is None or num_val is None:
-                    raise ValueError("Không xác định được số mẫu, vui lòng cung cấp num_train_samples/num_val_samples")
+            # # 2) Nếu cardinality <0 (unknown), bạn có thể set thủ công:
+            # #    ví dụ num_train = fallback_train_samples  (nếu bạn biết)
+            # #    hoặc raise warning/log và tiếp tục.
+            # if num_train < 0 or num_val < 0:
+            #     print("WARN: dataset cardinality unknown, dùng fallback batch count")
+            #     # fallback: giả sử mỗi epoch có 1 lượt qua toàn bộ X_train
+            #     # bạn cần thiết lập biến này từ bên ngoài, ví dụ self.num_train_samples
+            #     num_train = getattr(self, "num_train_samples", None)
+            #     num_val   = getattr(self, "num_val_samples", None)
+            #     if num_train is None or num_val is None:
+            #         raise ValueError("Không xác định được số mẫu, vui lòng cung cấp num_train_samples/num_val_samples")
 
-            # 3) Thiết lập cardinality cố định, rồi repeat
+            # # 3) Thiết lập cardinality cố định, rồi repeat
+            # ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
+            # ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
+
+            # # 4) Tính số bước trên mỗi epoch dựa trên batch size
+            # train_steps = math.ceil(num_train / config.batch_size)
+            # val_steps   = math.ceil(num_val   / config.batch_size)
+            num_train = self.num_train_samples
+            num_val   = self.num_val_samples
+
             ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
             ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
 
-            # 4) Tính số bước trên mỗi epoch dựa trên batch size
             train_steps = math.ceil(num_train / config.batch_size)
             val_steps   = math.ceil(num_val   / config.batch_size)
-
             # === DEBUG: kiểm tra shape của một batch đầu tiên ===
             for x_batch, y_batch in ds_train.take(1):
                 print("DEBUG: x_batch.shape =", x_batch.shape)
