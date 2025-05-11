@@ -363,32 +363,16 @@ class CnnModel:
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
         if isinstance(X_train, tf.data.Dataset):
-            # → Nếu dataset chứa volume 3D (rank 4): chia thành từng slice 2D
-            def _maybe_flatten(vol, lab):
-                # vol: Tensor có shape (depth, H, W, C) nếu rank==4
-                if tf.rank(vol) == 4:
-                    # flatten 3D volume thành nhiều sample 2D
-                    return flatten_to_slices(tf.data.Dataset.from_tensors((vol, lab)))
-                # ngược lại (đã là 2D slice), giữ nguyên
-                return tf.data.Dataset.from_tensors((vol, lab))
+            # --- Giờ X_train/X_val đã được batch() & prefetch() ở main.py, chỉ cần lặp lại ---
+            # 1) Số batch mỗi epoch = cardinality của dataset (số batch, không phải số sample)
+            train_steps = int(cardinality(X_train).numpy())
+            val_steps   = int(cardinality(X_val).numpy())
 
-            # Áp dụng flatten only khi cần
-            X_train = X_train.flat_map(_maybe_flatten)
-            X_val   = X_val.flat_map(_maybe_flatten)
+            # 2) Tạo dataset vô hạn bằng repeat()
+            ds_train = X_train.repeat()
+            ds_val   = X_val.repeat()
 
-            # Đếm số sample sau flatten
-            num_train = int(cardinality(X_train).numpy())
-            num_val   = int(cardinality(X_val).numpy())
-
-            # Xây dựng pipeline: repeat → batch → prefetch
-            ds_train = X_train.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-            ds_val   = X_val.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-
-            # Tính steps_per_epoch
-            train_steps = math.ceil(num_train / config.batch_size)
-            val_steps   = math.ceil(num_val   / config.batch_size)
-
-            # Chạy fit
+            # 3) Fit model trực tiếp, không dùng class_weight để tránh lỗi rank unknown
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
