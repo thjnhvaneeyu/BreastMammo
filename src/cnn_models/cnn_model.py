@@ -178,18 +178,18 @@ class CnnModel:
         )
         callbacks = [es, rlrp]
         if isinstance(X_train, tf.data.Dataset):
-            # 1. Tính số batch train/val mỗi epoch
+            # 1. Tính số batch mỗi epoch qua cardinality
             train_steps = int(tfdata_exp.cardinality(X_train).numpy())
             val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
 
-            # 2. Nếu UNKNOWN (–2), tính thủ công
-            if train_steps < 0:
-                # thay bằng len(images)//batch_size nếu biết n_samples
-                train_steps = int(np.ceil(len(y_train) / config.batch_size))
-            if val_steps < 0:
-                val_steps = int(np.ceil(len(y_val) / config.batch_size))
+            # 2. Nếu cardinality unknown, báo rõ ràng
+            if train_steps < 0 or val_steps < 0:
+                raise ValueError(
+                    "Cannot infer dataset size. Please ensure X_train/X_val have known cardinality "
+                    "or switch to numpy inputs."
+                )
 
-            # 3. Tạo dataset vô hạn
+            # 3. Đặt dataset lặp vô hạn
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
 
@@ -203,7 +203,7 @@ class CnnModel:
                 class_weight=class_weights,
                 callbacks=callbacks
             )
-            return  # thoát hàm sau khi fit
+            return
             # self.history = self._model.fit(
             #     X_train,
             #     validation_data=X_val,
