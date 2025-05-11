@@ -575,7 +575,7 @@ def import_inbreast_roi_dataset(
 
     # 2) Chuyển nhãn số thành float32 (0.0,1.0) trước khi one-hot hoặc song song
     ds = ds.map(
-        lambda x, y: (x, tf.cast(y, tf.float32)),
+        lambda x, y: (x, tf.one_hot(y, num_classes)),
         num_parallel_calls=tf.data.AUTOTUNE
     )
 
