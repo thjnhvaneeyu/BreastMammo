@@ -291,88 +291,38 @@ class CnnModel:
     #         callbacks=callbacks
     #     )
     # ... (rest of evaluate_model, save_model, etc. unchanged) ...
-    def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
-        # Alias optimizer.lr for legacy callbacks
+    def _fit(self,
+             X_train, X_val,
+             y_train, y_val,
+             class_weights,
+             epochs,
+             frozen):
+
+        # 0) Alias optimizer.lr for legacy callbacks
         self._model.optimizer.lr = self._model.optimizer.learning_rate
 
-        # Callbacks
+        # 1) Callbacks
         es = EarlyStopping(
             monitor='val_loss',
             patience=config.early_stopping_patience,
-            restore_best_weights=True,
-            verbose=1
+            restore_best_weights=True, verbose=1
         )
         rlrp = ReduceLROnPlateau(
             monitor='val_loss',
             patience=config.reduce_lr_patience,
             factor=config.reduce_lr_factor,
-            min_lr=config.min_learning_rate,
-            verbose=1
+            min_lr=config.min_learning_rate, verbose=1
         )
         callbacks = [es, rlrp]
 
-        # --- Dataset branch ---
-        # if isinstance(X_train, tf.data.Dataset):
-        #     # train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
-        #     # val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
-        #     train_steps = int(cardinality(X_train).numpy())
-        #     val_steps   = int(cardinality(X_val).numpy())
-        #     if train_steps < 0 or val_steps < 0:
-        #         raise ValueError("Cannot infer dataset size…")
-
-        #     ds_train = X_train.apply(assert_cardinality(train_steps)).repeat()
-        #     ds_val   = X_val  .apply(assert_cardinality(val_steps)).repeat()
-        # # === DEBUG: kiểm tra shape của một batch đầu tiên ===
-        #     for x_batch, y_batch in ds_train.take(1):
-        #         print("DEBUG: x_batch.shape =", x_batch.shape)
-        #         print("DEBUG: y_batch.shape =", y_batch.shape)
-        #         break
-        #     self.history = self._model.fit(
-        #         ds_train,
-        #         epochs=epochs,
-        #         steps_per_epoch=train_steps,
-        #         validation_data=ds_val,
-        #         validation_steps=val_steps,
-        #         class_weight=class_weights,
-        #         callbacks=callbacks
-        #     )
-        #     return
-
-        # if isinstance(X_train, tf.data.Dataset):
-            # # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
-            # num_train = int(cardinality(X_train).numpy())
-            # num_val   = int(cardinality(X_val).numpy())
-
-            # # 2) Nếu cardinality <0 (unknown), bạn có thể set thủ công:
-            # #    ví dụ num_train = fallback_train_samples  (nếu bạn biết)
-            # #    hoặc raise warning/log và tiếp tục.
-            # if num_train < 0 or num_val < 0:
-            #     print("WARN: dataset cardinality unknown, dùng fallback batch count")
-            #     # fallback: giả sử mỗi epoch có 1 lượt qua toàn bộ X_train
-            #     # bạn cần thiết lập biến này từ bên ngoài, ví dụ self.num_train_samples
-            #     num_train = getattr(self, "num_train_samples", None)
-            #     num_val   = getattr(self, "num_val_samples", None)
-            #     if num_train is None or num_val is None:
-            #         raise ValueError("Không xác định được số mẫu, vui lòng cung cấp num_train_samples/num_val_samples")
-
-            # # 3) Thiết lập cardinality cố định, rồi repeat
-            # ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
-            # ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
-
-            # # 4) Tính số bước trên mỗi epoch dựa trên batch size
-            # train_steps = math.ceil(num_train / config.batch_size)
-            # val_steps   = math.ceil(num_val   / config.batch_size)
+        # 2) Dataset branch
         if isinstance(X_train, tf.data.Dataset):
-            # --- Giờ X_train/X_val đã được batch() & prefetch() ở main.py, chỉ cần lặp lại ---
-            # 1) Số batch mỗi epoch = cardinality của dataset (số batch, không phải số sample)
             train_steps = int(cardinality(X_train).numpy())
             val_steps   = int(cardinality(X_val).numpy())
 
-            # 2) Tạo dataset vô hạn bằng repeat()
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
 
-            # 3) Fit model trực tiếp, không dùng class_weight để tránh lỗi rank unknown
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -383,7 +333,15 @@ class CnnModel:
             )
             return
 
-        # --- NumPy branch: cast label về int32 hoặc float32 ---
+        # 3) NumPy branch: flatten 3D volumes nếu cần
+        if isinstance(X_train, np.ndarray) and X_train.ndim == 5:
+            N, D, H, W, C = X_train.shape
+            X_train = X_train.reshape(-1, H, W, C)
+            X_val   = X_val.reshape(-1, H, W, C)
+            y_train = np.repeat(y_train, D, axis=0)
+            y_val   = np.repeat(y_val, D, axis=0)
+
+        # 4) Cast label cho khớp loss
         if y_train.ndim == 1:
             y_train = y_train.astype('int32')
             y_val   = y_val.astype('int32')
@@ -391,6 +349,7 @@ class CnnModel:
             y_train = y_train.astype('float32')
             y_val   = y_val.astype('float32')
 
+        # 5) Fit trên NumPy arrays
         self.history = self._model.fit(
             x=X_train,
             y=y_train,
