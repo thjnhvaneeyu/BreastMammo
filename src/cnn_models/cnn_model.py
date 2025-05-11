@@ -13,7 +13,7 @@ from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.mixed_precision import LossScaleOptimizer
 from tensorflow.data import experimental as tfdata_exp
 from tensorflow.data.experimental import assert_cardinality, cardinality
-
+import math
 import config
 from cnn_models.basic_cnn     import create_basic_cnn_model
 from cnn_models.densenet121   import create_densenet121_model
@@ -338,7 +338,6 @@ class CnnModel:
         #     return
 
         # if isinstance(X_train, tf.data.Dataset):
-            import math
             # # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
             # num_train = int(cardinality(X_train).numpy())
             # num_val   = int(cardinality(X_val).numpy())
