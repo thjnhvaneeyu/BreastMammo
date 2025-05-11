@@ -373,6 +373,13 @@ def load_roi_and_label(
 
 #     return ds
 
+def flatten_to_slices(ds):
+    # ds: mỗi phần tử là (volume, label) với volume.shape = (32, H, W, 1)
+    return ds.flat_map(lambda vol, lab:
+        tf.data.Dataset.from_tensor_slices(
+            (vol, tf.repeat(lab, tf.shape(vol)[0]))
+        )
+    )
 
 def import_inbreast_roi_dataset(
     data_dir: str,

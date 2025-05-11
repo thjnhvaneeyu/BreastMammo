@@ -25,6 +25,7 @@ from cnn_models.vgg19_common  import create_vgg19_model_common
 from data_visualisation.csv_report import generate_csv_report, generate_csv_metadata
 from data_visualisation.plots      import plot_training_results, plot_confusion_matrix, plot_comparison_chart
 from data_visualisation.roc_curves import plot_roc_curve_binary, plot_roc_curve_multiclass
+from data_operations.data_preprocessing import flatten_to_slices
 
 class CnnModel:
     def __init__(self, model_name: str, num_classes: int):
@@ -362,37 +363,32 @@ class CnnModel:
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
         if isinstance(X_train, tf.data.Dataset):
-            # 1) Tính số sample thực (trước khi repeat/batch)
+            # → Nếu dataset chứa volume 3D (rank 4): chia thành từng slice 2D
+            def _maybe_flatten(vol, lab):
+                # vol: Tensor có shape (depth, H, W, C) nếu rank==4
+                if tf.rank(vol) == 4:
+                    # flatten 3D volume thành nhiều sample 2D
+                    return flatten_to_slices(tf.data.Dataset.from_tensors((vol, lab)))
+                # ngược lại (đã là 2D slice), giữ nguyên
+                return tf.data.Dataset.from_tensors((vol, lab))
+
+            # Áp dụng flatten only khi cần
+            X_train = X_train.flat_map(_maybe_flatten)
+            X_val   = X_val.flat_map(_maybe_flatten)
+
+            # Đếm số sample sau flatten
             num_train = int(cardinality(X_train).numpy())
             num_val   = int(cardinality(X_val).numpy())
 
-            # 2) Unbatch → assert_cardinality → batch → repeat → prefetch
-            ds_train = (
-                X_train
-                .unbatch()
-                .apply(assert_cardinality(num_train))
-                .batch(config.batch_size)
-                .repeat()
-                .prefetch(tf.data.AUTOTUNE)
-            )
-            ds_val = (
-                X_val
-                .unbatch()
-                .apply(assert_cardinality(num_val))
-                .batch(config.batch_size)
-                .repeat()
-                .prefetch(tf.data.AUTOTUNE)
-            )
+            # Xây dựng pipeline: repeat → batch → prefetch
+            ds_train = X_train.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
+            ds_val   = X_val.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
 
-            # 3) Tính steps
+            # Tính steps_per_epoch
             train_steps = math.ceil(num_train / config.batch_size)
             val_steps   = math.ceil(num_val   / config.batch_size)
 
-            # 4) DEBUG nếu cần:
-            # for x_b, y_b in ds_train.take(1):
-            #     print(x_b.shape, y_b.shape); break
-
-            # 5) Fit
+            # Chạy fit
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -403,7 +399,6 @@ class CnnModel:
                 callbacks=callbacks
             )
             return
-
 
         # --- NumPy branch: cast label về int32 hoặc float32 ---
         if y_train.ndim == 1:
