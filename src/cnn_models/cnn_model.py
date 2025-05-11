@@ -319,67 +319,31 @@ class CnnModel:
 
         # 2) Dataset branch: flatten volume→slice nếu cần rồi batch/repeat/prefetch
         if isinstance(X_train, tf.data.Dataset):
-            # Hàm phát hiện và tách 3D volume (rank==4) → nhiều slice 2D
-            def _maybe_flatten(vol, lab):
-                # vol: Tensor shape = (depth, H, W, C) nếu là volume 3D
-                if tf.rank(vol) == 4:
-                    # Sử dụng flatten_to_slices để tách vol thành từng (H,W,C) :contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}
-                    return flatten_to_slices(tf.data.Dataset.from_tensors((vol, lab)))
-                else:
-                    # Đã là slice 2D, giữ nguyên
-                    return tf.data.Dataset.from_tensors((vol, lab))
+            # 1) Tính số batch mỗi epoch & validation steps
+            train_steps = int(tfdata_exp.cardinality(X_train).numpy())
+            val_steps   = int(tfdata_exp.cardinality(X_val).numpy())
+            if train_steps < 0 or val_steps < 0:
+                raise ValueError(
+                    "Không thể tính kích thước dataset. Hãy đảm bảo X_train/X_val có cardinality xác định "
+                    "hoặc chuyển sang sử dụng numpy inputs."
+                )
 
-            # Áp dụng tách chỉ khi dataset yield volumes 3D
-            X_train = X_train.flat_map(_maybe_flatten)
-            X_val   = X_val  .flat_map(_maybe_flatten)
+            # 2) Tạo dataset lặp vô hạn (đã được batch() phía ngoài)
+            ds_train = X_train.repeat()
+            ds_val   = X_val.repeat()
 
-            # Sau khi flat_map, mỗi phần tử of X_train/X_val là (H, W, C)
-            # Bây giờ batch, repeat, prefetch
-            ds_train = X_train.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-            ds_val   = X_val  .repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-
-            # Tính steps per epoch (số batch)
-            train_steps = int(cardinality(X_train).numpy())
-            val_steps   = int(cardinality(X_val).numpy())
-
-            # Fit mà không cần class_weight cho Dataset branch
+            # 3) Fit với steps_per_epoch & validation_steps
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
                 steps_per_epoch=train_steps,
                 validation_data=ds_val,
                 validation_steps=val_steps,
+                class_weight=class_weights,
                 callbacks=callbacks
             )
             return
 
-        # 3) NumPy branch: giữ nguyên như trước
-        #    Nếu X_train là ndarray 5D (N, D, H, W, C), tách thành (N*D, H, W, C):
-        if isinstance(X_train, np.ndarray) and X_train.ndim == 5:
-            N, D, H, W, C = X_train.shape
-            X_train = X_train.reshape(-1, H, W, C)
-            X_val   = X_val.reshape(-1, H, W, C)
-            y_train = np.repeat(y_train, D, axis=0)
-            y_val   = np.repeat(y_val, D, axis=0)
-
-        # Cast label cho khớp loss
-        if y_train.ndim == 1:
-            y_train = y_train.astype('int32')
-            y_val   = y_val.astype('int32')
-        else:
-            y_train = y_train.astype('float32')
-            y_val   = y_val.astype('float32')
-
-        # Fit trên NumPy arrays (với class_weights nếu có)
-        self.history = self._model.fit(
-            x=X_train,
-            y=y_train,
-            batch_size=config.batch_size,
-            epochs=epochs,
-            validation_data=(X_val, y_val),
-            class_weight=class_weights,
-            callbacks=callbacks
-        )
     # def evaluate_model(self,
     #                    X_test: np.ndarray,
     #                    y_true: np.ndarray,
