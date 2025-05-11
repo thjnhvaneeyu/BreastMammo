@@ -560,13 +560,13 @@ def import_inbreast_roi_dataset(
             H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
                                  config.INBREAST_IMG_SIZE["WIDTH"])
             roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
-            yield roi[...,None], np.int32(label_to_idx[lbl_txt])
+            yield roi[...,None], np.int64(label_to_idx[lbl_txt])
 
     # --- 4) build Dataset và optional one-hot ---
     H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
                          config.INBREAST_IMG_SIZE["WIDTH"])
     sig = (tf.TensorSpec((H,W,1), tf.float32),
-           tf.TensorSpec((), tf.int32))
+           tf.TensorSpec((), tf.int64))
     ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
     if num_classes>2:
