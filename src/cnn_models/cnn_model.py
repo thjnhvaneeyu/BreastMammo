@@ -9,8 +9,9 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.data.experimental import cardinality
+# from tensorflow.data.experimental import cardinality
 from tensorflow.keras.mixed_precision import LossScaleOptimizer
+from tensorflow.data import experimental as tfdata_exp
 
 import config
 from cnn_models.basic_cnn     import create_basic_cnn_model
@@ -178,8 +179,8 @@ class CnnModel:
         callbacks = [es, rlrp]
         if isinstance(X_train, tf.data.Dataset):
             # tính số batch mỗi epoch
-            train_steps = int(cardinality(X_train).numpy())
-            val_steps   = int(cardinality(X_val).numpy())
+            train_steps = int(tfdata_exp.cardinality(X_train).numpy())
+            val_steps   = int(tfdata_exp.cardinality(X_train).numpy())
 
             # .repeat() để không hết data giữa chừng
             ds_train = X_train.repeat()
