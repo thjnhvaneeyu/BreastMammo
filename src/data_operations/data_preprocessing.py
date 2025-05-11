@@ -636,7 +636,7 @@ def import_inbreast_roi_dataset(
     # 4) Shuffle → Batch → Repeat → Prefetch
     ds = ds.apply(assert_cardinality(len(samples)))
     ds = ds.shuffle(buffer_size=len(samples))
-    ds = ds.batch(config.batch_size)   # chỉ batch một lần
+    ds = ds.batch(config.batch_size, drop_remainder=True)
     ds = ds.repeat()                   # lặp vô hạn nếu dùng steps_per_epoch
     ds = ds.prefetch(tf.data.AUTOTUNE)
 
