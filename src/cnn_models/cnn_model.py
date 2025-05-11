@@ -289,9 +289,6 @@ class CnnModel:
     #         callbacks=callbacks
     #     )
     # ... (rest of evaluate_model, save_model, etc. unchanged) ...
-    for x_batch, y_batch in ds_train.take(1):
-        print("x_batch.shape =", x_batch.shape)
-        break
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
         # Alias optimizer.lr for legacy callbacks
         self._model.optimizer.lr = self._model.optimizer.learning_rate
@@ -321,6 +318,11 @@ class CnnModel:
 
             ds_train = X_train.repeat()
             ds_val   = X_val.repeat()
+        # === DEBUG: kiểm tra shape của một batch đầu tiên ===
+            for x_batch, y_batch in ds_train.take(1):
+                print("DEBUG: x_batch.shape =", x_batch.shape)
+                print("DEBUG: y_batch.shape =", y_batch.shape)
+                break
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
