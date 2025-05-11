@@ -292,11 +292,11 @@ class CnnModel:
     #     )
     # ... (rest of evaluate_model, save_model, etc. unchanged) ...
     def _fit(self,
-             X_train, X_val,
-             y_train, y_val,
-             class_weights,
-             epochs,
-             frozen):
+            X_train, X_val,
+            y_train, y_val,
+            class_weights,
+            epochs,
+            frozen):
 
         # 0) Alias optimizer.lr for legacy callbacks
         self._model.optimizer.lr = self._model.optimizer.learning_rate
@@ -305,24 +305,44 @@ class CnnModel:
         es = EarlyStopping(
             monitor='val_loss',
             patience=config.early_stopping_patience,
-            restore_best_weights=True, verbose=1
+            restore_best_weights=True,
+            verbose=1
         )
         rlrp = ReduceLROnPlateau(
             monitor='val_loss',
             patience=config.reduce_lr_patience,
             factor=config.reduce_lr_factor,
-            min_lr=config.min_learning_rate, verbose=1
+            min_lr=config.min_learning_rate,
+            verbose=1
         )
         callbacks = [es, rlrp]
 
-        # 2) Dataset branch
+        # 2) Dataset branch: flatten volume→slice nếu cần rồi batch/repeat/prefetch
         if isinstance(X_train, tf.data.Dataset):
+            # Hàm phát hiện và tách 3D volume (rank==4) → nhiều slice 2D
+            def _maybe_flatten(vol, lab):
+                # vol: Tensor shape = (depth, H, W, C) nếu là volume 3D
+                if tf.rank(vol) == 4:
+                    # Sử dụng flatten_to_slices để tách vol thành từng (H,W,C) :contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}
+                    return flatten_to_slices(tf.data.Dataset.from_tensors((vol, lab)))
+                else:
+                    # Đã là slice 2D, giữ nguyên
+                    return tf.data.Dataset.from_tensors((vol, lab))
+
+            # Áp dụng tách chỉ khi dataset yield volumes 3D
+            X_train = X_train.flat_map(_maybe_flatten)
+            X_val   = X_val  .flat_map(_maybe_flatten)
+
+            # Sau khi flat_map, mỗi phần tử of X_train/X_val là (H, W, C)
+            # Bây giờ batch, repeat, prefetch
+            ds_train = X_train.repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
+            ds_val   = X_val  .repeat().batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
+
+            # Tính steps per epoch (số batch)
             train_steps = int(cardinality(X_train).numpy())
             val_steps   = int(cardinality(X_val).numpy())
 
-            ds_train = X_train.repeat()
-            ds_val   = X_val.repeat()
-
+            # Fit mà không cần class_weight cho Dataset branch
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -333,7 +353,8 @@ class CnnModel:
             )
             return
 
-        # 3) NumPy branch: flatten 3D volumes nếu cần
+        # 3) NumPy branch: giữ nguyên như trước
+        #    Nếu X_train là ndarray 5D (N, D, H, W, C), tách thành (N*D, H, W, C):
         if isinstance(X_train, np.ndarray) and X_train.ndim == 5:
             N, D, H, W, C = X_train.shape
             X_train = X_train.reshape(-1, H, W, C)
@@ -341,7 +362,7 @@ class CnnModel:
             y_train = np.repeat(y_train, D, axis=0)
             y_val   = np.repeat(y_val, D, axis=0)
 
-        # 4) Cast label cho khớp loss
+        # Cast label cho khớp loss
         if y_train.ndim == 1:
             y_train = y_train.astype('int32')
             y_val   = y_val.astype('int32')
@@ -349,7 +370,7 @@ class CnnModel:
             y_train = y_train.astype('float32')
             y_val   = y_val.astype('float32')
 
-        # 5) Fit trên NumPy arrays
+        # Fit trên NumPy arrays (với class_weights nếu có)
         self.history = self._model.fit(
             x=X_train,
             y=y_train,
