@@ -545,6 +545,56 @@ def import_inbreast_roi_dataset(
     #       .prefetch(tf.data.AUTOTUNE))
 
     # return ds
+    # def _gen():
+    #     for dcm_fp, coords, lbl_txt in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         arr = (arr - arr.min())/(arr.max()-arr.min()+1e-8)
+    #         xs, ys = zip(*coords)
+    #         x0,x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+    #         y0,y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+    #         H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                              config.INBREAST_IMG_SIZE["WIDTH"])
+    #         roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
+    #         yield roi[...,None], np.int32(label_to_idx[lbl_txt])
+
+    # # --- 4) build Dataset và optional one-hot ---
+    # H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                      config.INBREAST_IMG_SIZE["WIDTH"])
+    # # 1) Generator _gen vẫn yield roi,..., np.int64(label_idx) hoặc np.int32(label_idx)
+    # #    nhưng chúng ta sẽ ngay lập tức chuyển thành float32.
+
+    # sig = (tf.TensorSpec((H, W, 1), tf.float32),
+    #     tf.TensorSpec((), tf.int32))      # <-- dùng float32 cho nhãn luôn
+
+    # ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
+
+    # # 2) Chuyển nhãn số thành float32 (0.0,1.0) trước khi one-hot hoặc song song
+    # ds = ds.map(
+    #     lambda x, y: (x, tf.one_hot(y, num_classes)),
+    #     num_parallel_calls=tf.data.AUTOTUNE
+    # )
+
+    # # 3) Nếu categorical, one-hot lên float32
+    # if num_classes > 2:
+    #     ds = ds.map(
+    #         lambda x, y: (x, tf.one_hot(tf.cast(y, tf.float32), num_classes)),
+    #         num_parallel_calls=tf.data.AUTOTUNE
+    #     )
+
+    # # 4) Giữ nguyên assert_cardinality, shuffle, batch, prefetch
+    # ds = ds.apply(assert_cardinality(len(samples)))
+    # ds = ds.shuffle(len(samples)) \
+    #     .batch(config.batch_size) \
+    #     .prefetch(tf.data.AUTOTUNE)
+    # num_samples = len(samples)
+    # print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
+    # return ds, class_weights, num_classes, num_samples
+        # 1) Generator yield mỗi roi có shape (H, W, 1) và label int32
     def _gen():
         for dcm_fp, coords, lbl_txt in samples:
             try:
@@ -552,48 +602,51 @@ def import_inbreast_roi_dataset(
             except:
                 continue
             arr = ds.pixel_array.astype(np.float32)
-            arr = (arr - arr.min())/(arr.max()-arr.min()+1e-8)
+            arr = (arr - arr.min())/(arr.max() - arr.min() + 1e-8)
             xs, ys = zip(*coords)
-            x0,x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
-            y0,y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+            x0, x1 = max(0, min(xs)), min(arr.shape[1], max(xs))
+            y0, y1 = max(0, min(ys)), min(arr.shape[0], max(ys))
             roi = arr[y0:y1, x0:x1]
-            H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
-                                 config.INBREAST_IMG_SIZE["WIDTH"])
-            roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
-            yield roi[...,None], np.int32(label_to_idx[lbl_txt])
+            H, W = target_size or (
+                config.INBREAST_IMG_SIZE["HEIGHT"],
+                config.INBREAST_IMG_SIZE["WIDTH"]
+            )
+            roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+            yield roi[..., None], np.int32(label_to_idx[lbl_txt])
 
-    # --- 4) build Dataset và optional one-hot ---
-    H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
-                         config.INBREAST_IMG_SIZE["WIDTH"])
-    # 1) Generator _gen vẫn yield roi,..., np.int64(label_idx) hoặc np.int32(label_idx)
-    #    nhưng chúng ta sẽ ngay lập tức chuyển thành float32.
-
-    sig = (tf.TensorSpec((H, W, 1), tf.float32),
-        tf.TensorSpec((), tf.int32))      # <-- dùng float32 cho nhãn luôn
-
+    # 2) Định nghĩa signature
+    H, W = target_size or (
+        config.INBREAST_IMG_SIZE["HEIGHT"],
+        config.INBREAST_IMG_SIZE["WIDTH"]
+    )
+    sig = (
+        tf.TensorSpec((H, W, 1), tf.float32),
+        tf.TensorSpec((),        tf.int32)
+    )
     ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
 
-    # 2) Chuyển nhãn số thành float32 (0.0,1.0) trước khi one-hot hoặc song song
-    ds = ds.map(
-        lambda x, y: (x, tf.one_hot(y, num_classes)),
-        num_parallel_calls=tf.data.AUTOTUNE
-    )
-
-    # 3) Nếu categorical, one-hot lên float32
+    # 3) Nếu multi-class (>2), one-hot một lần duy nhất
     if num_classes > 2:
         ds = ds.map(
-            lambda x, y: (x, tf.one_hot(tf.cast(y, tf.float32), num_classes)),
+            lambda x, y: (x, tf.one_hot(y, num_classes)),
             num_parallel_calls=tf.data.AUTOTUNE
         )
+    #    Nếu binary hoặc sparse multiclass thì giữ y là int32
 
-    # 4) Giữ nguyên assert_cardinality, shuffle, batch, prefetch
+    # 4) Shuffle → Batch → Repeat → Prefetch
     ds = ds.apply(assert_cardinality(len(samples)))
-    ds = ds.shuffle(len(samples)) \
-        .batch(config.batch_size) \
-        .prefetch(tf.data.AUTOTUNE)
+    ds = ds.shuffle(buffer_size=len(samples))
+    ds = ds.batch(config.batch_size)   # chỉ batch một lần
+    ds = ds.repeat()                   # lặp vô hạn nếu dùng steps_per_epoch
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+
     num_samples = len(samples)
-    print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
+    print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={num_classes}, class_weights={class_weights}")
+
+    # 5) Trả về đúng 4 biến
     return ds, class_weights, num_classes, num_samples
+
+
 # def dataset_stratified_split(split, data, labels):
 #     return train_test_split(data, labels,
 #                             test_size=split,
