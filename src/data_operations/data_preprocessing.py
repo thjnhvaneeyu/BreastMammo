@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
 from sklearn.utils.class_weight import compute_class_weight
 from typing import List, Tuple, Optional, Dict
+from tensorflow.data.experimental import assert_cardinality
 
 def make_class_weights(y):
     classes = np.unique(y)
@@ -571,13 +572,13 @@ def import_inbreast_roi_dataset(
     if num_classes>2:
         ds = ds.map(lambda x,y: (x, tf.one_hot(y, num_classes)),
                     num_parallel_calls=tf.data.AUTOTUNE)
-
+    num_samples = len(samples)
+    ds = ds.apply(assert_cardinality(num_samples))
     ds = (ds
           .shuffle(len(samples))
           .batch(config.batch_size)
           .prefetch(tf.data.AUTOTUNE)
 )
-    num_samples = len(samples)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
     return ds, class_weights, num_classes, num_samples
 # def dataset_stratified_split(split, data, labels):
