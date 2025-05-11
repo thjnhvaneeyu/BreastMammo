@@ -311,21 +311,66 @@ class CnnModel:
         callbacks = [es, rlrp]
 
         # --- Dataset branch ---
-        if isinstance(X_train, tf.data.Dataset):
-            # train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
-            # val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
-            train_steps = int(cardinality(X_train).numpy())
-            val_steps   = int(cardinality(X_val).numpy())
-            if train_steps < 0 or val_steps < 0:
-                raise ValueError("Cannot infer dataset size…")
+        # if isinstance(X_train, tf.data.Dataset):
+        #     # train_steps = int(tf.data.experimental.cardinality(X_train).numpy())
+        #     # val_steps   = int(tf.data.experimental.cardinality(X_val).numpy())
+        #     train_steps = int(cardinality(X_train).numpy())
+        #     val_steps   = int(cardinality(X_val).numpy())
+        #     if train_steps < 0 or val_steps < 0:
+        #         raise ValueError("Cannot infer dataset size…")
 
-            ds_train = X_train.apply(assert_cardinality(train_steps)).repeat()
-            ds_val   = X_val  .apply(assert_cardinality(val_steps)).repeat()
-        # === DEBUG: kiểm tra shape của một batch đầu tiên ===
+        #     ds_train = X_train.apply(assert_cardinality(train_steps)).repeat()
+        #     ds_val   = X_val  .apply(assert_cardinality(val_steps)).repeat()
+        # # === DEBUG: kiểm tra shape của một batch đầu tiên ===
+        #     for x_batch, y_batch in ds_train.take(1):
+        #         print("DEBUG: x_batch.shape =", x_batch.shape)
+        #         print("DEBUG: y_batch.shape =", y_batch.shape)
+        #         break
+        #     self.history = self._model.fit(
+        #         ds_train,
+        #         epochs=epochs,
+        #         steps_per_epoch=train_steps,
+        #         validation_data=ds_val,
+        #         validation_steps=val_steps,
+        #         class_weight=class_weights,
+        #         callbacks=callbacks
+        #     )
+        #     return
+
+        if isinstance(X_train, tf.data.Dataset):
+            import math
+            # 1) Lấy số phần tử của X_train và X_val (trước khi repeat)
+            num_train = int(cardinality(X_train).numpy())
+            num_val   = int(cardinality(X_val).numpy())
+
+            # 2) Nếu cardinality <0 (unknown), bạn có thể set thủ công:
+            #    ví dụ num_train = fallback_train_samples  (nếu bạn biết)
+            #    hoặc raise warning/log và tiếp tục.
+            if num_train < 0 or num_val < 0:
+                print("WARN: dataset cardinality unknown, dùng fallback batch count")
+                # fallback: giả sử mỗi epoch có 1 lượt qua toàn bộ X_train
+                # bạn cần thiết lập biến này từ bên ngoài, ví dụ self.num_train_samples
+                num_train = getattr(self, "num_train_samples", None)
+                num_val   = getattr(self, "num_val_samples", None)
+                if num_train is None or num_val is None:
+                    raise ValueError("Không xác định được số mẫu, vui lòng cung cấp num_train_samples/num_val_samples")
+
+            # 3) Thiết lập cardinality cố định, rồi repeat
+            ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
+            ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
+
+            # 4) Tính số bước trên mỗi epoch dựa trên batch size
+            train_steps = math.ceil(num_train / config.batch_size)
+            val_steps   = math.ceil(num_val   / config.batch_size)
+
+            # === DEBUG: kiểm tra shape của một batch đầu tiên ===
             for x_batch, y_batch in ds_train.take(1):
                 print("DEBUG: x_batch.shape =", x_batch.shape)
                 print("DEBUG: y_batch.shape =", y_batch.shape)
                 break
+            # =====================================================
+
+            # 5) Fit model
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -336,7 +381,6 @@ class CnnModel:
                 callbacks=callbacks
             )
             return
-
         # --- NumPy branch ---
         # Cast labels to int64 so both branches produce the same dtype
         if y_train.ndim == 1:
