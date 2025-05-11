@@ -395,7 +395,6 @@ class CnnModel:
                 steps_per_epoch=train_steps,
                 validation_data=ds_val,
                 validation_steps=val_steps,
-                class_weight=class_weights,
                 callbacks=callbacks
             )
             return
