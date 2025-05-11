@@ -362,31 +362,37 @@ class CnnModel:
             # train_steps = math.ceil(num_train / config.batch_size)
             # val_steps   = math.ceil(num_val   / config.batch_size)
         if isinstance(X_train, tf.data.Dataset):
-            # 0) Unbatch trước để đảm bảo X_train hoàn toàn "phẳng"
-            X_train = X_train.unbatch()
-            X_val   = X_val.unbatch()
-
-            # 1) Lấy số sample THỰC (trước khi repeat/batch)
+            # 1) Tính số sample thực (trước khi repeat/batch)
             num_train = int(cardinality(X_train).numpy())
             num_val   = int(cardinality(X_val).numpy())
 
-            # 2) Gán cardinality cố định và repeat để tạo dataset vô hạn
-            ds_train = X_train.apply(assert_cardinality(num_train)).repeat()
-            ds_val   = X_val  .apply(assert_cardinality(num_val  )).repeat()
+            # 2) Unbatch → assert_cardinality → batch → repeat → prefetch
+            ds_train = (
+                X_train
+                .unbatch()
+                .apply(assert_cardinality(num_train))
+                .batch(config.batch_size)
+                .repeat()
+                .prefetch(tf.data.AUTOTUNE)
+            )
+            ds_val = (
+                X_val
+                .unbatch()
+                .apply(assert_cardinality(num_val))
+                .batch(config.batch_size)
+                .repeat()
+                .prefetch(tf.data.AUTOTUNE)
+            )
 
-            # 3) Tính steps_per_epoch dựa trên batch_size
+            # 3) Tính steps
             train_steps = math.ceil(num_train / config.batch_size)
             val_steps   = math.ceil(num_val   / config.batch_size)
 
-            # 4) DEBUG: kiểm tra shape batch đầu tiên
-            for x_batch, y_batch in ds_train.take(1):
-                print("DEBUG: x_batch.shape =", x_batch.shape)
-                print("DEBUG: y_batch.shape =", y_batch.shape)
-                # Kết quả ôn: x_batch.shape == (batch_size, H, W, 1)
-                #             y_batch.shape == (batch_size,)  hoặc (batch_size, num_classes)
-                break
+            # 4) DEBUG nếu cần:
+            # for x_b, y_b in ds_train.take(1):
+            #     print(x_b.shape, y_b.shape); break
 
-            # 5) Chạy fit
+            # 5) Fit
             self.history = self._model.fit(
                 ds_train,
                 epochs=epochs,
@@ -397,6 +403,7 @@ class CnnModel:
                 callbacks=callbacks
             )
             return
+
 
         # --- NumPy branch: cast label về int32 hoặc float32 ---
         if y_train.ndim == 1:

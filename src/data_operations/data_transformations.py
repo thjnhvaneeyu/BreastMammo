@@ -972,4 +972,4 @@ def generate_image_transforms(images: np.ndarray,
             labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
 
     # 5. Trả về mảng
-    return np.vstack(imgs), np.array(labs)
+    return np.stack(imgs), np.array(labs)
