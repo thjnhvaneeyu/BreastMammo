@@ -466,13 +466,13 @@ class CnnModel:
             f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
             f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
         )
-        # Nếu file đã tồn tại, xóa trước để tránh lỗi HDF5 “name already exists”
+        # Nếu path tồn tại (file hoặc thư mục), xóa hoàn toàn
         if os.path.exists(path):
-            try:
+            if os.path.isfile(path):
                 os.remove(path)
-            except PermissionError:
+            else:
                 shutil.rmtree(path)
-        # Lưu model với overwrite (dùng HDF5 .h5)
+        # Lưu model mới
         self._model.save(path, overwrite=True)
 
 
