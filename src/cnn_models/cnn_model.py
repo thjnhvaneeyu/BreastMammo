@@ -10,6 +10,7 @@ from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 # from tensorflow.data.experimental import cardinality
+import shutil
 from tensorflow.keras.mixed_precision import LossScaleOptimizer
 from tensorflow.data import experimental as tfdata_exp
 from tensorflow.data.experimental import assert_cardinality, cardinality
@@ -465,10 +466,14 @@ class CnnModel:
             f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
             f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
         )
-        # 2. Xóa file cũ (nếu có) để tránh lỗi HDF5
+        # Nếu file đã tồn tại, xóa trước để tránh lỗi HDF5 “name already exists”
         if os.path.exists(path):
-            os.remove(path)
-        # 3. Save model duy nhất với overwrite=True (nếu TF hỗ trợ)
+            try:
+                os.remove(path)
+            except PermissionError:
+                # nếu file đang mở, xóa thư mục rồi tái tạo
+                shutil.rmtree(path)
+        # Lưu model với overwrite (dùng HDF5 .h5)
         self._model.save(path, overwrite=True)
 
     @property
