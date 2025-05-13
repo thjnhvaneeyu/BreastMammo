@@ -640,19 +640,22 @@ def import_inbreast_roi_dataset(
         )
     #    Nếu binary hoặc sparse multiclass thì giữ y là int32
 
-    # 4) Shuffle → Batch → Repeat → Prefetch
-    ds = ds.apply(assert_cardinality(len(samples)))
-    ds = ds.shuffle(buffer_size=len(samples))
-    ds = ds.batch(config.batch_size, drop_remainder=True)
-    ds = ds.repeat()                   # lặp vô hạn nếu dùng steps_per_epoch
-    ds = ds.prefetch(tf.data.AUTOTUNE)
+    # # 4) Shuffle → Batch → Repeat → Prefetch
+    # ds = ds.apply(assert_cardinality(len(samples)))
+    # ds = ds.shuffle(buffer_size=len(samples))
+    # ds = ds.batch(config.batch_size, drop_remainder=True)
+    # ds = ds.repeat()                   # lặp vô hạn nếu dùng steps_per_epoch
+    # ds = ds.prefetch(tf.data.AUTOTUNE)
 
+    # num_samples = len(samples)
+    # print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={num_classes}, class_weights={class_weights}")
+
+    # # 5) Trả về đúng 4 biến
+    # return ds, class_weights, num_classes, num_samples
+    # Không batch/ repeat ở đây — chỉ trả về tf.data.Dataset “thô”
     num_samples = len(samples)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={num_classes}, class_weights={class_weights}")
-
-    # 5) Trả về đúng 4 biến
     return ds, class_weights, num_classes, num_samples
-
 
 # def dataset_stratified_split(split, data, labels):
 #     return train_test_split(data, labels,

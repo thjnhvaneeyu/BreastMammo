@@ -145,11 +145,15 @@ def main():
             )
             # ds = ds.unbatch()
             # Shuffle + split
+            # ds = ds.shuffle(buffer_size=num_samples)
+            # split = int(0.8 * num_samples)
+            # ds_train = ds.take(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
+            # ds_val   = ds.skip(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
+            # Shuffle  split  batch (mỗi element giờ chỉ có shape (H,W,1))
             ds = ds.shuffle(buffer_size=num_samples)
             split = int(0.8 * num_samples)
             ds_train = ds.take(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
             ds_val   = ds.skip(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-
             # 1) Tính class_weights
             # labels = [int(l) for _, l in ds_train.unbatch().as_numpy_iterator()]
             # class_weights = make_class_weights(np.array(labels))
