@@ -471,10 +471,10 @@ class CnnModel:
             try:
                 os.remove(path)
             except PermissionError:
-                # nếu file đang mở, xóa thư mục rồi tái tạo
                 shutil.rmtree(path)
         # Lưu model với overwrite (dùng HDF5 .h5)
         self._model.save(path, overwrite=True)
+
 
     @property
     def model(self):
