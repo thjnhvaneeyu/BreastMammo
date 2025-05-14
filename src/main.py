@@ -236,13 +236,13 @@ def main():
         output_neurons_loaded = loaded_keras_model.output_shape[-1]
         actual_num_classes_from_loaded_model = output_neurons_loaded if output_neurons_loaded > 1 else 2
         
-        if cnn_instance.num_classes != actual_num_classes_from_loaded_model:
-            print(f"[INFO] CnnModel was initialized with {cnn_instance.num_classes} classes, "
+        if cnn.num_classes != actual_num_classes_from_loaded_model:
+            print(f"[INFO] CnnModel was initialized with {cnn.num_classes} classes, "
                   f"but loaded model has {actual_num_classes_from_loaded_model} output classes. "
                   f"Re-initializing CnnModel for consistency.")
-            cnn_instance = CnnModel(config.model, actual_num_classes_from_loaded_model)
+            cnn = CnnModel(config.model, actual_num_classes_from_loaded_model)
         
-        cnn_instance.model = loaded_keras_model # Gán model đã tải và compile
+        cnn.model = loaded_keras_model # Gán model đã tải và compile
 
         # Đảm bảo dữ liệu test có sẵn
         if X_test is None or y_test is None:
@@ -270,10 +270,10 @@ def main():
                 print(f"[WARNING] Could not fit LabelEncoder on y_test: {e_le_fit}. Evaluation report might lack proper class names.")
 
 
-        cls_type_eval = 'binary' if cnn_instance.num_classes == 2 else 'multiclass'
+        cls_type_eval = 'binary' if cnn.num_classes == 2 else 'multiclass'
         print(f"[INFO] Evaluating with: X_test shape {X_test.shape}, y_test shape {y_test.shape}, num_classes {cnn_instance.num_classes}, cls_type {cls_type_eval}")
         
-        cnn_instance.evaluate_model(X_test, y_test, le, cls_type_eval, time.time())
+        cnn.evaluate_model(X_test, y_test, le, cls_type_eval, time.time())
         return # Kết thúc test mode
 
     # --- Chế độ TRAIN ---
@@ -281,7 +281,7 @@ def main():
     print("[INFO] Running in TRAIN mode.")
     if ds_train is not None: # INbreast ROI (sử dụng tf.data.Dataset)
         print(f"[INFO] Training with INbreast ROI (tf.data.Dataset). Class weights: {class_weights}")
-        cnn_instance.train_model(
+        cnn.train_model(
             ds_train,
             ds_val,
             y_train=None, # y_train, y_val không cần thiết khi dùng Dataset
@@ -290,14 +290,14 @@ def main():
         )
     elif X_train is not None and y_train is not None: # Dữ liệu NumPy
         print(f"[INFO] Training with NumPy arrays. X_train shape: {X_train.shape}. Class weights: {class_weights}")
-        cnn_instance.train_model(X_train, X_test, y_train, y_test, class_weights)
+        cnn.train_model(X_train, X_test, y_train, y_test, class_weights)
     else:
         print("[ERROR] Dữ liệu huấn luyện không có sẵn (X_train/y_train hoặc ds_train là None).")
         return
 
     # Lưu model sau khi huấn luyện
     print("[INFO] Training complete. Saving model...")
-    cnn_instance.save_model()
+    cnn.save_model()
 
     # Đánh giá model trên tập test sau khi huấn luyện
     print("[INFO] Evaluating model on test set after training...")
@@ -305,8 +305,8 @@ def main():
         print(f"[ERROR] Dữ liệu test (X_test hoặc y_test) là None sau khi huấn luyện. Không thể đánh giá.")
         return
     # le đã được fit trong quá trình tải dữ liệu
-    cls_type_eval_after_train = 'binary' if cnn_instance.num_classes == 2 else 'multiclass'
-    cnn_instance.evaluate_model(X_test, y_test, le, cls_type_eval_after_train, time.time()) # Sử dụng lại thời gian hiện tại
+    cls_type_eval_after_train = 'binary' if cnn.num_classes == 2 else 'multiclass'
+    cnn.evaluate_model(X_test, y_test, le, cls_type_eval_after_train, time.time()) # Sử dụng lại thời gian hiện tại
 
 if __name__ == "__main__":
     start_time_main = time.time()
