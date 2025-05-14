@@ -456,53 +456,108 @@ class CnnModel:
     #         f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
     #         f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
     #     )
+    # def save_model(self) -> None:
+    #     os.makedirs("../saved_models", exist_ok=True)
+    #     # 1. Tạo biến path
+    #     path = (
+    #         f"../saved_models/"
+    #         f"dataset-{config.dataset}_type-{config.mammogram_type}_"
+    #         f"model-{config.model}_lr-{config.learning_rate}_"
+    #         f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
+    #         f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
+    #     )
+    #     # # Nếu path tồn tại (file hoặc thư mục), xóa hoàn toàn
+    #     # if os.path.exists(path):
+    #     #     if os.path.isfile(path):
+    #     #         os.remove(path)
+    #     #     else:
+    #     #         shutil.rmtree(path)
+    #     # # Lưu model mới
+    #     # self._model.save(path, overwrite=True)
+    #     full_path = os.path.abspath(path)
+
+    #     # Nếu tồn tại, xóa hẳn
+    #     if os.path.exists(full_path):
+    #         if os.path.isfile(full_path):
+    #             os.remove(full_path)
+    #         else:
+    #             shutil.rmtree(full_path)
+
+    #     # 2. Thử lưu nguyên file .h5
+    #     try:
+    #         self._model.save(full_path, overwrite=True)
+    #     except Exception as e:
+    #         print(f"[WARNING] Save .h5 thất bại: {e}")
+    #         print("→ Chuyển sang lưu architecture  weights riêng.")
+    #         # 2a) Lưu architecture vào JSON
+    #         json_path = full_path.replace(".h5", "_arch.json")
+    #         with open(json_path, "w") as f:
+    #             f.write(self._model.to_json())
+    #         # 2b) Lưu weights vào HDF5
+    #         wt_path = full_path.replace(".h5", ".h5")
+    #         self._model.save_weights(wt_path)
+    #         print(f"[INFO] Architecture: {json_path}")
+    #         print(f"[INFO] Weights:      {wt_path}")
+    #         return
+
+    #     # Nếu thành công thì in thông báo
+    #     if self.verbose:
+    #         print(f"[INFO] Model saved to {full_path}")
     def save_model(self) -> None:
-        os.makedirs("../saved_models", exist_ok=True)
-        # 1. Tạo biến path
-        path = (
-            f"../saved_models/"
+        # Xác định đường dẫn gốc của dự án một cách đáng tin cậy
+        # Giả sử cnn_model.py nằm trong PROJECT_ROOT/src/cnn_models/
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        # Đi lên 2 cấp để tới PROJECT_ROOT: src/cnn_models -> src -> PROJECT_ROOT
+        project_root_actual = os.path.dirname(os.path.dirname(current_file_dir))
+
+        save_dir = os.path.join(project_root_actual, "saved_models")
+        os.makedirs(save_dir, exist_ok=True)
+
+        # Tạo tên file cơ sở (không có đuôi .h5 hay .json)
+        base_name = (
             f"dataset-{config.dataset}_type-{config.mammogram_type}_"
             f"model-{config.model}_lr-{config.learning_rate}_"
             f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
-            f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
+            f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}"
         )
-        # # Nếu path tồn tại (file hoặc thư mục), xóa hoàn toàn
-        # if os.path.exists(path):
-        #     if os.path.isfile(path):
-        #         os.remove(path)
-        #     else:
-        #         shutil.rmtree(path)
-        # # Lưu model mới
-        # self._model.save(path, overwrite=True)
-        full_path = os.path.abspath(path)
 
-        # Nếu tồn tại, xóa hẳn
-        if os.path.exists(full_path):
-            if os.path.isfile(full_path):
-                os.remove(full_path)
-            else:
-                shutil.rmtree(full_path)
-
-        # 2. Thử lưu nguyên file .h5
+        # --- Lưu kiến trúc model dưới dạng JSON ---
+        arch_path = os.path.join(save_dir, f"{base_name}_arch.json")
         try:
-            self._model.save(full_path, overwrite=True)
+            if os.path.exists(arch_path):
+                os.remove(arch_path)
+            with open(arch_path, "w") as json_file:
+                json_file.write(self._model.to_json())
+            print(f"Model architecture saved to: {arch_path}")
         except Exception as e:
-            print(f"[WARNING] Save .h5 thất bại: {e}")
-            print("→ Chuyển sang lưu architecture  weights riêng.")
-            # 2a) Lưu architecture vào JSON
-            json_path = full_path.replace(".h5", "_arch.json")
-            with open(json_path, "w") as f:
-                f.write(self._model.to_json())
-            # 2b) Lưu weights vào HDF5
-            wt_path = full_path.replace(".h5", ".h5")
-            self._model.save_weights(wt_path)
-            print(f"[INFO] Architecture: {json_path}")
-            print(f"[INFO] Weights:      {wt_path}")
-            return
+            print(f"[ERROR] Failed to save model architecture: {e}")
 
-        # Nếu thành công thì in thông báo
-        if self.verbose:
-            print(f"[INFO] Model saved to {full_path}")
+        # --- Lưu trọng số model với đuôi .weights.h5 ---
+        # Đây là dòng gây lỗi trong traceback của bạn (line 498 trong file đã sửa của bạn)
+        # cần đảm bảo wt_path có đuôi .weights.h5
+        wt_path = os.path.join(save_dir, f"{base_name}.weights.h5") # SỬA Ở ĐÂY
+        try:
+            if os.path.exists(wt_path):
+                os.remove(wt_path)
+            self._model.save_weights(wt_path) # Bây giờ wt_path sẽ đúng định dạng
+            print(f"Model weights saved to: {wt_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save model weights: {e}")
+
+        # (Không bắt buộc) Nếu vẫn muốn thử lưu full model .h5 như một phương án dự phòng
+        # hoặc nếu bạn muốn có cả hai:
+        full_model_h5_path = os.path.join(save_dir, f"{base_name}.h5")
+        try:
+            if os.path.exists(full_model_h5_path):
+                if os.path.isfile(full_model_h5_path):
+                    os.remove(full_model_h5_path)
+                else: # Nếu là thư mục (ví dụ khi lưu ở định dạng 'tf')
+                    shutil.rmtree(full_model_h5_path)
+            self._model.save(full_model_h5_path, overwrite=True)
+            print(f"Full model also saved to (HDF5): {full_model_h5_path}")
+        except Exception as e:
+            print(f"[INFO] Saving full model as .h5 failed again (as expected or for other reasons): {e}")
+            print(f"Architecture and weights were saved separately: {arch_path} and {wt_path}")
 
     @property
     def model(self):
