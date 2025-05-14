@@ -21,9 +21,27 @@ from typing import List, Tuple, Optional, Dict
 from tensorflow.data.experimental import assert_cardinality
 
 def make_class_weights(y):
-    classes = np.unique(y)
-    weights = compute_class_weight("balanced", classes=classes, y=y)
+    y_processed = y # Khởi tạo y_processed
+    if isinstance(y, np.ndarray) and y.ndim > 1 and y.shape[1] > 1:
+        # Nếu y là mảng numpy 2D (có thể là one-hot), chuyển về dạng nhãn 1D
+        y_processed = np.argmax(y, axis=1)
+    elif isinstance(y, list) and isinstance(y[0], np.ndarray):
+        # Nếu y là list các numpy array (trường hợp ít xảy ra hơn với one-hot)
+        # Giả sử mỗi array con là một one-hot vector
+        try:
+            y_processed = np.array([np.argmax(vec) for vec in y])
+        except: # Nếu không phải list các vector one-hot, thử flatten
+            y_processed = np.array(y).ravel()
+    elif isinstance(y, np.ndarray): # Đảm bảo y là 1D nếu đã là numpy array
+         y_processed = y.ravel()
+    else: # Nếu là list các số, chuyển thành numpy array
+        y_processed = np.array(y)
+
+    classes = np.unique(y_processed)
+    # compute_class_weight yêu cầu y là mảng 1D
+    weights = compute_class_weight(class_weight="balanced", classes=classes, y=y_processed)
     return dict(zip(classes, weights))
+
 
 # def make_class_weights_from_labels(y: np.ndarray) -> dict:
 #     """
