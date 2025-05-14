@@ -224,7 +224,7 @@ def main():
     if config.run_mode.lower() == "test":
         print("[INFO] Loading model for evaluation...")
         # Hàm load_trained_model đã được sửa trong utils.py để tự compile
-        loaded_keras_model = load_trained_model(compile_model_on_load=True)
+        loaded_keras_model = load_trained_model()
 
         if loaded_keras_model is None:
             raise FileNotFoundError(
@@ -271,7 +271,7 @@ def main():
 
 
         cls_type_eval = 'binary' if cnn.num_classes == 2 else 'multiclass'
-        print(f"[INFO] Evaluating with: X_test shape {X_test.shape}, y_test shape {y_test.shape}, num_classes {cnn_instance.num_classes}, cls_type {cls_type_eval}")
+        print(f"[INFO] Evaluating with: X_test shape {X_test.shape}, y_test shape {y_test.shape}, num_classes {cnn.num_classes}, cls_type {cls_type_eval}")
         
         cnn.evaluate_model(X_test, y_test, le, cls_type_eval, time.time())
         return # Kết thúc test mode
