@@ -476,24 +476,31 @@ class CnnModel:
         # self._model.save(path, overwrite=True)
         full_path = os.path.abspath(path)
 
-        # 2. Nếu tồn tại (file hoặc folder), xoá hẳn
+        # Nếu tồn tại, xóa hẳn
         if os.path.exists(full_path):
             if os.path.isfile(full_path):
                 os.remove(full_path)
             else:
                 shutil.rmtree(full_path)
 
-        # 3. Thử save bình thường
+        # 2. Thử lưu nguyên file .h5
         try:
             self._model.save(full_path, overwrite=True)
-        except ValueError as e:
-            # Nếu còn lỗi “dataset already exists”, fallback không lưu optimizer
-            print(f"[WARNING] Lỗi HDF5 khi save .h5: {e}")
-            print("→ Thử save không kèm optimizer...")
-            self._model.save(full_path,
-                            overwrite=True,
-                            include_optimizer=False)
+        except Exception as e:
+            print(f"[WARNING] Save .h5 thất bại: {e}")
+            print("→ Chuyển sang lưu architecture  weights riêng.")
+            # 2a) Lưu architecture vào JSON
+            json_path = full_path.replace(".h5", "_arch.json")
+            with open(json_path, "w") as f:
+                f.write(self._model.to_json())
+            # 2b) Lưu weights vào HDF5
+            wt_path = full_path.replace(".h5", "_weights.h5")
+            self._model.save_weights(wt_path)
+            print(f"[INFO] Architecture: {json_path}")
+            print(f"[INFO] Weights:      {wt_path}")
+            return
 
+        # Nếu thành công thì in thông báo
         if self.verbose:
             print(f"[INFO] Model saved to {full_path}")
 
