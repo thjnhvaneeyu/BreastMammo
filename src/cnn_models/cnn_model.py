@@ -466,15 +466,36 @@ class CnnModel:
             f"b-{config.batch_size}_e1-{config.max_epoch_frozen}_"
             f"e2-{config.max_epoch_unfrozen}_roi-{config.is_roi}_{config.name}.h5"
         )
-        # Nếu path tồn tại (file hoặc thư mục), xóa hoàn toàn
-        if os.path.exists(path):
-            if os.path.isfile(path):
-                os.remove(path)
-            else:
-                shutil.rmtree(path)
-        # Lưu model mới
-        self._model.save(path, overwrite=True)
+        # # Nếu path tồn tại (file hoặc thư mục), xóa hoàn toàn
+        # if os.path.exists(path):
+        #     if os.path.isfile(path):
+        #         os.remove(path)
+        #     else:
+        #         shutil.rmtree(path)
+        # # Lưu model mới
+        # self._model.save(path, overwrite=True)
+        full_path = os.path.abspath(path)
 
+        # 2. Nếu tồn tại (file hoặc folder), xoá hẳn
+        if os.path.exists(full_path):
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+            else:
+                shutil.rmtree(full_path)
+
+        # 3. Thử save bình thường
+        try:
+            self._model.save(full_path, overwrite=True)
+        except ValueError as e:
+            # Nếu còn lỗi “dataset already exists”, fallback không lưu optimizer
+            print(f"[WARNING] Lỗi HDF5 khi save .h5: {e}")
+            print("→ Thử save không kèm optimizer...")
+            self._model.save(full_path,
+                            overwrite=True,
+                            include_optimizer=False)
+
+        if self.verbose:
+            print(f"[INFO] Model saved to {full_path}")
 
     @property
     def model(self):
