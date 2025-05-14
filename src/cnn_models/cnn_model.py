@@ -494,7 +494,7 @@ class CnnModel:
             with open(json_path, "w") as f:
                 f.write(self._model.to_json())
             # 2b) Lưu weights vào HDF5
-            wt_path = full_path.replace(".h5", "_.h5")
+            wt_path = full_path.replace(".h5", ".h5")
             self._model.save_weights(wt_path)
             print(f"[INFO] Architecture: {json_path}")
             print(f"[INFO] Weights:      {wt_path}")
