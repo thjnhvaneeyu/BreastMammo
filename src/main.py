@@ -21,7 +21,7 @@ from data_operations.data_preprocessing import (
 )
 from cnn_models.cnn_model import CnnModel
 import argparse
-from data_operations.data_preprocessing import dataset_stratified_split
+from data_operations.data_preprocessing import dataset_stratified_split, generate_image_transforms
 from data_operations.data_preprocessing import make_class_weights
 from tensorflow.keras import mixed_precision
 from utils import load_trained_model
@@ -174,6 +174,47 @@ def main():
     cnn = CnnModel(config.model, num_classes)
     # Let CnnModel.compile_model handle loss & metrics
     cnn.compile_model(config.learning_rate)
+
+    if config.augment_data and config.dataset == "INbreast": # Chỉ augment cho INbreast
+        print(f"Applying extended augmentation for INbreast (multiplier, CutMix, MixUp)...")
+        # Đảm bảo y_train là one-hot cho generate_image_transforms nếu nó mong đợi one-hot
+        # Hàm generate_image_transforms phiên bản mới đã tự xử lý việc này bên trong.
+        
+        # Kiểm tra và đảm bảo X_train có channel dimension nếu là ảnh xám
+        if X_train.ndim == 3: # (N, H, W)
+            X_train = np.expand_dims(X_train, axis=-1) # (N, H, W, 1)
+
+        X_train, y_train = generate_image_transforms(X_train, y_train)
+        # y_train trả về từ generate_image_transforms (phiên bản mới) sẽ là one-hot (hoặc mixed one-hot)
+        # hoặc scalar binary tùy thuộc vào logic cuối cùng của hàm đó.
+        # Nếu model của bạn yêu cầu scalar labels cho binary, bạn có thể cần argmax ở đây.
+        # Ví dụ: if num_classes == 2 and y_train.ndim > 1: y_train = np.argmax(y_train, axis=1)
+        
+        # Cập nhật lại class_weights nếu y_train thay đổi đáng kể về phân phối
+        # (Hàm make_class_weights cần y_train ở dạng scalar)
+        if y_train.ndim > 1 and y_train.shape[1] > 1: # Nếu y_train là one-hot
+            y_train_for_weights = np.argmax(y_train, axis=1)
+        else:
+            y_train_for_weights = y_train
+        class_weights = make_class_weights(y_train_for_weights)
+        print(f"Re-calculated class weights after INbreast augmentation: {class_weights}")
+
+
+    elif config.augment_data: # Augmentation cơ bản cho các dataset khác
+        print(f"Applying basic augmentation for {config.dataset}...")
+        if X_train is not None and y_train is not None:
+            if X_train.ndim == 3: # (N, H, W)
+                 X_train = np.expand_dims(X_train, axis=-1) # (N, H, W, 1)
+            X_train, y_train = generate_image_transforms(X_train, y_train)
+            # Cập nhật class_weights
+            if y_train.ndim > 1 and y_train.shape[1] > 1:
+                y_train_for_weights = np.argmax(y_train, axis=1)
+            else:
+                y_train_for_weights = y_train
+            class_weights = make_class_weights(y_train_for_weights)
+            print(f"Re-calculated class weights after basic augmentation for {config.dataset}: {class_weights}")
+        else:
+            print(f"Skipping augmentation for {config.dataset} as X_train or y_train is None (possibly using tf.data pipeline like CBIS-DDSM).")
     # 4) If in test-mode: load saved .h5 and evaluate immediately
 # # 4) Chế độ TEST
 #     if config.run_mode.lower() == "test":

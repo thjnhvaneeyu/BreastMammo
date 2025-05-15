@@ -77,8 +77,8 @@ BI_RADS_MAPPING = {
 }
 
 INBREAST_BIRADS_MAPPING = {
-    "Normal":   ["BI-RADS 1"],                    # Mặc định BI-RADS 1 = không bất thường
-    "Benign":   ["BI-RADS 2", "BI-RADS 3"],       # Lành tính
+    "Normal":   ["BI-RADS 1", "BI-RADS 3"],                    # Mặc định BI-RADS 1 = không bất thường
+    "Benign":   ["BI-RADS 2"],       # Lành tính
     "Malignant":["BI-RADS 4a", "BI-RADS 4b", "BI-RADS 4c", "BI-RADS 5", "BI-RADS 6"]
 }
 

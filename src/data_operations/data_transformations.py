@@ -4,70 +4,71 @@ import skimage as sk
 import skimage.transform
 import config
 import os
+import tensorflow as tf # Cần thiết cho MixUp nếu bạn muốn làm trên batch
 
-def generate_image_transforms(images, labels):
-    """
-    Oversample data by creating transformed copies of existing images.
-    Applies random rotations, flips, noise, shearing to balance classes.
-    """
-    augmentation_multiplier = 1
-    if config.dataset == "mini-MIAS-binary" or config.dataset == "CMMD-binary":
-        augmentation_multiplier = 3  # tăng cường nhiều hơn cho bộ dữ liệu binary nếu mất cân bằng
+# def generate_image_transforms(images, labels):
+#     """
+#     Oversample data by creating transformed copies of existing images.
+#     Applies random rotations, flips, noise, shearing to balance classes.
+#     """
+#     augmentation_multiplier = 1
+#     if config.dataset == "mini-MIAS-binary" or config.dataset == "CMMD-binary":
+#         augmentation_multiplier = 3  # tăng cường nhiều hơn cho bộ dữ liệu binary nếu mất cân bằng
     
-    images_with_transforms = images
-    labels_with_transforms = labels
-    # Các phép biến đổi có thể áp dụng
-    available_transforms = {
-        'rotate': random_rotation,
-        'noise': random_noise,
-        'horizontal_flip': horizontal_flip,
-        'shear': random_shearing
-    }
-    # Tính số lượng mẫu mỗi lớp và xác định cần thêm bao nhiêu mẫu để cân bằng
-    class_balance = get_class_balances(labels)
-    max_count = max(class_balance) * augmentation_multiplier
-    to_add = [int(max_count - count) for count in class_balance]
-    for i in range(len(to_add)):
-        if to_add[i] <= 0:
-            continue
-        # Lấy các ảnh của lớp i
-        if label_is_binary(labels):
-            indices = [j for j, x in enumerate(labels) if x == i]
-            base_label = i  # nhãn số (0 hoặc 1)
-        else:
-            # Tạo vector one-hot cho lớp i để so sánh
-            label_vector = np.zeros(len(to_add)); label_vector[i] = 1
-            indices = [j for j, x in enumerate(labels) if np.array_equal(x, label_vector)]
-            base_label = label_vector
-        if len(indices) == 0:
-            continue
-        indiv_class_images = [images[j] for j in indices]
-        # Tạo các ảnh mới cho lớp i
-        for k in range(to_add[i]):
-            orig_img = indiv_class_images[k % len(indiv_class_images)]
-            transformed_image = create_individual_transform(orig_img, available_transforms)
-            # Đảm bảo shape của ảnh transform đúng (H, W, 1)
-            if config.is_roi or config.model == "CNN":
-                transformed_image = transformed_image.reshape(1, config.ROI_IMG_SIZE['HEIGHT'], config.ROI_IMG_SIZE["WIDTH"], 1)
-            elif config.model == "VGG" or config.model == "Inception":
-                transformed_image = transformed_image.reshape(1, config.MINI_MIAS_IMG_SIZE['HEIGHT'], config.MINI_MIAS_IMG_SIZE["WIDTH"], 1)
-            elif config.model == "VGG-common":
-                transformed_image = transformed_image.reshape(1, config.VGG_IMG_SIZE['HEIGHT'], config.VGG_IMG_SIZE["WIDTH"], 1)
-            elif config.model == "ResNet":
-                transformed_image = transformed_image.reshape(1, config.RESNET_IMG_SIZE['HEIGHT'], config.RESNET_IMG_SIZE["WIDTH"], 1)
-            elif config.model == "MobileNet":
-                transformed_image = transformed_image.reshape(1, config.MOBILE_NET_IMG_SIZE['HEIGHT'], config.MOBILE_NET_IMG_SIZE["WIDTH"], 1)
-            elif config.model == "DenseNet" or config.model == "Inception":
-                transformed_image = transformed_image.reshape(1, config.INCEPTION_IMG_SIZE['HEIGHT'], config.INCEPTION_IMG_SIZE["WIDTH"], 1)
-            # Thêm ảnh mới và nhãn mới vào tập
-            images_with_transforms = np.append(images_with_transforms, transformed_image, axis=0)
-            # Tạo label tương ứng cho ảnh mới
-            if label_is_binary(labels):
-                new_label = np.array([base_label])  # giữ dạng số
-            else:
-                new_label = base_label.reshape(1, len(base_label))
-            labels_with_transforms = np.append(labels_with_transforms, new_label, axis=0)
-    return images_with_transforms, labels_with_transforms
+#     images_with_transforms = images
+#     labels_with_transforms = labels
+#     # Các phép biến đổi có thể áp dụng
+#     available_transforms = {
+#         'rotate': random_rotation,
+#         'noise': random_noise,
+#         'horizontal_flip': horizontal_flip,
+#         'shear': random_shearing
+#     }
+#     # Tính số lượng mẫu mỗi lớp và xác định cần thêm bao nhiêu mẫu để cân bằng
+#     class_balance = get_class_balances(labels)
+#     max_count = max(class_balance) * augmentation_multiplier
+#     to_add = [int(max_count - count) for count in class_balance]
+#     for i in range(len(to_add)):
+#         if to_add[i] <= 0:
+#             continue
+#         # Lấy các ảnh của lớp i
+#         if label_is_binary(labels):
+#             indices = [j for j, x in enumerate(labels) if x == i]
+#             base_label = i  # nhãn số (0 hoặc 1)
+#         else:
+#             # Tạo vector one-hot cho lớp i để so sánh
+#             label_vector = np.zeros(len(to_add)); label_vector[i] = 1
+#             indices = [j for j, x in enumerate(labels) if np.array_equal(x, label_vector)]
+#             base_label = label_vector
+#         if len(indices) == 0:
+#             continue
+#         indiv_class_images = [images[j] for j in indices]
+#         # Tạo các ảnh mới cho lớp i
+#         for k in range(to_add[i]):
+#             orig_img = indiv_class_images[k % len(indiv_class_images)]
+#             transformed_image = create_individual_transform(orig_img, available_transforms)
+#             # Đảm bảo shape của ảnh transform đúng (H, W, 1)
+#             if config.is_roi or config.model == "CNN":
+#                 transformed_image = transformed_image.reshape(1, config.ROI_IMG_SIZE['HEIGHT'], config.ROI_IMG_SIZE["WIDTH"], 1)
+#             elif config.model == "VGG" or config.model == "Inception":
+#                 transformed_image = transformed_image.reshape(1, config.MINI_MIAS_IMG_SIZE['HEIGHT'], config.MINI_MIAS_IMG_SIZE["WIDTH"], 1)
+#             elif config.model == "VGG-common":
+#                 transformed_image = transformed_image.reshape(1, config.VGG_IMG_SIZE['HEIGHT'], config.VGG_IMG_SIZE["WIDTH"], 1)
+#             elif config.model == "ResNet":
+#                 transformed_image = transformed_image.reshape(1, config.RESNET_IMG_SIZE['HEIGHT'], config.RESNET_IMG_SIZE["WIDTH"], 1)
+#             elif config.model == "MobileNet":
+#                 transformed_image = transformed_image.reshape(1, config.MOBILE_NET_IMG_SIZE['HEIGHT'], config.MOBILE_NET_IMG_SIZE["WIDTH"], 1)
+#             elif config.model == "DenseNet" or config.model == "Inception":
+#                 transformed_image = transformed_image.reshape(1, config.INCEPTION_IMG_SIZE['HEIGHT'], config.INCEPTION_IMG_SIZE["WIDTH"], 1)
+#             # Thêm ảnh mới và nhãn mới vào tập
+#             images_with_transforms = np.append(images_with_transforms, transformed_image, axis=0)
+#             # Tạo label tương ứng cho ảnh mới
+#             if label_is_binary(labels):
+#                 new_label = np.array([base_label])  # giữ dạng số
+#             else:
+#                 new_label = base_label.reshape(1, len(base_label))
+#             labels_with_transforms = np.append(labels_with_transforms, new_label, axis=0)
+#     return images_with_transforms, labels_with_transforms
 
 # def load_roi_and_label(roi_file_path: str):
 #     """
@@ -108,6 +109,240 @@ def generate_image_transforms(images, labels):
 #             break
 
 #     return coords, label_name
+# --- HÀM MIXUP (TensorFlow) ---
+def mixup_tf(images_batch, labels_batch, alpha=0.2):
+    batch_size = tf.shape(images_batch)[0]
+    indices = tf.random.shuffle(tf.range(batch_size))
+    
+    images_shuffled = tf.gather(images_batch, indices)
+    labels_shuffled = tf.gather(labels_batch, indices)
+    
+    l = tf.compat.v1.distributions.Beta(alpha, alpha).sample(1)
+    l = tf.cast(l, images_batch.dtype) # Đảm bảo lambda cùng kiểu dữ liệu
+    # l = tf.maximum(l, 1 - l) # Đảm bảo lambda >= 0.5 không nhất thiết
+
+    mixed_images = l * images_batch + (1 - l) * images_shuffled
+    mixed_labels = l * labels_batch + (1 - l) * labels_shuffled
+    return mixed_images, mixed_labels
+
+# --- HÀM CUTMIX (TensorFlow) ---
+def get_random_box_tf(img_height, img_width, lam):
+    cut_rat = tf.sqrt(1. - lam)
+    cut_h = tf.cast(tf.cast(img_height, tf.float32) * cut_rat, dtype=tf.int32)
+    cut_w = tf.cast(tf.cast(img_width, tf.float32) * cut_rat, dtype=tf.int32)
+
+    cx = tf.random.uniform([], 0, img_width, dtype=tf.int32)
+    cy = tf.random.uniform([], 0, img_height, dtype=tf.int32)
+
+    bbx1 = tf.clip_by_value(cx - cut_w // 2, 0, img_width)
+    bby1 = tf.clip_by_value(cy - cut_h // 2, 0, img_height)
+    bbx2 = tf.clip_by_value(cx + cut_w // 2, 0, img_width)
+    bby2 = tf.clip_by_value(cy + cut_h // 2, 0, img_height)
+    return bbx1, bby1, bbx2, bby2
+
+def cutmix_tf(images_batch, labels_batch, alpha=1.0):
+    batch_size = tf.shape(images_batch)[0]
+    img_height = tf.shape(images_batch)[1]
+    img_width = tf.shape(images_batch)[2]
+    channels = tf.shape(images_batch)[3]
+
+    indices = tf.random.shuffle(tf.range(batch_size))
+    images_shuffled = tf.gather(images_batch, indices)
+    labels_shuffled = tf.gather(labels_batch, indices)
+
+    lam_value = tf.compat.v1.distributions.Beta(alpha, alpha).sample(1)
+    bbx1, bby1, bbx2, bby2 = get_random_box_tf(img_height, img_width, lam_value)
+
+    # Tạo mask
+    mask_h = bby2 - bby1
+    mask_w = bbx2 - bbx1
+
+    # Đảm bảo mask_h và mask_w không âm và lớn hơn 0
+    if mask_h == 0 or mask_w == 0:
+        return images_batch, labels_batch
+
+    # Phần được cắt từ ảnh shuffle
+    patch = images_shuffled[:, bby1:bby2, bbx1:bbx2, :]
+
+    # Tạo ảnh mới với patch
+    # Cách 1: Dùng tf.tensor_scatter_nd_update (phức tạp hơn để tạo indices)
+    # Cách 2: Dùng mask và tf.where (đơn giản hơn)
+    y_coords_range = tf.range(img_height)
+    x_coords_range = tf.range(img_width)
+    Y_grid, X_grid = tf.meshgrid(y_coords_range, x_coords_range, indexing='ij') # W, H -> H, W
+
+    # Expand X_grid, Y_grid for broadcasting with bbx1, etc.
+    # bbx1, bby1, bbx2, bby2 là scalar tensors.
+    # Y_grid, X_grid là [H, W]
+    
+    cut_mask_2d = (Y_grid >= bby1) & (Y_grid < bby2) & (X_grid >= bbx1) & (X_grid < bbx2)
+    cut_mask_4d = tf.expand_dims(tf.expand_dims(cut_mask_2d, axis=0), axis=-1) # (1, H, W, 1)
+    cut_mask_4d = tf.tile(cut_mask_4d, [batch_size, 1, 1, channels]) # (batch_size, H, W, channels)
+
+    mixed_images = tf.where(cut_mask_4d, images_shuffled, images_batch)
+    
+    # Điều chỉnh lambda
+    actual_lam = 1.0 - tf.cast((bbx2 - bbx1) * (bby2 - bby1), tf.float32) / tf.cast(img_height * img_width, tf.float32)
+    actual_lam = tf.cast(actual_lam, labels_batch.dtype)
+
+    mixed_labels = actual_lam * labels_batch + (1.0 - actual_lam) * labels_shuffled
+    return mixed_images, mixed_labels
+
+# --- HÀM AUGMENTATION CHÍNH ---
+def generate_image_transforms(images: np.ndarray, labels: np.ndarray):
+    """
+    Oversample data. Áp dụng CutMix/MixUp chỉ cho INbreast.
+    images: (N, H, W, C) - giả sử C=1 cho ảnh xám
+    labels: (N,) hoặc (N, num_classes) - one-hot được ưu tiên cho MixUp/CutMix
+    """
+    print(f"Augmentation - Initial shapes: images={images.shape}, labels={labels.shape}")
+
+    # Xác định số lớp và chuyển labels sang one-hot nếu cần (đặc biệt cho MixUp/CutMix)
+    is_binary_scalar_labels = label_is_binary(labels)
+    if is_binary_scalar_labels: # Binary 0/1
+        num_classes = 2
+        labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes)
+    elif labels.ndim == 2 and labels.shape[1] > 1: # Already one-hot
+        num_classes = labels.shape[1]
+        labels_one_hot = labels.astype(np.float32) # Đảm bảo float cho MixUp
+    else: # Trường hợp khác (ví dụ: nhãn số đa lớp)
+        unique_labels_count = len(np.unique(labels.ravel()))
+        num_classes = unique_labels_count if unique_labels_count > 1 else np.max(labels.astype(int)) + 1
+        labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes)
+        print(f"Converted scalar multi-class labels to one-hot. Num_classes: {num_classes}")
+
+    # --- Các phép biến đổi hình học cơ bản ---
+    basic_transforms = {
+        'rotate': random_rotation,
+        'noise': random_noise,
+        'horizontal_flip': horizontal_flip,
+        'shear': random_shearing
+    }
+    if config.dataset in ["CMMD_binary", "CMMD-binary", "INbreast"]: # Thêm zoom, contrast
+         basic_transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
+
+
+    # --- Logic tăng cường ---
+    augmented_images_list = list(images.astype(np.float32)) # Chuyển sang float sớm
+    augmented_labels_list = list(labels_one_hot.astype(np.float32))
+
+    # Hệ số nhân (chỉ INbreast được nhân 3 lần tổng cộng)
+    # Các bộ khác sẽ chỉ cân bằng lớp mà không nhất thiết nhân 3
+    target_multiplier = 1
+    if config.dataset == "INbreast":
+        target_multiplier = 3 
+    elif config.dataset in ["mini-MIAS-binary", "CMMD-binary"]:
+        target_multiplier = 2 # Hoặc 3 tùy bạn muốn tăng cường mạnh đến đâu cho các bộ này
+
+    class_counts = get_class_balances(labels_one_hot, num_classes) # labels_one_hot là (N, num_classes)
+    
+    # Nếu target_multiplier > 1, mục tiêu là max_count * target_multiplier
+    # Nếu target_multiplier = 1, mục tiêu chỉ là max_count (cân bằng)
+    if not class_counts: # Xử lý trường hợp class_counts rỗng
+        print("Warning: class_counts is empty. Skipping basic augmentation.")
+        target_count_per_class = 0
+    else:
+        target_count_per_class = max(class_counts)
+        if target_multiplier > 1:
+             target_count_per_class *= target_multiplier
+    
+    print(f"Class counts: {class_counts}, Target count per class (approx): {target_count_per_class}")
+
+    for class_idx in range(num_classes):
+        current_class_count = class_counts[class_idx]
+        num_to_generate = target_count_per_class - current_class_count
+        
+        if num_to_generate <= 0:
+            continue
+
+        # Tìm ảnh gốc thuộc lớp này
+        # labels_one_hot là (N, num_classes)
+        original_indices_for_class = [
+            j for j, lab_vec in enumerate(labels_one_hot) if lab_vec[class_idx] == 1
+        ]
+
+        if not original_indices_for_class:
+            print(f"Warning: No original images found for class {class_idx} to augment from.")
+            continue
+        
+        print(f"Augmenting class {class_idx}: Need to generate {num_to_generate} images.")
+        
+        for k in range(num_to_generate):
+            original_image_to_transform = images[original_indices_for_class[k % len(original_indices_for_class)]]
+            
+            # Áp dụng các phép biến đổi hình học cơ bản
+            transformed_image = create_individual_transform(original_image_to_transform.astype(np.float32), basic_transforms)
+            
+            augmented_images_list.append(transformed_image)
+            augmented_labels_list.append(labels_one_hot[original_indices_for_class[k % len(original_indices_for_class)]].copy())
+
+    # --- Áp dụng MixUp và CutMix CHỈ CHO INBREAST ---
+    final_images_np = np.array(augmented_images_list, dtype=np.float32)
+    final_labels_np = np.array(augmented_labels_list, dtype=np.float32)
+
+    if config.dataset == "INbreast":
+        print(f"INbreast - Before MixUp/CutMix: images_shape={final_images_np.shape}, labels_shape={final_labels_np.shape}")
+        
+        # Chuyển sang tf.Tensor
+        # Đảm bảo ảnh có channel dimension (H, W, 1)
+        if final_images_np.ndim == 3: # (N, H, W)
+            final_images_np = np.expand_dims(final_images_np, axis=-1)
+
+        tf_images = tf.convert_to_tensor(final_images_np, dtype=tf.float32)
+        tf_labels = tf.convert_to_tensor(final_labels_np, dtype=tf.float32) # labels đã là one-hot
+
+        # Quyết định áp dụng (ví dụ: 50% cho mỗi loại)
+        if random.random() < 0.5: # Xác suất áp dụng MixUp
+            print("Applying MixUp for INbreast...")
+            tf_images, tf_labels = mixup_tf(tf_images, tf_labels, alpha=0.2)
+            print(f"After MixUp: images_shape={tf_images.shape}, labels_shape={tf_labels.shape}")
+
+        if random.random() < 0.5: # Xác suất áp dụng CutMix
+            print("Applying CutMix for INbreast...")
+            # CutMix có thể làm thay đổi giá trị pixel, cần clip lại nếu model yêu cầu 0-1
+            tf_images, tf_labels = cutmix_tf(tf_images, tf_labels, alpha=1.0)
+            tf_images = tf.clip_by_value(tf_images, 0.0, 1.0) # Đảm bảo pixel trong khoảng [0,1]
+            print(f"After CutMix: images_shape={tf_images.shape}, labels_shape={tf_labels.shape}")
+        
+        final_images_np = tf_images.numpy()
+        final_labels_np = tf_labels.numpy()
+
+    # Reshape cuối cùng (nếu cần) và trả về
+    # Hàm này không còn reshape bên trong nữa, việc reshape sẽ do hàm gọi (ví dụ: model input)
+    # Hoặc bạn có thể thêm logic reshape ở đây nếu tất cả output phải có cùng kích thước cố định
+    # Nếu bạn cần đảm bảo tất cả ảnh có cùng một target_size từ config:
+    
+    target_h_final, target_w_final = config.INBREAST_IMG_SIZE['HEIGHT'], config.INBREAST_IMG_SIZE['WIDTH']
+    if config.is_roi: # Nếu là ROI, có thể dùng ROI_IMG_SIZE
+        target_h_final, target_w_final = config.ROI_IMG_SIZE['HEIGHT'], config.ROI_IMG_SIZE['WIDTH']
+    
+    # # Code cũ có logic reshape phức tạp dựa trên model, có thể giữ lại nếu cần
+    # # nhưng thường augmentation sẽ giữ nguyên kích thước hoặc resize về một kích thước chung
+    
+    resized_final_images = []
+    for img in final_images_np:
+        if img.shape[0] != target_h_final or img.shape[1] != target_w_final:
+            # Kiểm tra img có phải là tensor không, nếu có thì .numpy()
+            img_to_resize = img.numpy() if hasattr(img, 'numpy') else img
+            res_img = cv2.resize(img_to_resize, (target_w_final, target_h_final), interpolation=cv2.INTER_AREA)
+            if res_img.ndim == 2: # Nếu cv2.resize trả về ảnh 2D (grayscale)
+                res_img = np.expand_dims(res_img, axis=-1)
+            resized_final_images.append(res_img)
+        else:
+            resized_final_images.append(img)
+    
+    final_images_output = np.array(resized_final_images, dtype=np.float32)
+
+    # Nếu nhãn gốc là binary scalar, và sau MixUp/CutMix nó thành one-hot (hoặc float vector)
+    # bạn có thể muốn chuyển nó về lại dạng scalar nếu model của bạn yêu cầu vậy
+    if is_binary_scalar_labels and final_labels_np.ndim > 1:
+        # Nếu final_labels_np là one-hot hoặc vector xác suất, lấy argmax
+        final_labels_output = np.argmax(final_labels_np, axis=1)
+    else:
+        final_labels_output = final_labels_np # Giữ nguyên (có thể là one-hot hoặc đã mix)
+
+    print(f"Augmentation - Final shapes: images={final_images_output.shape}, labels={final_labels_output.shape}")
+    return final_images_output, final_labels_output
 
 def sample_benign_patch(full_img: np.ndarray, x0: int, y0: int, w: int, h: int) -> np.ndarray:
     """Randomly crop a non-overlapping benign region of size (h,w)."""
@@ -442,70 +677,70 @@ def get_class_balances(y_vals: np.ndarray) -> list:
         return [int(counts[unique.tolist().index(i)]) if i in unique else 0
                 for i in range(len(unique))]
 
-def generate_image_transforms(images: np.ndarray, labels: np.ndarray):
-    """
-    Oversample data by creating transformed copies to balance classes.
-    """
-    # choose multiplier
-    if config.dataset in ["mini-MIAS-binary", "CMMD_binary"]:
-        multiplier = 3
-    else:
-        multiplier = 1
+# def generate_image_transforms(images: np.ndarray, labels: np.ndarray):
+#     """
+#     Oversample data by creating transformed copies to balance classes.
+#     """
+#     # choose multiplier
+#     if config.dataset in ["mini-MIAS-binary", "CMMD_binary"]:
+#         multiplier = 3
+#     else:
+#         multiplier = 1
 
-    imgs = images.copy()
-    labs = labels.copy()
+#     imgs = images.copy()
+#     labs = labels.copy()
 
-    # base transforms
-    transforms = {
-        'rotate': random_rotation,
-        'noise': random_noise,
-        'horizontal_flip': horizontal_flip,
-        'shear': random_shearing
-    }
-    # # dataset-specific
-    # if config.dataset in ["CMMD_binary", "CMMD"]:
-    #     transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
-    # if config.dataset == "INbreast":
-    #     transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
-    # dataset-specific: thêm zoom & contrast cho CMMD và INbreast
-    if config.dataset in ["CMMD_binary", "CMMD-binary", "INbreast"]:
-        transforms.update({
-            'zoom': random_zoom,
-            'contrast': random_contrast
-        })
+#     # base transforms
+#     transforms = {
+#         'rotate': random_rotation,
+#         'noise': random_noise,
+#         'horizontal_flip': horizontal_flip,
+#         'shear': random_shearing
+#     }
+#     # # dataset-specific
+#     # if config.dataset in ["CMMD_binary", "CMMD"]:
+#     #     transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
+#     # if config.dataset == "INbreast":
+#     #     transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
+#     # dataset-specific: thêm zoom & contrast cho CMMD và INbreast
+#     if config.dataset in ["CMMD_binary", "CMMD-binary", "INbreast"]:
+#         transforms.update({
+#             'zoom': random_zoom,
+#             'contrast': random_contrast
+#         })
 
-    balances = get_class_balances(labels)
-    target = max(balances) * multiplier
-    to_add = [target - b for b in balances]
+#     balances = get_class_balances(labels)
+#     target = max(balances) * multiplier
+#     to_add = [target - b for b in balances]
 
-    for cls_idx, n in enumerate(to_add):
-        if n <= 0:
-            continue
-        # find indices
-        if label_is_binary(labels):
-            idxs = [i for i, l in enumerate(labels) if l == cls_idx]
-            base_label = cls_idx
-        else:
-            one_hot = np.zeros(len(balances))
-            one_hot[cls_idx] = 1
-            idxs = [i for i, l in enumerate(labels) if np.array_equal(l, one_hot)]
-            base_label = one_hot
-        if not idxs:
-            continue
-        class_imgs = [images[i] for i in idxs]
-        for i in range(n):
-            orig = class_imgs[i % len(class_imgs)]
-            transformed = create_individual_transform(orig, transforms)
-            h, w = transformed.shape[:2]
-            c = 1 if transformed.ndim == 2 else transformed.shape[2]
-            batch_img = transformed.reshape((1, h, w, c))
-            imgs = np.append(imgs, batch_img, axis=0)
-            if label_is_binary(labels):
-                labs = np.append(labs, np.array([base_label]), axis=0)
-            else:
-                labs = np.append(labs, base_label.reshape(1, -1), axis=0)
+#     for cls_idx, n in enumerate(to_add):
+#         if n <= 0:
+#             continue
+#         # find indices
+#         if label_is_binary(labels):
+#             idxs = [i for i, l in enumerate(labels) if l == cls_idx]
+#             base_label = cls_idx
+#         else:
+#             one_hot = np.zeros(len(balances))
+#             one_hot[cls_idx] = 1
+#             idxs = [i for i, l in enumerate(labels) if np.array_equal(l, one_hot)]
+#             base_label = one_hot
+#         if not idxs:
+#             continue
+#         class_imgs = [images[i] for i in idxs]
+#         for i in range(n):
+#             orig = class_imgs[i % len(class_imgs)]
+#             transformed = create_individual_transform(orig, transforms)
+#             h, w = transformed.shape[:2]
+#             c = 1 if transformed.ndim == 2 else transformed.shape[2]
+#             batch_img = transformed.reshape((1, h, w, c))
+#             imgs = np.append(imgs, batch_img, axis=0)
+#             if label_is_binary(labels):
+#                 labs = np.append(labs, np.array([base_label]), axis=0)
+#             else:
+#                 labs = np.append(labs, base_label.reshape(1, -1), axis=0)
 
-    return imgs, labs
+#     return imgs, labs
 
 # import random
 
@@ -884,92 +1119,65 @@ from typing import Tuple
 # import random
 # import config
 
-def generate_image_transforms(images: np.ndarray,
-                              labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    - images: np.ndarray, shape (N, H, W, C) or (N, H, W)
-    - labels: np.ndarray, shape (N,) for binary or (N, num_classes) for one-hot
-    Returns augmented images & labels với logic mix ngẫu nhiên 1–N phép.
-    """
-    available_transforms = {
-        'rotate': random_rotation,
-        'noise': random_noise,
-        'horizontal_flip': horizontal_flip,
-        'shear': random_shearing
-    }
-    # 1. Khởi tạo lists
-    imgs = list(images)
-    labs = list(labels)
+# def generate_image_transforms(images: np.ndarray,
+#                               labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+#     """
+#     - images: np.ndarray, shape (N, H, W, C) or (N, H, W)
+#     - labels: np.ndarray, shape (N,) for binary or (N, num_classes) for one-hot
+#     Returns augmented images & labels với logic mix ngẫu nhiên 1–N phép.
+#     """
+#     available_transforms = {
+#         'rotate': random_rotation,
+#         'noise': random_noise,
+#         'horizontal_flip': horizontal_flip,
+#         'shear': random_shearing
+#     }
+#     # 1. Khởi tạo lists
+#     imgs = list(images)
+#     labs = list(labels)
 
-    # 2. Oversampling multiplier
-    multiplier = 3 if config.dataset in ["mini-MIAS-binary", "CMMD-binary"] else 1
+#     # 2. Oversampling multiplier
+#     # choose multiplier
+#     if config.dataset == "INbreast": # THÊM HOẶC CHỈNH SỬA ĐIỀU KIỆN NÀY
+#         multiplier = 3
+#     elif config.dataset in ["mini-MIAS-binary", "CMMD-binary"]: # Giữ nguyên logic cũ nếu có
+#         multiplier = 3
+#     else:
+#         multiplier = 1
 
-    # 3. Tính to_add cho mỗi lớp
-    class_counts = get_class_balances(labels)  # e.g. [n0, n1, ...]
-    max_count = max(class_counts) * multiplier
-    to_add = [int(max_count - cnt) for cnt in class_counts]
+#     # 3. Tính to_add cho mỗi lớp
+#     class_counts = get_class_balances(labels)  # e.g. [n0, n1, ...]
+#     max_count = max(class_counts) * multiplier
+#     to_add = [int(max_count - cnt) for cnt in class_counts]
 
-    # 4. Với từng lớp i, tạo thêm đúng to_add[i] ảnh
-    for i, add_count in enumerate(to_add):
-        if add_count <= 0:
-            continue
+#     # 4. Với từng lớp i, tạo thêm đúng to_add[i] ảnh
+#     for i, add_count in enumerate(to_add):
+#         if add_count <= 0:
+#             continue
 
-        # 4.1 Lấy indices của lớp i
-        if label_is_binary(labels):
-            indices = [j for j, v in enumerate(labels) if v == i]
-            base_label = i
-        else:
-            vec = np.zeros(len(class_counts), dtype=labels.dtype)
-            vec[i] = 1
-            indices = [j for j, v in enumerate(labels) if np.array_equal(v, vec)]
-            base_label = vec
+#         # 4.1 Lấy indices của lớp i
+#         if label_is_binary(labels):
+#             indices = [j for j, v in enumerate(labels) if v == i]
+#             base_label = i
+#         else:
+#             vec = np.zeros(len(class_counts), dtype=labels.dtype)
+#             vec[i] = 1
+#             indices = [j for j, v in enumerate(labels) if np.array_equal(v, vec)]
+#             base_label = vec
 
-        if not indices:
-            continue
+#         if not indices:
+#             continue
 
-        # 4.2 Sinh từng ảnh mới bằng mix ngẫu nhiên 1–len(available_transforms) phép
-        for k in range(add_count):
-            orig = images[indices[k % len(indices)]]
-            ops = random.randint(1, len(available_transforms))
-            aug = orig.copy()
-            for _ in range(ops):
-                func = random.choice(list(available_transforms.values()))
-                aug = func(aug)
+#         # 4.2 Sinh từng ảnh mới bằng mix ngẫu nhiên 1–len(available_transforms) phép
+#         for k in range(add_count):
+#             orig = images[indices[k % len(indices)]]
+#             ops = random.randint(1, len(available_transforms))
+#             aug = orig.copy()
+#             for _ in range(ops):
+#                 func = random.choice(list(available_transforms.values()))
+#                 aug = func(aug)
+#             imgs.append(aug)
+#             labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
 
-            # # 4.3 Nếu cần reshape theo model/ROI
-            # if getattr(config, "is_roi", False) or config.model == "CNN":
-            #     aug = aug.reshape(1,
-            #                       config.ROI_IMG_SIZE['HEIGHT'],
-            #                       config.ROI_IMG_SIZE['WIDTH'],
-            #                       1)
-            # elif config.model in ("VGG", "Inception"):
-            #     aug = aug.reshape(1,
-            #                       config.MINI_MIAS_IMG_SIZE['HEIGHT'],
-            #                       config.MINI_MIAS_IMG_SIZE['WIDTH'],
-            #                       1)
-            # elif config.model == "VGG-common":
-            #     aug = aug.reshape(1,
-            #                       config.VGG_IMG_SIZE['HEIGHT'],
-            #                       config.VGG_IMG_SIZE['WIDTH'],
-            #                       1)
-            # elif config.model == "ResNet":
-            #     aug = aug.reshape(1,
-            #                       config.RESNET_IMG_SIZE['HEIGHT'],
-            #                       config.RESNET_IMG_SIZE['WIDTH'],
-            #                       1)
-            # elif config.model == "MobileNet":
-            #     aug = aug.reshape(1,
-            #                       config.MOBILE_NET_IMG_SIZE['HEIGHT'],
-            #                       config.MOBILE_NET_IMG_SIZE['WIDTH'],
-            #                       1)
-            # elif config.model in ("DenseNet", "Inception"):
-            #     aug = aug.reshape(1,
-            #                       config.INCEPTION_IMG_SIZE['HEIGHT'],
-            #                       config.INCEPTION_IMG_SIZE['WIDTH'],
-            #                       1)
-
-            imgs.append(aug)
-            labs.append(base_label.copy() if not label_is_binary(labels) else base_label)
-
-    # 5. Trả về mảng
-    return np.stack(imgs), np.array(labs)
+#     # 5. Trả về mảng
+#     return np.stack(imgs), np.array(labs)
