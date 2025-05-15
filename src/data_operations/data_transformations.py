@@ -5,7 +5,11 @@ import skimage.transform
 import config
 import os
 import tensorflow as tf # Cần thiết cho MixUp nếu bạn muốn làm trên batch
-
+import numpy as np
+import skimage as sk
+import skimage.filters # Cho GaussianBlur
+import skimage.exposure # Cho điều chỉnh độ sáng (gamma) hoặc rescale_intensity
+import random
 # def generate_image_transforms(images, labels):
 #     """
 #     Oversample data by creating transformed copies of existing images.
@@ -216,7 +220,9 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray):
         'rotate': random_rotation,
         'noise': random_noise,
         'horizontal_flip': horizontal_flip,
-        'shear': random_shearing
+        'shear': random_shearing,
+        'gaussian_blur': random_gaussian_blur,         # <--- THÊM MỚI
+        'brightness_adjust': random_brightness_adjustment # <--- THÊM MỚI
     }
     if config.dataset in ["CMMD_binary", "CMMD-binary", "INbreast"]: # Thêm zoom, contrast
          basic_transforms.update({'zoom': random_zoom, 'contrast': random_contrast})
@@ -401,6 +407,73 @@ def augment_roi_patch(full_img: np.ndarray, coords: list, target_size: tuple=Non
 def label_is_binary(labels):
     # Kiểm tra nếu labels là mảng 1D chứa toàn số (0/1) => binary
     return labels.ndim == 1 or (labels.ndim == 2 and labels.shape[1] == 1)
+
+# ... (các hàm random_rotation, random_noise, horizontal_flip, random_shearing,
+# random_zoom, random_contrast, create_individual_transform, get_class_balances
+# generate_image_transforms đã có trong file data_transformations.py của bạn) ...
+
+def random_gaussian_blur(image_array: np.ndarray, sigma_max: float = 1.0) -> np.ndarray:
+    """
+    Áp dụng Gaussian Blur với sigma ngẫu nhiên.
+    Ảnh đầu vào nên có giá trị pixel dạng float.
+
+    :param image_array: Mảng NumPy chứa ảnh (H, W) hoặc (H, W, 1).
+    :param sigma_max: Giá trị sigma tối đa cho Gaussian Blur.
+                      Sigma nhỏ -> ít mờ, sigma lớn -> mờ nhiều.
+    :return: Ảnh đã được làm mờ.
+    """
+    if image_array.max() > 1.0: # Giả định ảnh chưa được chuẩn hóa về [0,1]
+        image_array_float = sk.util.img_as_float(image_array)
+    else:
+        image_array_float = image_array.astype(np.float32)
+
+    sigma = random.uniform(0, sigma_max)
+    # preserve_range=True rất quan trọng để giữ dải giá trị pixel sau khi làm mờ,
+    # đặc biệt nếu ảnh đầu vào không phải là [0,1]
+    # multichannel=True nếu ảnh có chiều kênh (ví dụ H,W,1), False nếu là (H,W)
+    # Tuy nhiên, gaussian thường hoạt động trên từng kênh nếu multichannel=True và ảnh có nhiều kênh.
+    # Đối với ảnh xám (H,W) hoặc (H,W,1), bạn có thể bỏ qua multichannel hoặc đặt là False nếu ảnh là 2D.
+    
+    is_multichannel = image_array_float.ndim == 3 and image_array_float.shape[-1] > 1
+    # Nếu ảnh là (H,W,1), thì nên coi nó là grayscale, không phải multichannel theo nghĩa màu sắc
+    if image_array_float.ndim == 3 and image_array_float.shape[-1] == 1:
+        # Bỏ chiều cuối để gaussian hoạt động trên ảnh 2D, sau đó thêm lại
+        blurred_image = sk.filters.gaussian(image_array_float.squeeze(axis=-1),
+                                            sigma=sigma,
+                                            preserve_range=True,
+                                            mode='reflect') # mode='reflect' giúp xử lý biên ảnh tốt hơn
+        return np.expand_dims(blurred_image, axis=-1).astype(np.float32)
+    else: # Ảnh 2D (H,W) hoặc ảnh màu thực sự (H,W,C với C>1)
+        blurred_image = sk.filters.gaussian(image_array_float,
+                                            sigma=sigma,
+                                            preserve_range=True,
+                                            multichannel=is_multichannel,
+                                            mode='reflect')
+        return blurred_image.astype(np.float32)
+
+
+def random_brightness_adjustment(image_array: np.ndarray, factor_range: tuple = (0.7, 1.3)) -> np.ndarray:
+    """
+    Điều chỉnh độ sáng của ảnh bằng cách nhân với một hệ số ngẫu nhiên.
+    Ảnh đầu vào nên có giá trị pixel dạng float trong khoảng [0, 1].
+
+    :param image_array: Mảng NumPy chứa ảnh (H, W) hoặc (H, W, 1).
+    :param factor_range: Khoảng (min_factor, max_factor) để chọn hệ số điều chỉnh độ sáng.
+                         Factor < 1 làm ảnh tối hơn, factor > 1 làm ảnh sáng hơn.
+    :return: Ảnh đã được điều chỉnh độ sáng.
+    """
+    if image_array.max() > 1.0: # Đảm bảo ảnh trong khoảng [0,1]
+        image_array_float = sk.util.img_as_float(image_array)
+    else:
+        image_array_float = image_array.astype(np.float32)
+
+    brightness_factor = random.uniform(factor_range[0], factor_range[1])
+    
+    # Nhân với hệ số và cắt giá trị về khoảng [0, 1]
+    adjusted_image = np.clip(image_array_float * brightness_factor, 0.0, 1.0)
+    
+    return adjusted_image.astype(np.float32)
+
 
 def random_rotation(image_array: np.ndarray):
     """
