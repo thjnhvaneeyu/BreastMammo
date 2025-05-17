@@ -141,7 +141,7 @@ def main_logic(cli_args):
         )
         
         y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
         else: class_weights = None
 
     # --- Xử lý cho mini-MIAS ---
@@ -179,7 +179,7 @@ def main_logic(cli_args):
         )
         
         y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
         else: class_weights = None
 
     # --- Xử lý cho CBIS-DDSM ---
@@ -219,7 +219,7 @@ def main_logic(cli_args):
         )
         
         y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
         else: class_weights = None
         
     # --- Xử lý cho CMMD ---
@@ -254,7 +254,7 @@ def main_logic(cli_args):
         )
         
         y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
         else: class_weights = None
 
     else:

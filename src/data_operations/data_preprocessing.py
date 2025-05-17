@@ -20,27 +20,56 @@ from sklearn.utils.class_weight import compute_class_weight
 from typing import List, Tuple, Optional, Dict
 from sklearn.preprocessing import LabelEncoder
 
-def make_class_weights(y):
-    y_processed = y # Khởi tạo y_processed
+from sklearn.utils.class_weight import compute_class_weight
+import numpy as np
+
+def make_class_weights(y, num_classes=None): # Đổi tên tham số
+    y_processed = y  # Khởi tạo y_processed
+
+    # Xử lý y đầu vào để có được mảng nhãn 1D (y_processed)
     if isinstance(y, np.ndarray) and y.ndim > 1 and y.shape[1] > 1:
-        # Nếu y là mảng numpy 2D (có thể là one-hot), chuyển về dạng nhãn 1D
         y_processed = np.argmax(y, axis=1)
-    elif isinstance(y, list) and isinstance(y[0], np.ndarray):
-        # Nếu y là list các numpy array (trường hợp ít xảy ra hơn với one-hot)
-        # Giả sử mỗi array con là một one-hot vector
+    elif isinstance(y, list) and y and isinstance(y[0], np.ndarray): # Thêm kiểm tra y không rỗng
         try:
             y_processed = np.array([np.argmax(vec) for vec in y])
-        except: # Nếu không phải list các vector one-hot, thử flatten
+        except:
             y_processed = np.array(y).ravel()
-    elif isinstance(y, np.ndarray): # Đảm bảo y là 1D nếu đã là numpy array
-         y_processed = y.ravel()
-    else: # Nếu là list các số, chuyển thành numpy array
+    elif isinstance(y, np.ndarray):
+        y_processed = y.ravel()
+    else:
         y_processed = np.array(y)
 
-    classes = np.unique(y_processed)
-    # compute_class_weight yêu cầu y là mảng 1D
-    weights = compute_class_weight(class_weight="balanced", classes=classes, y=y_processed)
-    return dict(zip(classes, weights))
+    # Xử lý trường hợp y_processed rỗng sau các bước trên
+    if y_processed.size == 0:
+        if num_classes is not None and num_classes > 0:
+            # Trả về trọng số bằng nhau (ví dụ: 1.0) cho tất cả các lớp nếu biết tổng số lớp
+            return {i: 1.0 for i in range(num_classes)}
+        return {} # Trả về dictionary rỗng nếu không có thông tin
+
+    # Xác định các lớp thực sự có mặt trong y_processed
+    present_classes = np.unique(y_processed)
+    
+    # Tính toán trọng số cho các lớp hiện có
+    try:
+        weights_array = compute_class_weight(class_weight="balanced", classes=present_classes, y=y_processed)
+        # Tạo dictionary trọng số với key là kiểu int
+        calculated_weights = {int(cls): w for cls, w in zip(present_classes, weights_array)}
+    except ValueError as e:
+        # Trường hợp compute_class_weight báo lỗi (ví dụ: chỉ có 1 lớp trong một batch nhỏ)
+        print(f"[WARN] make_class_weights: Could not compute class weights via sklearn ({e}). Defaulting to 1.0 for present classes.")
+        calculated_weights = {int(cls): 1.0 for cls in present_classes}
+
+
+    if num_classes is not None:
+        # Nếu num_classes_for_weights được cung cấp, đảm bảo dictionary cuối cùng có đủ các mục.
+        # Các lớp không có trong y_processed (và do đó không có trong calculated_weights)
+        # sẽ được gán trọng số mặc định là 1.0.
+        final_class_weights = {i: 1.0 for i in range(num_classes)}
+        final_class_weights.update(calculated_weights) # Ghi đè bằng trọng số đã tính cho các lớp hiện có
+        return final_class_weights
+    else:
+        # Nếu không cung cấp num_classes_for_weights, chỉ trả về trọng số cho các lớp hiện có.
+        return calculated_weights
 
 def load_inbreast_data_no_pectoral_removal(
     data_dir: str, # Đường dẫn đầy đủ đến thư mục INbreast (ví dụ: .../INbreast/INbreast)
@@ -213,16 +242,6 @@ def load_inbreast_data_no_pectoral_removal(
     final_images_array = np.array(all_images_data_accumulator, dtype=np.float32)
     final_labels_array = np.array(all_labels_accumulator, dtype=np.float32)
     return final_images_array, final_labels_array
-
-def make_class_weights_in(y) -> Dict[int, float]:
-    # đảm bảo y là 1-D numpy array
-    y_arr = np.asarray(y).ravel()
-    # các lớp duy nhất
-    classes = np.unique(y_arr)
-    # compute_class_weight chỉ chấp nhận y dạng 1-D array
-    weights = compute_class_weight("balanced", classes=classes, y=y_arr)
-    # trả về dict int→float
-    return {int(c): float(w) for c, w in zip(classes, weights)}
 
 def import_minimias_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     """
