@@ -58,26 +58,70 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 #     return model
 
+# def create_mobilenet_model(num_classes: int):
+#     # 1) Input grayscale → 3 channels
+#     inp = Input(shape=(config.MOBILE_NET_IMG_SIZE['HEIGHT'],
+#                        config.MOBILE_NET_IMG_SIZE['WIDTH'], 1))
+#     x = Concatenate()([inp, inp, inp])
+
+#     # 2) Base MobileNetV2
+#     base = MobileNetV2(include_top=False,
+#                        weights='imagenet',
+#                        input_tensor=x)
+#     x = base.output
+
+#     # 3) Head
+#     x = Flatten()(x)
+#     x = Dropout(0.2, seed=config.RANDOM_SEED)(x)
+#     x = Dense(512, activation='relu')(x)
+#     x = Dense(32, activation='relu')(x)
+#     if num_classes == 2:
+#         out = Dense(1, activation='sigmoid', name='Output')(x)
+#     else:
+#         out = Dense(num_classes, activation='softmax', name='Output')(x)
+
+#     return Model(inputs=inp, outputs=out, name='MobileNetV2_Custom')
+
 def create_mobilenet_model(num_classes: int):
+    # Sử dụng giá trị từ config một cách an toàn
+    img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
+    img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+    
     # 1) Input grayscale → 3 channels
-    inp = Input(shape=(config.MOBILE_NET_IMG_SIZE['HEIGHT'],
-                       config.MOBILE_NET_IMG_SIZE['WIDTH'], 1))
-    x = Concatenate()([inp, inp, inp])
+    inp = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
+    x_conc = Concatenate(name="Input_RGB_Grayscale")([inp, inp, inp]) # Đổi tên biến để không trùng inp
 
     # 2) Base MobileNetV2
     base = MobileNetV2(include_top=False,
                        weights='imagenet',
-                       input_tensor=x)
+                       input_tensor=x_conc) # Sử dụng x_conc
     x = base.output
 
     # 3) Head
-    x = Flatten()(x)
-    x = Dropout(0.2, seed=config.RANDOM_SEED)(x)
-    x = Dense(512, activation='relu')(x)
-    x = Dense(32, activation='relu')(x)
-    if num_classes == 2:
-        out = Dense(1, activation='sigmoid', name='Output')(x)
-    else:
-        out = Dense(num_classes, activation='softmax', name='Output')(x)
+    # Có thể chọn GlobalAveragePooling2D thay vì Flatten tùy theo hiệu năng mong muốn
+    x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) 
+    # x = Flatten()(x) # Nếu giữ Flatten
 
-    return Model(inputs=inp, outputs=out, name='MobileNetV2_Custom')
+    # Sử dụng giá trị từ config một cách an toàn
+    random_seed_val = getattr(config, 'RANDOM_SEED', None)
+    x = Dropout(0.2, seed=random_seed_val, name="Dropout_1")(x) # Đặt tên để dễ debug
+    x = Dense(512, activation='relu', name="Dense_1")(x)
+    x = Dense(32, activation='relu', name="Dense_2")(x)
+
+    # Lớp output - Đã sửa đổi
+    if num_classes == 2:
+        out = Dense(num_classes, activation='softmax', name='Output')(x) # 2 units, softmax
+    elif num_classes > 2:
+        out = Dense(num_classes, activation='softmax', name='Output')(x)
+    else: # num_classes = 1 hoặc < 1
+        print(f"[WARNING] mobilenet_v2: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
+        out = Dense(1, activation='sigmoid', name='Output')(x)
+
+    final_model = Model(inputs=inp, outputs=out, name='MobileNetV2_Custom') # Đổi tên biến model
+
+    verbose_mode_val = getattr(config, 'verbose_mode', False)
+    if verbose_mode_val:
+        print("CNN Model used (MobileNetV2_Custom):")
+        final_model.summary()
+        
+    return final_model

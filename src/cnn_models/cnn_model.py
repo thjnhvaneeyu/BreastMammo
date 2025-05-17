@@ -87,13 +87,13 @@ class CnnModel:
             self._model.compile(
                 optimizer=opt,
                 loss=CategoricalCrossentropy(),
-                metrics=[CategoricalAccuracy()]
+                metrics=[CategoricalAccuracy(name="accuracy")]
             )
         else:
             self._model.compile(
                 optimizer=opt,
-                loss=CategoricalCrossentropy(),
-                metrics=[CategoricalAccuracy()]
+                loss=BinaryCrossentropy(),
+                metrics=[BinaryAccuracy(name="accuracy")]
             )
 
 

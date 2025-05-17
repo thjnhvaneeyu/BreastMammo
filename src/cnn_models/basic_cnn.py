@@ -81,26 +81,57 @@ def create_basic_cnn_model(num_classes: int):
     # 5) Fully Connected
     model.add(Dense(1024, activation='relu', name='Dense_2'))
     
-    # 6) Output layer
+    # # 6) Output layer
+    # if num_classes == 2:
+    #     # Nhị phân
+    #     model.add(Dense(
+    #         2,
+    #         activation='sigmoid',
+    #         kernel_initializer="random_uniform",
+    #         name='Output'
+    #     ))
+    # else:
+    #     # Đa lớp
+    #     model.add(Dense(
+    #         num_classes,
+    #         activation='softmax',
+    #         kernel_initializer="random_uniform",
+    #         name='Output'
+    #     ))
+    
+    # # In summary nếu đang ở chế độ debug
+    # if config.verbose_mode:
+    #     model.summary()
+    
+    # return model
     if num_classes == 2:
-        # Nhị phân
+        # Nhị phân, nhưng target là one-hot (2 classes) và loss là CategoricalCrossentropy
         model.add(Dense(
-            1,
-            activation='sigmoid',
-            kernel_initializer="random_uniform",
+            num_classes, # Sử dụng num_classes (sẽ là 2)
+            activation='softmax', # Dùng softmax cho CategoricalCrossentropy
+            # kernel_initializer="random_uniform", # Có thể bỏ để dùng default của Keras
             name='Output'
         ))
-    else:
-        # Đa lớp
+    elif num_classes > 2: # Trường hợp đa lớp rõ ràng
         model.add(Dense(
             num_classes,
             activation='softmax',
-            kernel_initializer="random_uniform",
+            # kernel_initializer="random_uniform",
+            name='Output'
+        ))
+    else: # Trường hợp num_classes = 1 (ít khả thi với CategoricalCrossentropy, nhưng để phòng)
+          # Hoặc nếu có lỗi logic num_classes < 1
+        print(f"[WARNING] basic_cnn: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
+        model.add(Dense(
+            1,
+            activation='sigmoid',
+            # kernel_initializer="random_uniform",
             name='Output'
         ))
     
     # In summary nếu đang ở chế độ debug
-    if config.verbose_mode:
+    verbose_mode_val = getattr(config, 'verbose_mode', False)
+    if verbose_mode_val:
         model.summary()
     
     return model
