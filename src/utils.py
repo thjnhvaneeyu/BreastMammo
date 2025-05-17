@@ -98,39 +98,73 @@ def print_cli_arguments() -> None:
 #             config.is_roi,
 #             config.name,
 #             title))  # bbox_inches='tight'
-def save_output_figure(title: str) -> None:
-    """
-    Save a figure into the output directory (auto-create it if missing).
-    :param title: The title suffix of the file.
-    """
-    # 1) Xác định project root (thư mục trên src/)
-    util_dir    = os.path.dirname(os.path.abspath(__file__))  # .../BreastMammo/src
-    project_dir = os.path.dirname(util_dir)                   # .../BreastMammo
+# def save_output_figure(title: str) -> None:
+#     """
+#     Save a figure into the output directory (auto-create it if missing).
+#     :param title: The title suffix of the file.
+#     """
+#     # 1) Xác định project root (thư mục trên src/)
+#     util_dir    = os.path.dirname(os.path.abspath(__file__))  # .../BreastMammo/src
+#     project_dir = os.path.dirname(util_dir)                   # .../BreastMammo
+#     output_dir  = os.path.join(project_dir, "output")
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     # 2) Build filename theo config và title
+#     fname = (
+#         f"{config.run_mode}_dataset-{config.dataset}"
+#         f"_mammogramtype-{config.mammogram_type}"
+#         f"_model-{config.model}"
+#         f"_lr-{config.learning_rate}"
+#         f"_b-{config.batch_size}"
+#         f"_e1-{config.max_epoch_frozen}"
+#         f"_e2-{config.max_epoch_unfrozen}"
+#         f"_roi-{config.is_roi}"
+#         f"_{config.name}_{title}.png"
+#     )
+#     save_path = os.path.join(output_dir, fname)
+#     print(f"[DEBUG save_output_figure] Attempting to save plot to: {save_path}")
+#     try:
+#         # 3) Lưu ảnh
+#         plt.savefig(save_path, bbox_inches='tight')  # bạn có thể thêm bbox_inches='tight' nếu cần
+#         print(f"[DEBUG save_output_figure] Successfully called savefig for: {save_path}")
+#     except Exception as e:
+#         print(f"[ERROR save_output_figure] Failed to save {save_path}: {e}")
+#     finally:
+#         plt.close('all') # Quan trọng: Đóng figure sau khi lưu để giải phóng tài nguyên
+def save_output_figure(title_suffix: str) -> None:
+    util_dir    = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(util_dir) # Nếu utils.py ở src/, thì project_dir là thư mục cha của src/
     output_dir  = os.path.join(project_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
 
-    # 2) Build filename theo config và title
-    fname = (
-        f"{config.run_mode}_dataset-{config.dataset}"
-        f"_mammogramtype-{config.mammogram_type}"
-        f"_model-{config.model}"
-        f"_lr-{config.learning_rate}"
-        f"_b-{config.batch_size}"
-        f"_e1-{config.max_epoch_frozen}"
-        f"_e2-{config.max_epoch_unfrozen}"
-        f"_roi-{config.is_roi}"
-        f"_{config.name}_{title}.png"
-    )
-    save_path = os.path.join(output_dir, fname)
+    clean_title_suffix = title_suffix
+    if clean_title_suffix.lower().endswith(".png"):
+        clean_title_suffix = clean_title_suffix[:-4]
+
+    fname_parts = [
+        str(getattr(config, 'run_mode', 'unknown_run_mode')),
+        f"dataset-{getattr(config, 'dataset', 'unknown_dataset')}",
+        f"mammogramtype-{getattr(config, 'mammogram_type', 'unknown_type')}",
+        f"model-{getattr(config, 'model', 'unknown_model')}",
+        f"lr-{getattr(config, 'learning_rate', '0.0')}",
+        f"b-{getattr(config, 'batch_size', '0')}",
+        f"e1-{getattr(config, 'max_epoch_frozen', '0')}",
+        f"e2-{getattr(config, 'max_epoch_unfrozen', '0')}",
+        f"roi-{getattr(config, 'is_roi', False)}",
+        str(getattr(config, 'name', 'experiment'))
+    ]
+    base_filename = "_".join(part for part in fname_parts if part)
+    final_filename = f"{base_filename}_{clean_title_suffix}.png"
+    save_path = os.path.join(output_dir, final_filename)
+
     print(f"[DEBUG save_output_figure] Attempting to save plot to: {save_path}")
     try:
-        # 3) Lưu ảnh
-        plt.savefig(save_path, bbox_inches='tight')  # bạn có thể thêm bbox_inches='tight' nếu cần
+        plt.savefig(save_path, bbox_inches='tight')
         print(f"[DEBUG save_output_figure] Successfully called savefig for: {save_path}")
     except Exception as e:
         print(f"[ERROR save_output_figure] Failed to save {save_path}: {e}")
     finally:
-        plt.close('all') # Quan trọng: Đóng figure sau khi lưu để giải phóng tài nguyên
+        plt.close('all') 
 # def load_trained_model() -> None:
 #     """
 #     Load the model previously trained for the final evaluation using the test set.

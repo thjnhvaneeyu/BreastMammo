@@ -44,49 +44,110 @@ from utils import save_output_figure
 #         save_output_figure("CM-normalised")
 #     elif not is_normalised:
 #         save_output_figure("CM")
-#     plt.show()
+# #     plt.show()
+# def plot_confusion_matrix(cm: np.ndarray,
+#                           fmt: str,
+#                           label_encoder,
+#                           is_normalised: bool) -> None:
+#     """
+#     Vẽ confusion matrix cm (K×K) với K = cm.shape[0].
+#     Tự động chỉ lấy K nhãn đầu từ label_encoder.classes_.
+#     """
+#     n_classes = cm.shape[0]
+#     class_names = list(label_encoder.classes_)[:n_classes]
+
+#     title = "Normalized Confusion Matrix" if is_normalised else "Confusion Matrix"
+#     vmax = 1.0 if is_normalised else None
+
+#     fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+#     sns.heatmap(
+#         cm,
+#         annot=True,
+#         fmt=fmt,
+#         cmap="Blues",
+#         vmin=0,
+#         vmax=vmax,
+#         ax=ax,
+#         cbar_kws={"shrink": 0.8}
+#     )
+
+#     ax.set_title(title)
+#     ax.set_xlabel("Predicted classes")
+#     ax.set_ylabel("True classes")
+
+#     ax.set_xticks(np.arange(n_classes) + 0.5)  # heatmap centers ticks on cell centers
+#     ax.set_yticks(np.arange(n_classes) + 0.5)
+
+#     ax.set_xticklabels(class_names, rotation=45, ha="right")
+#     ax.set_yticklabels(class_names, rotation=0, ha="right")
+
+#     # Lưu hình nếu bạn có hàm này
+#     fname = "CM-normalised" if is_normalised else "CM"
+#     save_output_figure(fname)
+#     # plt.show()
+
 def plot_confusion_matrix(cm: np.ndarray,
                           fmt: str,
-                          label_encoder,
+                          label_encoder, # Đây là sklearn.preprocessing.LabelEncoder
                           is_normalised: bool) -> None:
     """
     Vẽ confusion matrix cm (K×K) với K = cm.shape[0].
     Tự động chỉ lấy K nhãn đầu từ label_encoder.classes_.
     """
-    n_classes = cm.shape[0]
-    class_names = list(label_encoder.classes_)[:n_classes]
+    print(f"[DEBUG plot_confusion_matrix] Called. is_normalised: {is_normalised}") # Thêm debug print
+    if cm is None or cm.size == 0:
+        print(f"[ERROR plot_confusion_matrix] Confusion matrix 'cm' is None or empty. Skipping plot.")
+        return
+    if label_encoder is None or not hasattr(label_encoder, 'classes_') or label_encoder.classes_.size == 0:
+        print(f"[ERROR plot_confusion_matrix] LabelEncoder is invalid. Skipping plot.")
+        return
+
+    n_classes_from_cm = cm.shape[0]
+    
+    # Cẩn thận khi lấy class_names, đảm bảo không vượt quá số lớp có trong label_encoder
+    if n_classes_from_cm > len(label_encoder.classes_):
+        print(f"[WARNING plot_confusion_matrix] Confusion matrix has {n_classes_from_cm} classes, but LabelEncoder only knows {len(label_encoder.classes_)}. Using generic names for extra classes.")
+        class_names_le = list(label_encoder.classes_)
+        class_names = class_names_le + [f"UnknownClass{i+1}" for i in range(n_classes_from_cm - len(class_names_le))]
+    else:
+        class_names = list(label_encoder.classes_)[:n_classes_from_cm]
+
 
     title = "Normalized Confusion Matrix" if is_normalised else "Confusion Matrix"
-    vmax = 1.0 if is_normalised else None
+    # vmax nên được tính toán nếu không chuẩn hóa để heatmap đẹp hơn
+    # vmax_val = 1.0 if is_normalised else np.max(cm) if cm.size > 0 else None
+    # Tuy nhiên, seaborn thường tự xử lý vmax khá tốt nếu để None cho ma trận không chuẩn hóa
+    vmax_val = 1.0 if is_normalised else None
 
-    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+
+    # Tăng figsize để có không gian cho các nhãn và tiêu đề
+    fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True) # Ví dụ: (10,8)
+    
     sns.heatmap(
         cm,
-        annot=True,
-        fmt=fmt,
-        cmap="Blues",
-        vmin=0,
-        vmax=vmax,
+        annot=True, # Hiển thị số liệu trên ô
+        fmt=fmt,    # Định dạng số liệu (ví dụ: '.2f' cho số thực, 'd' cho số nguyên)
+        cmap="Blues", # Bảng màu
+        vmin=0,       # Giá trị nhỏ nhất cho thang màu
+        vmax=vmax_val,  # Giá trị lớn nhất cho thang màu (1.0 cho ma trận chuẩn hóa)
         ax=ax,
-        cbar_kws={"shrink": 0.8}
+        cbar_kws={"shrink": 0.8} # Thu nhỏ color bar một chút
     )
 
-    ax.set_title(title)
-    ax.set_xlabel("Predicted classes")
-    ax.set_ylabel("True classes")
+    ax.set_title(title, fontsize=14) # Tăng fontsize tiêu đề
+    ax.set_xlabel("Predicted classes", fontsize=12)
+    ax.set_ylabel("True classes", fontsize=12)
 
-    ax.set_xticks(np.arange(n_classes) + 0.5)  # heatmap centers ticks on cell centers
-    ax.set_yticks(np.arange(n_classes) + 0.5)
+    # Đảm bảo số lượng ticks và nhãn khớp nhau
+    if class_names: # Chỉ đặt tick labels nếu có class_names
+        ax.set_xticks(np.arange(len(class_names)) + 0.5)
+        ax.set_yticks(np.arange(len(class_names)) + 0.5)
+        ax.set_xticklabels(class_names, rotation=45, ha="right", fontsize=10)
+        ax.set_yticklabels(class_names, rotation=0, ha="right", fontsize=10)
 
-    ax.set_xticklabels(class_names, rotation=45, ha="right")
-    ax.set_yticklabels(class_names, rotation=0, ha="right")
-
-    # Lưu hình nếu bạn có hàm này
-    fname = "CM-normalised" if is_normalised else "CM"
-    save_output_figure(fname)
-    # plt.show()
-
-
+    # Sử dụng hàm save_output_figure từ utils.py
+    plot_file_suffix = "CM-normalised" if is_normalised else "CM"
+    save_output_figure(plot_file_suffix) # save_output_figure sẽ tự thêm .png và các thông tin khác
 
 # def plot_comparison_chart(df: pd.DataFrame) -> None:
 #     """

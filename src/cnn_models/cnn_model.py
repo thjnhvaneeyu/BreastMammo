@@ -122,8 +122,12 @@ class CnnModel:
                 self._fit(X_train, X_val, y_train, y_val,
                           class_weights,
                           epochs=config.max_epoch_frozen,
-                          frozen=True)
-                
+                                frozen=True)
+                if self.history and self.history.history: # Kiểm tra history không rỗng
+                    plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+                else:
+                    print("[WARN CnnModel] No history found after frozen training phase. Skipping plot.")
+                        
             # Phase 2: unfreeze all
         #     if config.max_epoch_unfrozen > 0:
         #         for layer in self._model.layers:
@@ -148,7 +152,11 @@ class CnnModel:
                 self._fit(X_train, X_val, y_train, y_val,
                           class_weights,
                           epochs=config.max_epoch_unfrozen,
-                          frozen=False)
+                                frozen=False)
+                if self.history and self.history.history: # Kiểm tra history không rỗng
+                    plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+                else:
+                    print("[WARN CnnModel] No history found after unfrozen training phase. Skipping plot.")
 
         else:
             # custom CNN from scratch
@@ -157,6 +165,11 @@ class CnnModel:
                       class_weights,
                       epochs=config.max_epoch_unfrozen,
                       frozen=False)
+            if self.history and self.history.history: # Kiểm tra history không rỗng
+                plot_training_results(self.history, "CNN_training", is_frozen_layers=False) # Hoặc True tùy bạn định nghĩa
+            else:
+                print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
+
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
         self._model.optimizer.lr = self._model.optimizer.learning_rate
         # patience = max(1, epochs // 10)
