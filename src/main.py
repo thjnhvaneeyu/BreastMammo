@@ -101,7 +101,7 @@ def main_logic(cli_args):
         target_size_inbreast = (config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"])
         
         X_np, y_np = load_inbreast_data_no_pectoral_removal(
-            data_dir_inbreast=/kaggle/input/breastdata/INbreast, # Use current_data_dir
+            data_dir_inbreast="/kaggle/input/breastdata/INbreast", # Use current_data_dir
             label_encoder_ref=le,
             use_roi_patches=config.is_roi, # Use standardized config.is_roi
             target_size=target_size_inbreast,
