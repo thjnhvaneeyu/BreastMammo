@@ -766,7 +766,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
         num_classes = unique_labels_count if unique_labels_count > 0 else (int(np.max(labels)) + 1 if labels.size > 0 else 2)
         if num_classes == 0 : num_classes = 2 # Fallback
         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
-    print(f"    [INFO Aug] num_classes determined: {num_classes}, labels_one_hot shape: {labels_one_hot.shape}")
+    # print(f"    [INFO Aug] num_classes determined: {num_classes}, labels_one_hot shape: {labels_one_hot.shape}")
 
     # 2. Chuẩn bị initial_images_processed_for_aug
     initial_images_processed_for_aug = []
