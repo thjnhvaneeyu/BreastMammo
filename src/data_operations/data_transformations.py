@@ -812,10 +812,25 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
     class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
     print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
 
-    if not class_counts or num_classes == 0:
-        print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
+    # if not class_counts or num_classes == 0:
+    #     print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
+    # else:
+    #     target_count_per_class = max(class_counts) * target_multiplier if class_counts and len(class_counts) > 0 else 0
+    if not class_counts or num_classes == 0 or len(class_counts) != num_classes or not any(c > 0 for c in class_counts):
+        print("    [WARN Aug] Invalid class_counts or num_classes. Skipping basic augmentation/balancing.")
     else:
-        target_count_per_class = max(class_counts) * target_multiplier if class_counts and len(class_counts) > 0 else 0
+        # Mục tiêu là làm cho tất cả các lớp có ít nhất số lượng mẫu bằng lớp đa số hiện tại,
+        # sau đó nhân thêm nếu target_multiplier > 1.
+        max_present_class_count = 0
+        for count in class_counts:
+            if count > 0: max_present_class_count = max(max_present_class_count, count)
+        
+        if max_present_class_count == 0: # Không có mẫu nào trong bất kỳ lớp nào
+            print("    [WARN Aug] All class counts are zero. Skipping augmentation.")
+        else:
+            # Mục tiêu cuối cùng cho mỗi lớp
+            target_count_per_class = max_present_class_count * target_multiplier
+            # print(f"    [INFO Aug] Max present class count: {max_present_class_count}. Final target count per class: {final_target_count_per_class}")
 
         for class_idx in range(num_classes):
             current_class_count_for_idx = class_counts[class_idx] if class_idx < len(class_counts) else 0

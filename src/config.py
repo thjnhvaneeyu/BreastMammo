@@ -26,8 +26,8 @@ MOBILE_NET_IMG_SIZE = {
 }
 # Kích thước ảnh cho từng mô hình
 VGG_IMG_SIZE = {
-    "HEIGHT": 512,
-    "WIDTH": 512
+    "HEIGHT": 224,
+    "WIDTH": 224
 }
 RESNET_IMG_SIZE = VGG_IMG_SIZE
 INCEPTION_IMG_SIZE = VGG_IMG_SIZE

@@ -97,21 +97,21 @@ def create_vgg19_model(num_classes: int): # Thêm num_classes vào tham số đ�
     :return: The VGG19 model.
     """
     # Sử dụng giá trị từ config một cách an toàn
-    mini_mias_height = getattr(config, 'MINI_MIAS_IMG_SIZE', {}).get('HEIGHT', 224)
-    mini_mias_width = getattr(config, 'MINI_MIAS_IMG_SIZE', {}).get('WIDTH', 224)
-    vgg_img_height = getattr(config, 'VGG_IMG_SIZE', {}).get('HEIGHT', 224)
-    vgg_img_width = getattr(config, 'VGG_IMG_SIZE', {}).get('WIDTH', 224)
+    input_height = getattr(config, 'MINI_MIAS_IMG_SIZE', {}).get('HEIGHT', 224)
+    input_width = getattr(config, 'MINI_MIAS_IMG_SIZE', {}).get('WIDTH', 224)
+    vgg_target_height = getattr(config, 'VGG_IMG_SIZE', {}).get('HEIGHT', 224)
+    vgg_target_width = getattr(config, 'VGG_IMG_SIZE', {}).get('WIDTH', 224)
 
 
     # Input Layer
-    single_channel_input = Input(shape=(mini_mias_height, mini_mias_width, 1), name="Input_Grayscale")
+    single_channel_input = Input(shape=(input_height, input_width, 1), name="Input_Grayscale")
     triple_channel_input = Concatenate(name="Input_RGB_Grayscale")([single_channel_input, single_channel_input, single_channel_input])
     
     # Custom Convolutional Layers at the beginning
-    x = Conv2D(64, (5, 5), activation='relu', padding='same', name="CustomConv1")(triple_channel_input)
-    x = Conv2D(32, (5, 5), activation='relu', padding='same', name="CustomConv2")(x)
-    x = MaxPooling2D((2, 2), strides=(2, 2), name="CustomPool1")(x)
-    x = Conv2D(64, (3, 3), activation='relu', padding='same', name="CustomConv3_BridgeToVGG")(x) # Lớp này để khớp input shape của VGG19 nếu cần điều chỉnh
+    # x = Conv2D(64, (5, 5), activation='relu', padding='same', name="CustomConv1")(triple_channel_input)
+    # x = Conv2D(32, (5, 5), activation='relu', padding='same', name="CustomConv2")(x)
+    # x = MaxPooling2D((2, 2), strides=(2, 2), name="CustomPool1")(x)
+    # x = Conv2D(64, (3, 3), activation='relu', padding='same', name="CustomConv3_BridgeToVGG")(x) # Lớp này để khớp input shape của VGG19 nếu cần điều chỉnh
     
     # Pre-trained VGG19 model
     # input_shape của VGG19 cần khớp với output của lớp CustomConv3_BridgeToVGG
@@ -123,15 +123,20 @@ def create_vgg19_model(num_classes: int): # Thêm num_classes vào tham số đ�
     # -------- CÁCH TIẾP CẬN ĐƠN GIẢN HƠN VÀ PHỔ BIẾN HƠN: --------
     # Resize input cho VGG19
     # (Lưu ý: input_shape của VGG19 gốc là 224x224. Nếu config.VGG_IMG_SIZE khác, cần xem xét)
-    resized_for_vgg_input = tf.keras.layers.Resizing(vgg_img_height, vgg_img_width, name="ResizeForVGG")(triple_channel_input)
-
-    pre_trained_model_base = VGG19(include_top=False, weights="imagenet", input_tensor=resized_for_vgg_input)
+    # resized_for_vgg_input = tf.keras.layers.Resizing(vgg_img_height, vgg_img_width, name="ResizeForVGG")(triple_channel_input)
+    # Thay vào đó, hãy Resize input cho VGG19 nếu kích thước input ban đầu khác với kích thước VGG mong đợi
+    if input_height != vgg_target_height or input_width != vgg_target_width:
+        processed_input_for_vgg = tf.keras.layers.Resizing(vgg_target_height, vgg_target_width, name="ResizeForVGG")(triple_channel_input)
+    else:
+        processed_input_for_vgg = triple_channel_input
+    pre_trained_model_base = VGG19(include_top=False, weights="imagenet", input_tensor=processed_input_for_vgg)
     
     # Lấy output của base model
     x = pre_trained_model_base.output
 
     # Flatten layer
-    x = Flatten(name="Flatten")(x)
+    # x = Flatten(name="Flatten")(x)
+    x = tf.keras.layers.GlobalAveragePooling2D(name="GlobalAvgPool")(x)
 
     # Fully connected hidden layers and dropout layers
     # Sử dụng giá trị từ config một cách an toàn
