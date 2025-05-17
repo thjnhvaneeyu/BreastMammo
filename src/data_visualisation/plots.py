@@ -59,7 +59,7 @@ def plot_confusion_matrix(cm: np.ndarray,
     title = "Normalized Confusion Matrix" if is_normalised else "Confusion Matrix"
     vmax = 1.0 if is_normalised else None
 
-    fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
     sns.heatmap(
         cm,
         annot=True,
@@ -333,5 +333,5 @@ def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
     plt.ylim(0, 1.05)
     plt.legend(loc="upper right")
     acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy.png"
-    plt.savefig(os.path.join(out_dir, acc_fn))
+    plt.savefig(os.path.join(out_dir, acc_fn), bbox_inches='tight')
     plt.close()
