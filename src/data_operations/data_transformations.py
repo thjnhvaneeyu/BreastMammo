@@ -873,7 +873,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
         final_labels_output = np.round(final_labels_output).astype(int)
 
 
-    print(f"[generate_image_transforms] DEBUG Final output shapes before return: images={final_images_output.shape}, labels={final_labels_output.shape}")
+    # print(f"[generate_image_transforms] DEBUG Final output shapes before return: images={final_images_output.shape}, labels={final_labels_output.shape}")
     if final_images_output.shape[0] != final_labels_output.shape[0]:
         print(f"[FATAL ERROR generate_image_transforms] Mismatch in samples between augmented images and labels BEFORE returning!")
         # Bạn có thể raise lỗi ở đây để dừng sớm nếu muốn:
