@@ -71,6 +71,16 @@ def make_class_weights(y, num_classes=None): # Đổi tên tham số
         # Nếu không cung cấp num_classes_for_weights, chỉ trả về trọng số cho các lớp hiện có.
         return calculated_weights
 
+def make_class_weights_in(y) -> Dict[int, float]:
+    # đảm bảo y là 1-D numpy array
+    y_arr = np.asarray(y).ravel()
+    # các lớp duy nhất
+    classes = np.unique(y_arr)
+    # compute_class_weight chỉ chấp nhận y dạng 1-D array
+    weights = compute_class_weight("balanced", classes=classes, y=y_arr)
+    # trả về dict int→float
+    return {int(c): float(w) for c, w in zip(classes, weights)}
+
 def load_inbreast_data_no_pectoral_removal(
     data_dir: str, # Đường dẫn đầy đủ đến thư mục INbreast (ví dụ: .../INbreast/INbreast)
     label_encoder: LabelEncoder, # LabelEncoder đã được fit ở hàm main_logic

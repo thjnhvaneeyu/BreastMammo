@@ -749,8 +749,8 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
                               apply_mixup: bool = False, mixup_alpha: float = 0.2,
                               apply_cutmix: bool = False, cutmix_alpha: float = 1.0
                               ):
-    print(f"[generate_image_transforms] Initial shapes: images={images.shape}, labels={labels.shape}")
-    print(f"  Flags: Elastic={apply_elastic} (a:{elastic_alpha},s:{elastic_sigma}), MixUp={apply_mixup} (a:{mixup_alpha}), CutMix={apply_cutmix} (a:{cutmix_alpha})")
+    # print(f"[generate_image_transforms] Initial shapes: images={images.shape}, labels={labels.shape}")
+    # print(f"  Flags: Elastic={apply_elastic} (a:{elastic_alpha},s:{elastic_sigma}), MixUp={apply_mixup} (a:{mixup_alpha}), CutMix={apply_cutmix} (a:{cutmix_alpha})")
 
     is_binary_scalar_original = label_is_binary(labels) # Lưu lại dạng nhãn gốc
     
