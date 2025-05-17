@@ -84,8 +84,7 @@ def plot_confusion_matrix(cm: np.ndarray,
     # Lưu hình nếu bạn có hàm này
     fname = "CM-normalised.png" if is_normalised else "CM.png"
     save_output_figure(fname)
-
-    plt.show()
+    # plt.show()
 
 
 
@@ -118,7 +117,7 @@ def plot_comparison_chart(df: pd.DataFrame) -> None:
     """
     Vẽ bar chart so sánh accuracy.
     """
-    fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(12, 8), constrained_layout=True)
     sns.barplot(x="paper", y="accuracy", data=df, ax=ax)
 
     # Ghi số lên đầu mỗi bar
@@ -132,8 +131,8 @@ def plot_comparison_chart(df: pd.DataFrame) -> None:
 
     ax.set_title("Accuracy Comparison")
     ax.set_xticklabels(ax.get_xticklabels(), rotation=60, ha="right")
-    save_output_figure("Accuracy Comparison.png")
-    plt.show()
+    save_output_figure("Accuracy Comparison")
+    # plt.show()
 
 
 # def plot_training_results(hist_input, plot_name: str, is_frozen_layers) -> None:

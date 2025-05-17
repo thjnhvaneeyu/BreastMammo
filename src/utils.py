@@ -122,10 +122,15 @@ def save_output_figure(title: str) -> None:
         f"_{config.name}_{title}.png"
     )
     save_path = os.path.join(output_dir, fname)
-
-    # 3) Lưu ảnh
-    plt.savefig(save_path, bbox_inches='tight')  # bạn có thể thêm bbox_inches='tight' nếu cần
-
+    print(f"[DEBUG save_output_figure] Attempting to save plot to: {save_path}")
+    try:
+        # 3) Lưu ảnh
+        plt.savefig(save_path, bbox_inches='tight')  # bạn có thể thêm bbox_inches='tight' nếu cần
+        print(f"[DEBUG save_output_figure] Successfully called savefig for: {save_path}")
+    except Exception as e:
+        print(f"[ERROR save_output_figure] Failed to save {save_path}: {e}")
+    finally:
+        plt.close('all') # Quan trọng: Đóng figure sau khi lưu để giải phóng tài nguyên
 # def load_trained_model() -> None:
 #     """
 #     Load the model previously trained for the final evaluation using the test set.
