@@ -333,5 +333,5 @@ def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
     plt.ylim(0, 1.05)
     plt.legend(loc="upper right")
     acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy.png"
-    plt.savefig(os.path.join(out_dir, acc_fn), bbox_inches='tight')
+    plt.savefig(os.path.join(out_dir, acc_fn))
     plt.close()

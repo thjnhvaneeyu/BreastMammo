@@ -124,7 +124,7 @@ def save_output_figure(title: str) -> None:
     save_path = os.path.join(output_dir, fname)
 
     # 3) Lưu ảnh
-    plt.savefig(save_path)  # bạn có thể thêm bbox_inches='tight' nếu cần
+    plt.savefig(save_path, bbox_inches='tight')  # bạn có thể thêm bbox_inches='tight' nếu cần
 
 # def load_trained_model() -> None:
 #     """
