@@ -359,59 +359,123 @@ class CnnModel:
     #         # ĐA LỚP: y_true là one-hot, prediction là softmax → argmax
     #         y_true_inv = label_encoder.inverse_transform(np.argmax(y_true, axis=1))
     #         y_pred_inv = label_encoder.inverse_transform(np.argmax(self.prediction, axis=1))
-    def evaluate_model(self, X_test, y_test, label_encoder, cls_type, runtime):
-        # … trước đó bạn đã thu y_pred, y_true = y_test …
-        y_pred_prob = self._model.predict(X_test)
-        if cls_type == 'binary':
-            # threshold mặc định = 0.5
-            y_pred = (y_pred_prob > 0.5).astype(int).flatten()
-        else:
-            y_pred = y_pred_prob  # nếu multiclass, giữ softmax output
+    # def evaluate_model(self, X_test, y_test, label_encoder, cls_type, runtime):
+    #     # … trước đó bạn đã thu y_pred, y_true = y_test …
+    #     y_pred_prob = self._model.predict(X_test)
+    #     if cls_type == 'binary':
+    #         # threshold mặc định = 0.5
+    #         y_pred = (y_pred_prob > 0.5).astype(int).flatten()
+    #     else:
+    #         y_pred = y_pred_prob  # nếu multiclass, giữ softmax output
 
-        # --- Chuyển y_true về dạng labels 1D ---
+    #     # --- Chuyển y_true về dạng labels 1D ---
+    #     if y_test.ndim > 1:
+    #         y_true_labels = np.argmax(y_test, axis=1)
+    #     else:
+    #         y_true_labels = y_test.astype(int)
+
+    #     # # --- Chuyển y_pred về dạng labels 1D nếu cần ---
+    #     # if y_pred.ndim > 1:
+    #     #     y_pred_labels = np.argmax(y_pred, axis=1)
+    #     # else:
+    #     #     y_pred_labels = y_pred
+    #     y_pred_labels = y_pred
+
+    #     # Giờ map ngược về nhãn chuỗi
+    #     y_true_inv = label_encoder.inverse_transform(y_true_labels)
+    #     y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
+    #     print(f"[DEBUG Evaluate] y_true_labels shape: {y_true_labels.shape}, y_pred_labels shape: {y_pred_labels.shape}")
+    #     # Kiểm tra kích thước trước khi inverse_transform
+    #     if y_true_labels.shape[0] != y_pred_labels.shape[0]:
+    #         print(f"[ERROR Evaluate] Mismatch in number of samples before inverse_transform:")
+    #         print(f"  y_true_labels samples: {y_true_labels.shape[0]}")
+    #         print(f"  y_pred_labels samples: {y_pred_labels.shape[0]}")
+    #         # Có thể raise lỗi ở đây hoặc xử lý khác
+    #         # For now, let's see what happens if we proceed, but this is likely the root of the inconsistency
+        
+    #     try:
+    #         y_true_inv = label_encoder.inverse_transform(y_true_labels)
+    #         y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
+    #     except ValueError as e:
+    #         print(f"[ERROR Evaluate] Error during inverse_transform: {e}")
+    #         print(f"  Unique y_true_labels: {np.unique(y_true_labels)}")
+    #         print(f"  Unique y_pred_labels: {np.unique(y_pred_labels)}")
+    #         print(f"  LabelEncoder classes: {label_encoder.classes_}")
+    #         # Thêm thông tin debug để xem tại sao lại có lỗi này (ví dụ: nhãn không có trong encoder)
+    #         # raise e # Hoặc return để tránh crash hoàn toàn
+    #         return
+
+
+    #     print(f"[DEBUG Evaluate] y_true_inv length: {len(y_true_inv)}, y_pred_inv length: {len(y_pred_inv)}")
+
+    #     # 3) Tính accuracy
+    #     acc = accuracy_score(y_true_inv, y_pred_inv)
+    #     print(f"Accuracy = {acc:.4f}\n")
+    def evaluate_model(self, X_test, y_test, label_encoder, cls_type, runtime):
+        print(f"[DEBUG Evaluate Start] Param X_test shape: {X_test.shape}, Param y_test shape: {y_test.shape}, cls_type: {cls_type}")
+        print(f"[DEBUG Evaluate] Model input shape: {self._model.input_shape}, Model output shape: {self._model.output_shape}")
+
+        y_pred_prob = self._model.predict(X_test)
+        print(f"[DEBUG Evaluate] y_pred_prob shape AFTER predict: {y_pred_prob.shape}") # Rất quan trọng
+
+        # ---- THÊM ĐOẠN CODE NÀY ĐỂ XỬ LÝ KHẢ NĂNG DUPLICATE OUTPUT ----
+        if y_pred_prob.shape[0] != X_test.shape[0]:
+            print(f"[WARN Evaluate] Output samples ({y_pred_prob.shape[0]}) from predict() do not match input samples ({X_test.shape[0]}).")
+            if y_pred_prob.shape[0] == 2 * X_test.shape[0] and X_test.shape[0] > 0:
+                print(f"    Assuming duplicated output, taking the first half of predictions.")
+                y_pred_prob = y_pred_prob[:X_test.shape[0]]
+                print(f"    y_pred_prob shape after slicing: {y_pred_prob.shape}")
+            else:
+                print(f"    Cannot automatically resolve prediction sample mismatch. Evaluation might fail or be incorrect.")
+        # ---------------------------------------------------------------
+
+        if cls_type == 'binary':
+            if y_pred_prob.shape[-1] == 1: # Sigmoid output
+                y_pred_labels = (y_pred_prob > 0.5).astype(int).flatten()
+            else: # Softmax output (ví dụ: (None, 2))
+                y_pred_labels = np.argmax(y_pred_prob, axis=1)
+        else: # multiclass
+            y_pred_labels = np.argmax(y_pred_prob, axis=1)
+        # Log này của bạn đã cho thấy y_pred_labels shape: (384,)
+        print(f"[DEBUG Evaluate] y_pred_labels shape after argmax/processing: {y_pred_labels.shape}")
+
+
         if y_test.ndim > 1:
             y_true_labels = np.argmax(y_test, axis=1)
         else:
             y_true_labels = y_test.astype(int)
-
-        # # --- Chuyển y_pred về dạng labels 1D nếu cần ---
-        # if y_pred.ndim > 1:
-        #     y_pred_labels = np.argmax(y_pred, axis=1)
-        # else:
-        #     y_pred_labels = y_pred
-        y_pred_labels = y_pred
-
-        # Giờ map ngược về nhãn chuỗi
-        y_true_inv = label_encoder.inverse_transform(y_true_labels)
-        y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
-        print(f"[DEBUG Evaluate] y_true_labels shape: {y_true_labels.shape}, y_pred_labels shape: {y_pred_labels.shape}")
-        # Kiểm tra kích thước trước khi inverse_transform
+        # Log này của bạn đã cho thấy y_true_labels shape: (192,)
+        print(f"[DEBUG Evaluate] y_true_labels shape after processing y_test: {y_true_labels.shape}")
+        
+        # Kiểm tra lại số lượng mẫu trước khi inverse_transform
         if y_true_labels.shape[0] != y_pred_labels.shape[0]:
             print(f"[ERROR Evaluate] Mismatch in number of samples before inverse_transform:")
             print(f"  y_true_labels samples: {y_true_labels.shape[0]}")
             print(f"  y_pred_labels samples: {y_pred_labels.shape[0]}")
-            # Có thể raise lỗi ở đây hoặc xử lý khác
-            # For now, let's see what happens if we proceed, but this is likely the root of the inconsistency
-        
+            # Bạn có thể dừng ở đây nếu muốn để tránh lỗi sau này
+            # raise ValueError("Sample count mismatch before inverse_transform in evaluate_model") 
+            # Hoặc tạm thời chỉ print và để code chạy tiếp xem lỗi ở đâu
+            print("[WARN Evaluate] Proceeding despite sample mismatch before inverse_transform. Accuracy will be incorrect.")
+
+
         try:
             y_true_inv = label_encoder.inverse_transform(y_true_labels)
+            # Nếu y_pred_labels vẫn là (384,) và y_true_labels là (192,), dòng dưới sẽ gây lỗi
+            # hoặc accuracy_score sẽ lỗi.
+            # Đoạn code check và slice ở trên nhằm mục đích làm cho y_pred_labels có shape (192,)
             y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
         except ValueError as e:
             print(f"[ERROR Evaluate] Error during inverse_transform: {e}")
-            print(f"  Unique y_true_labels: {np.unique(y_true_labels)}")
-            print(f"  Unique y_pred_labels: {np.unique(y_pred_labels)}")
+            print(f"  Unique y_true_labels (len {len(y_true_labels)}): {np.unique(y_true_labels, return_counts=True)}")
+            print(f"  Unique y_pred_labels (len {len(y_pred_labels)}): {np.unique(y_pred_labels, return_counts=True)}")
             print(f"  LabelEncoder classes: {label_encoder.classes_}")
-            # Thêm thông tin debug để xem tại sao lại có lỗi này (ví dụ: nhãn không có trong encoder)
-            # raise e # Hoặc return để tránh crash hoàn toàn
-            return
-
+            return # Dừng hàm evaluate nếu có lỗi ở đây
 
         print(f"[DEBUG Evaluate] y_true_inv length: {len(y_true_inv)}, y_pred_inv length: {len(y_pred_inv)}")
-
-        # 3) Tính accuracy
+        
+        # Dòng 388 gây lỗi gốc
         acc = accuracy_score(y_true_inv, y_pred_inv)
         print(f"Accuracy = {acc:.4f}\n")
-
         # 4) Báo cáo CSV
         generate_csv_report(y_true_inv, y_pred_inv, label_encoder, acc)
         generate_csv_metadata(runtime)
