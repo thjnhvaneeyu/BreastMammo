@@ -86,8 +86,8 @@ class CnnModel:
         if self.num_classes == 2:
             self._model.compile(
                 optimizer=opt,
-                loss=BinaryCrossentropy(),
-                metrics=[BinaryAccuracy()]
+                loss=CategoricalCrossentropy(),
+                metrics=[CategoricalAccuracy()]
             )
         else:
             self._model.compile(
