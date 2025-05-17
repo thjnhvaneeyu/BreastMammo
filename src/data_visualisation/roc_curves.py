@@ -74,7 +74,7 @@ def plot_roc_curve_multiclass(y_true: list, y_pred: list, label_encoder) -> None
     roc_auc['micro'] = auc(fpr['micro'], tpr['micro'])
 
     # Plot.
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(10, 8))
 
     # Plot micro roc curve.
     plt.plot(fpr['micro'], tpr['micro'],

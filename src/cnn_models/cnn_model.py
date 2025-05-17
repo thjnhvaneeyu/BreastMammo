@@ -499,6 +499,13 @@ class CnnModel:
         plot_confusion_matrix(cm.astype('float')/cm.sum(axis=1)[:, None], '.2f', label_encoder, is_normalised=True)
         # in ma trận nhầm lẫn thô
         # plot_confusion_matrix(cm, 'd', label_encoder)
+        # 6) ROC curve
+        if cls_type == 'binary': # cls_type được truyền vào evaluate_model
+            # y_true cho plot_roc_curve_binary thường là nhãn one-hot hoặc xác suất (0,1)
+            # y_pred_prob là output xác suất của model
+            plot_roc_curve_binary(y_test, y_pred_prob) # y_test ở đây nên là one-hot (N,2), y_pred_prob là (N,2) hoặc (N,1)
+        else: # multiclass
+            plot_roc_curve_multiclass(y_test, y_pred_prob, label_encoder) # y_test ở đây nên là one-hot (N,num_classes), y_pred_prob là (N,num_classes)
 
         # # in ma trận nhầm lẫn đã chuẩn hoá
         # cm_norm = cm.astype('float') / cm.sum(axis=1)[:, None]
