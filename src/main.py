@@ -102,7 +102,7 @@ def main_logic(cli_args):
         
         X_np, y_np = load_inbreast_data_no_pectoral_removal(
             data_dir="/kaggle/input/breastdata/INbreast", # Use current_data_dir
-            label_encoder_ref=le,
+            label_encoder=le,
             use_roi_patches=config.is_roi, # Use standardized config.is_roi
             target_size=target_size_inbreast,
             enable_elastic=cli_args.apply_elastic,
