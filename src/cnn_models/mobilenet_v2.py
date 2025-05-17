@@ -1,7 +1,7 @@
 import ssl
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.layers import Concatenate, Dense, Dropout, Flatten, Input
+from tensorflow.keras.layers import Concatenate, Dense, Dropout, Flatten, Input, GlobalAveragePooling2D
 from tensorflow.python.keras import Sequential
 
 import config
