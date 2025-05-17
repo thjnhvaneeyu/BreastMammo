@@ -82,7 +82,7 @@ def plot_confusion_matrix(cm: np.ndarray,
     ax.set_yticklabels(class_names, rotation=0, ha="right")
 
     # Lưu hình nếu bạn có hàm này
-    fname = "CM-normalised.png" if is_normalised else "CM.png"
+    fname = "CM-normalised" if is_normalised else "CM"
     save_output_figure(fname)
     # plt.show()
 
@@ -266,7 +266,76 @@ def plot_comparison_chart(df: pd.DataFrame) -> None:
 #     plt.savefig(os.path.join(out_dir, acc_fn))
 #     plt.close()
 
-def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
+# def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
+#     """
+#     Vẽ và lưu:
+#       - Loss (train & val)
+#       - Accuracy (train & val)
+#     hist_input: History object trả về bởi model.fit()
+#     plot_name: một chuỗi để phân biệt các giai đoạn (e.g. 'frozen' / 'unfrozen')
+#     is_frozen_layers: nếu False, sẽ thêm note "(unfrozen layers)" lên title
+#     """
+#     # Thiết lập thư mục output
+#     script_dir  = os.path.dirname(os.path.abspath(__file__))
+#     project_dir = os.path.dirname(script_dir)
+#     out_dir     = os.path.join(project_dir, 'output')
+#     os.makedirs(out_dir, exist_ok=True)
+
+#     hist = hist_input.history
+#     epochs = np.arange(len(hist.get('loss', [])))
+
+#     # -------- Loss --------
+#     plt.figure()
+#     plt.plot(epochs, hist.get('loss', []), label='train loss')
+#     if 'val_loss' in hist:
+#         plt.plot(epochs, hist['val_loss'], label='val loss')
+#     title = f"Training Loss on {config.dataset}"
+#     if not is_frozen_layers:
+#         title += " (unfrozen layers)"
+#     plt.title(title)
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Loss")
+#     plt.legend(loc="upper right")
+#     loss_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Loss.png"
+#     plt.savefig(os.path.join(out_dir, loss_fn))
+#     plt.close()
+
+#     # -------- Accuracy --------
+#     # Tự động tìm train-accuracy key
+#     acc_key = None
+#     for k in hist:
+#         lk = k.lower()
+#         if lk.endswith('accuracy') and not lk.startswith('val_'):
+#             acc_key = k
+#             break
+#     # Tương ứng validation-accuracy
+#     val_acc_key = None
+#     if acc_key:
+#         candidate = f"val_{acc_key}"
+#         if candidate in hist:
+#             val_acc_key = candidate
+#         elif 'val_accuracy' in hist:
+#             val_acc_key = 'val_accuracy'
+
+#     plt.figure()
+#     if acc_key:
+#         plt.plot(epochs, hist.get(acc_key, []), label='train acc')
+#         if val_acc_key:
+#             plt.plot(epochs, hist[val_acc_key], label='val acc')
+
+#     title = f"Training Accuracy on {config.dataset}"
+#     if not is_frozen_layers:
+#         title += " (unfrozen layers)"
+#     plt.title(title)
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Accuracy")
+#     plt.ylim(0, 1.05)
+#     plt.legend(loc="upper right")
+#     acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy"
+#     plt.savefig(os.path.join(out_dir, acc_fn))
+#     # plt.close()
+
+def plot_training_results(hist_input, plot_name: str, is_frozen_layers=True):
     """
     Vẽ và lưu:
       - Loss (train & val)
@@ -275,62 +344,92 @@ def plot_training_results(hist_input, plot_name, is_frozen_layers=True):
     plot_name: một chuỗi để phân biệt các giai đoạn (e.g. 'frozen' / 'unfrozen')
     is_frozen_layers: nếu False, sẽ thêm note "(unfrozen layers)" lên title
     """
-    # Thiết lập thư mục output
-    script_dir  = os.path.dirname(os.path.abspath(__file__))
-    project_dir = os.path.dirname(script_dir)
-    out_dir     = os.path.join(project_dir, 'output')
-    os.makedirs(out_dir, exist_ok=True)
-
     hist = hist_input.history
-    epochs = np.arange(len(hist.get('loss', [])))
+    if not hist:
+        print(f"[WARNING plot_training_results] History object is empty for plot_name: {plot_name}. Skipping plotting.")
+        return
 
-    # -------- Loss --------
-    plt.figure()
-    plt.plot(epochs, hist.get('loss', []), label='train loss')
-    if 'val_loss' in hist:
-        plt.plot(epochs, hist['val_loss'], label='val loss')
-    title = f"Training Loss on {config.dataset}"
-    if not is_frozen_layers:
-        title += " (unfrozen layers)"
-    plt.title(title)
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend(loc="upper right")
-    loss_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Loss.png"
-    plt.savefig(os.path.join(out_dir, loss_fn))
-    plt.close()
+    # Lấy số lượng epochs một cách an toàn
+    # Thử lấy từ 'loss', nếu không có thì từ một key 'accuracy' nào đó
+    epochs_list = hist.get('loss')
+    if not epochs_list:
+        # Tìm key accuracy đầu tiên không phải là validation accuracy
+        acc_primary_key = next((k for k in hist if k.endswith('accuracy') and not k.startswith('val_')), None)
+        if acc_primary_key:
+            epochs_list = hist.get(acc_primary_key)
+        else: # Nếu không có cả loss và accuracy, không thể vẽ
+            print(f"[WARNING plot_training_results] No 'loss' or 'accuracy' data in history for plot_name: {plot_name}. Cannot determine epochs. Skipping plotting.")
+            return
+            
+    if not epochs_list: # Kiểm tra lại sau khi thử lấy từ accuracy
+        print(f"[WARNING plot_training_results] Epoch data is empty for plot_name: {plot_name}. Skipping plotting.")
+        return
+        
+    epochs = np.arange(len(epochs_list))
 
-    # -------- Accuracy --------
+    # -------- Vẽ đồ thị Loss --------
+    if hist.get('loss'): # Chỉ vẽ nếu có dữ liệu loss
+        plt.figure(figsize=(10, 7)) # Có thể điều chỉnh figsize nếu cần
+        plt.plot(epochs, hist['loss'], label='train loss')
+        if hist.get('val_loss'):
+            plt.plot(epochs, hist['val_loss'], label='val loss')
+        
+        title_str = f"Training Loss on {getattr(config, 'dataset', 'UnknownDataset')}"
+        if not is_frozen_layers:
+            title_str += " (unfrozen layers)"
+        plt.title(title_str)
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend(loc="upper right")
+        
+        loss_fn_suffix = f"{plot_name}-Loss" # Chỉ phần tên gốc, không có .png
+        save_output_figure(loss_fn_suffix) # Hàm save_output_figure sẽ xử lý phần còn lại
+                                           # bao gồm cả plt.close()
+    else:
+        print(f"[INFO plot_training_results] 'loss' key not found or empty in history for {plot_name}. Skipping loss plot.")
+
+    # -------- Vẽ đồ thị Accuracy --------
     # Tự động tìm train-accuracy key
     acc_key = None
     for k in hist:
         lk = k.lower()
-        if lk.endswith('accuracy') and not lk.startswith('val_'):
+        # Ưu tiên các key không có 'sparse' hoặc 'binary' nếu có 'categorical_accuracy' hoặc 'accuracy'
+        if lk == 'accuracy' or lk == 'categorical_accuracy':
             acc_key = k
             break
-    # Tương ứng validation-accuracy
+        if lk.endswith('accuracy') and not lk.startswith('val_') and acc_key is None: # Fallback
+            acc_key = k
+            
     val_acc_key = None
-    if acc_key:
-        candidate = f"val_{acc_key}"
-        if candidate in hist:
-            val_acc_key = candidate
-        elif 'val_accuracy' in hist:
+    if acc_key and hist.get(acc_key): # Kiểm tra acc_key có tồn tại và có dữ liệu không
+        candidate_val_key = f"val_{acc_key}" # Ví dụ: val_accuracy, val_categorical_accuracy
+        if candidate_val_key in hist and hist.get(candidate_val_key):
+            val_acc_key = candidate_val_key
+        # Fallback nếu tên không khớp hoàn toàn (ví dụ: 'accuracy' vs 'val_accuracy')
+        elif 'val_accuracy' in hist and hist.get('val_accuracy'): 
             val_acc_key = 'val_accuracy'
+        elif 'val_categorical_accuracy' in hist and hist.get('val_categorical_accuracy'):
+            val_acc_key = 'val_categorical_accuracy'
+        elif 'val_binary_accuracy' in hist and hist.get('val_binary_accuracy'):
+            val_acc_key = 'val_binary_accuracy'
 
-    plt.figure()
-    if acc_key:
-        plt.plot(epochs, hist.get(acc_key, []), label='train acc')
-        if val_acc_key:
+    if acc_key and hist.get(acc_key): # Chỉ vẽ nếu có dữ liệu accuracy
+        plt.figure(figsize=(10, 7)) # Có thể điều chỉnh figsize
+        plt.plot(epochs, hist[acc_key], label='train acc')
+        if val_acc_key and hist.get(val_acc_key):
             plt.plot(epochs, hist[val_acc_key], label='val acc')
 
-    title = f"Training Accuracy on {config.dataset}"
-    if not is_frozen_layers:
-        title += " (unfrozen layers)"
-    plt.title(title)
-    plt.xlabel("Epochs")
-    plt.ylabel("Accuracy")
-    plt.ylim(0, 1.05)
-    plt.legend(loc="upper right")
-    acc_fn = f"dataset-{config.dataset}_model-{config.model}_{plot_name}-Accuracy.png"
-    plt.savefig(os.path.join(out_dir, acc_fn))
-    plt.close()
+        title_str_acc = f"Training Accuracy on {getattr(config, 'dataset', 'UnknownDataset')}"
+        if not is_frozen_layers:
+            title_str_acc += " (unfrozen layers)"
+        plt.title(title_str_acc)
+        plt.xlabel("Epochs")
+        plt.ylabel("Accuracy")
+        plt.ylim(0, 1.05) # Giới hạn trục Y cho accuracy
+        plt.legend(loc="lower right")
+        
+        acc_fn_suffix = f"{plot_name}-Accuracy" # Chỉ phần tên gốc
+        save_output_figure(acc_fn_suffix) # Hàm save_output_figure sẽ xử lý
+                                          # bao gồm cả plt.close()
+    else:
+        print(f"[INFO plot_training_results] Suitable 'accuracy' key not found or empty in history for {plot_name}. Skipping accuracy plot.")
