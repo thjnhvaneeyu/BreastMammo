@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from pydicom.errors import InvalidDicomError
 from sklearn.utils.class_weight import compute_class_weight
 from typing import List, Tuple, Optional, Dict
-from sklearn.preprocessing import LabelEncoder
+from tensorflow.data.experimental import assert_cardinality
 
 def make_class_weights(y):
     y_processed = y # Khởi tạo y_processed
@@ -42,177 +42,19 @@ def make_class_weights(y):
     weights = compute_class_weight(class_weight="balanced", classes=classes, y=y_processed)
     return dict(zip(classes, weights))
 
-def load_inbreast_data_no_pectoral_removal(
-    data_dir: str, # Đường dẫn đầy đủ đến thư mục INbreast (ví dụ: .../INbreast/INbreast)
-    label_encoder: LabelEncoder, # LabelEncoder đã được fit ở hàm main_logic
-    use_roi_patches: bool,
-    target_size: tuple,
-    # Tham số augmentation từ CLI
-    enable_elastic: bool = False, elastic_alpha_val: float = 34.0, elastic_sigma_val: float = 4.0,
-    enable_mixup: bool = False, mixup_alpha_val: float = 0.2,
-    enable_cutmix: bool = False, cutmix_alpha_val: float = 1.0
-):
-    print(f"\n[INFO] Loading INbreast data (No Pectoral Removal) {'with ROI patches' if use_roi_patches else 'as full images'}...")
-    print(f"  Target Size: {target_size}")
-    print(f"  Augmentation - Elastic: {enable_elastic} (alpha:{elastic_alpha_val}, sigma:{elastic_sigma_val})")
-    print(f"  Augmentation - MixUp: {enable_mixup} (alpha:{mixup_alpha_val})")
-    print(f"  Augmentation - CutMix: {enable_cutmix} (alpha:{cutmix_alpha_val})")
 
-    dicom_dir = os.path.join(data_dir, "AllDICOMs")
-    roi_dir = os.path.join(data_dir, "AllROI")
-    csv_path = os.path.join(data_dir, "INbreast.csv")
-
-    if not os.path.exists(csv_path): raise FileNotFoundError(f"INbreast.csv not found at {csv_path}")
-    if not os.path.isdir(dicom_dir): raise NotADirectoryError(f"DICOM directory not found: {dicom_dir}")
-    if use_roi_patches and not os.path.isdir(roi_dir): raise NotADirectoryError(f"ROI directory not found: {roi_dir}")
-
-    df = pd.read_csv(csv_path, sep=';')
-    df.columns = [c.strip() for c in df.columns]
-    birad_map = {str(row['File Name']).strip(): str(row['Bi-Rads']).strip() for _, row in df.iterrows()}
-
-    all_images_data_accumulator = [] # List để chứa các NumPy arrays của ảnh
-    all_labels_accumulator = []      # List để chứa các NumPy arrays của nhãn (đã qua one-hot/mixed)
-
-    processed_dicom_count = 0
-
-    for index, row in df.iterrows():
-        file_id_csv = str(row['File Name']).strip()
-        
-        dicom_path = None
-        # Thử tìm file DICOM bằng file_id_csv trực tiếp, sau đó là với pattern
-        direct_dicom_path = os.path.join(dicom_dir, file_id_csv + ".dcm")
-        if os.path.exists(direct_dicom_path):
-            dicom_path = direct_dicom_path
-        else:
-            for name_pattern_match in tf.io.gfile.glob(os.path.join(dicom_dir, file_id_csv + "*.dcm")):
-                dicom_path = name_pattern_match
-                break
-        
-        if not dicom_path:
-            # print(f"  [DEBUG] No DICOM found for CSV File Name: {file_id_csv}")
-            continue
-
-        base_dicom_name_no_ext = os.path.splitext(os.path.basename(dicom_path))[0]
-
-        try:
-            dicom_data = pydicom.dcmread(dicom_path)
-            image_array_original = dicom_data.pixel_array.astype(np.float32)
-            # Chuẩn hóa ảnh gốc về [0,1]
-            min_val, max_val = np.min(image_array_original), np.max(image_array_original)
-            if max_val - min_val > 1e-8:
-                image_array_original = (image_array_original - min_val) / (max_val - min_val)
-            else:
-                image_array_original = np.zeros_like(image_array_original)
-            image_array_original = np.clip(image_array_original, 0.0, 1.0)
-
-
-            birad_value_csv = str(row['Bi-Rads']).strip()
-            current_label_text = None
-            for label_text, birad_code_list in config.INBREAST_BIRADS_MAPPING.items():
-                standardized_birad_codes = [val.replace("BI-RADS", "").strip() for val in birad_code_list]
-                if birad_value_csv in standardized_birad_codes:
-                    current_label_text = label_text
-                    break
-            
-            if current_label_text is None or current_label_text == "Normal":
-                continue
-
-            images_for_this_entry = [] # Các patch/ảnh từ một file DICOM
-            labels_for_this_entry_text = [] # Nhãn text tương ứng
-
-            if use_roi_patches:
-                roi_file_pattern_1 = os.path.join(roi_dir, base_dicom_name_no_ext + "*.roi")
-                roi_file_pattern_2 = os.path.join(roi_dir, file_id_csv + "*.roi")
-                matching_roi_files = tf.io.gfile.glob(roi_file_pattern_1)
-                if not matching_roi_files: matching_roi_files = tf.io.gfile.glob(roi_file_pattern_2)
-                if not matching_roi_files: continue
-
-                for roi_path_single in matching_roi_files:
-                    coords, roi_label_text_from_func = load_roi_and_label(roi_path_single, birad_map)
-                    if coords is None or not coords or roi_label_text_from_func != current_label_text:
-                        continue
-
-                    xs = [p[0] for p in coords]; ys = [p[1] for p in coords]
-                    x_min, x_max = int(min(xs)), int(max(xs))
-                    y_min, y_max = int(min(ys)), int(max(ys))
-                    h_img, w_img = image_array_original.shape[:2]
-                    x_min, y_min = max(0, x_min), max(0, y_min)
-                    x_max, y_max = min(w_img - 1, x_max), min(h_img - 1, y_max)
-
-                    if x_min >= x_max or y_min >= y_max: continue
-                    roi_patch = image_array_original[y_min:y_max+1, x_min:x_max+1]
-                    if roi_patch.size == 0: continue
-                    
-                    resized_patch = cv2.resize(roi_patch, target_size, interpolation=cv2.INTER_AREA)
-                    
-                    # --- Xử lý kênh cho ROI patch ---
-                    if config.model != "CNN":
-                        if resized_patch.ndim == 2: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
-                        elif resized_patch.ndim == 3 and resized_patch.shape[-1] == 1: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
-                    elif config.model == "CNN":
-                        if resized_patch.ndim == 3 and resized_patch.shape[-1] == 3:
-                            resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_RGB2GRAY)
-                            resized_patch = np.expand_dims(resized_patch, axis=-1)
-                        elif resized_patch.ndim == 2:
-                             resized_patch = np.expand_dims(resized_patch, axis=-1)
-                    
-                    resized_patch = resized_patch.astype(np.float32)
-                    min_rp, max_rp = np.min(resized_patch), np.max(resized_patch)
-                    if max_rp - min_rp > 1e-8: resized_patch = (resized_patch - min_rp) / (max_rp - min_rp)
-                    else: resized_patch = np.zeros_like(resized_patch)
-                    resized_patch = np.clip(resized_patch, 0.0, 1.0)
-
-                    images_for_this_entry.append(resized_patch)
-                    labels_for_this_entry_text.append(current_label_text)
-            
-            else: # Full image
-                resized_full_image = cv2.resize(image_array_original, target_size, interpolation=cv2.INTER_AREA)
-                if config.model != "CNN":
-                    if resized_full_image.ndim == 2: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
-                    elif resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 1: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
-                elif config.model == "CNN":
-                    if resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 3:
-                        resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_RGB2GRAY)
-                        resized_full_image = np.expand_dims(resized_full_image, axis=-1)
-                    elif resized_full_image.ndim == 2: resized_full_image = np.expand_dims(resized_full_image, axis=-1)
-                
-                resized_full_image = resized_full_image.astype(np.float32)
-                min_rfi, max_rfi = np.min(resized_full_image), np.max(resized_full_image)
-                if max_rfi - min_rfi > 1e-8 : resized_full_image = (resized_full_image - min_rfi) / (max_rfi - min_rfi)
-                else: resized_full_image = np.zeros_like(resized_full_image)
-                resized_full_image = np.clip(resized_full_image, 0.0, 1.0)
-
-                images_for_this_entry.append(resized_full_image)
-                labels_for_this_entry_text.append(current_label_text)
-
-            if images_for_this_entry:
-                images_np_current_entry = np.array(images_for_this_entry, dtype=np.float32)
-                labels_numeric_current_entry = label_encoder.transform(labels_for_this_entry_text) # Dùng LE chính
-                labels_one_hot_for_aug = tf.keras.utils.to_categorical(labels_numeric_current_entry, num_classes=len(label_encoder.classes_)).astype(np.float32)
-
-                aug_images_np, aug_labels_np = generate_image_transforms(
-                    images_np_current_entry, labels_one_hot_for_aug,
-                    apply_elastic=enable_elastic, elastic_alpha=elastic_alpha_val, elastic_sigma=elastic_sigma_val,
-                    apply_mixup=enable_mixup, mixup_alpha=mixup_alpha_val,
-                    apply_cutmix=enable_cutmix, cutmix_alpha=cutmix_alpha_val
-                )
-                all_images_data_accumulator.extend(list(aug_images_np))
-                all_labels_accumulator.extend(list(aug_labels_np))
-                processed_dicom_count += 1
-
-        except InvalidDicomError: continue
-        except Exception as e:
-            print(f"  [ERROR] Failed to process DICOM entry {file_id_csv} (path: {dicom_path}): {e}")
-            # import traceback; traceback.print_exc()
-            continue
-    
-    print(f"[INFO] Total unique DICOM files processed and augmented: {processed_dicom_count}")
-    if not all_images_data_accumulator:
-        return np.array([]), np.array([])
-
-    final_images_array = np.array(all_images_data_accumulator, dtype=np.float32)
-    final_labels_array = np.array(all_labels_accumulator, dtype=np.float32)
-    return final_images_array, final_labels_array
+# def make_class_weights_from_labels(y: np.ndarray) -> dict:
+#     """
+#     Cho mảng y (1-D) chứa các nhãn (0,1,2,...), 
+#     trả về dict {class_i: weight_i} theo balanced strategy của sklearn.
+#     """
+#     classes = np.unique(y)
+#     weights = compute_class_weight(
+#         class_weight="balanced",
+#         classes=classes,
+#         y=y
+#     )
+#     return {int(c): w for c, w in zip(classes, weights)}
 
 def make_class_weights_in(y) -> Dict[int, float]:
     # đảm bảo y là 1-D numpy array
@@ -444,6 +286,111 @@ def load_roi_and_label(
 
     return coords, label_name
 
+# def import_inbreast_roi_dataset(
+#     data_dir: str,
+#     label_encoder,
+#     target_size=None,
+#     csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv"
+# ):
+#     """
+#     Load & crop ROI on-the-fly từ INbreast:
+#      - Dùng load_roi_and_label() để parse .roi
+#      - Trả về tf.data.Dataset(img: H×W×1, lbl: int or one-hot)
+#      - Đã tự loại bỏ 'Normal' vì load_roi_and_label trả về None cho nó.
+#     """
+#     # 0) Đọc CSV BI-RADS để tạo birad_map
+#     df = pd.read_csv(csv_path, sep=';')
+#     df.columns = [c.strip() for c in df.columns]
+#     birad_map: Dict[str,str] = {
+#         str(fn).strip(): str(val).strip()
+#         for fn, val in zip(df['File Name'], df['Bi-Rads'])
+#     }
+
+#     # 1) Duyệt các file .roi trong AllROI
+#     samples: List[Tuple[str, List[Tuple[int,int]], str]] = []
+#     dicom_dir = os.path.join(data_dir, "AllDICOMs")
+#     roi_dir   = os.path.join(data_dir, "AllROI")
+
+#     print(f"[DEBUG] roi_dir = {roi_dir}")
+#     print(f"[DEBUG] contents = {os.listdir(roi_dir)}")
+
+#     # ---- đây là khối for đã được **lùi về đúng** ----
+#     for roi_fn in sorted(os.listdir(roi_dir)):
+#         if not roi_fn.lower().endswith(".roi"):
+#             continue
+#         roi_path = os.path.join(roi_dir, roi_fn)
+#         coords, label_name = load_roi_and_label(roi_path, birad_map)
+#         print("    coords:", coords, "→ label_name:", label_name)
+#         if coords is None:
+#             continue
+
+#         # PID không phần mở rộng
+#         pid = os.path.splitext(roi_fn)[0].split('_', 1)[0]
+#         dcm_fp = os.path.join(dicom_dir, f"{pid}.dcm")
+#         if not os.path.exists(dcm_fp):
+#             continue
+
+#         samples.append((dcm_fp, coords, label_name))
+
+#     # ---- kết thúc khối for ----
+
+#     if not samples:
+#         raise ValueError(f"No ROI samples found in {roi_dir}")
+
+#     # 2) Fit LabelEncoder để có num_classes
+#     labels = [lbl for _,_,lbl in samples]
+#     label_encoder.fit(labels)
+#     num_classes = label_encoder.classes_.size
+
+#     # 3) Tạo generator đọc DICOM, crop, resize, normalize
+#     def gen():
+#         for dcm_fp, coords, label_name in samples:
+#             try:
+#                 ds = pydicom.dcmread(dcm_fp, force=True)
+#             except InvalidDicomError:
+#                 continue
+#             arr = ds.pixel_array.astype(np.float32)
+#             # normalize 0–1
+#             arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+#             # crop bounding box từ coords
+#             xs, ys = zip(*coords)
+#             x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+#             y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+#             roi = arr[y0:y1, x0:x1]
+#             # resize về target_size
+#             H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+#                                    config.INBREAST_IMG_SIZE["WIDTH"])
+#             roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+#             # thêm channel dim
+#             yield roi[..., np.newaxis], label_name.encode('utf-8')
+
+#     # 4) Xây Dataset và encode label → int (và one-hot nếu cần)
+#     H, W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+#                            config.INBREAST_IMG_SIZE["WIDTH"])
+#     sig = (
+#         tf.TensorSpec((H, W, 1), tf.float32),
+#         tf.TensorSpec((),     tf.string),
+#     )
+#     ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
+
+#     def _encode(img, lbl):
+#         idx = tf.py_function(
+#             lambda b: label_encoder.transform([b.decode('utf-8')])[0],
+#             [lbl], tf.int32
+#         )
+#         idx.set_shape([])
+#         if num_classes > 2:
+#             idx = tf.one_hot(idx, num_classes)
+#         return img, idx
+
+#     ds = (ds
+#           .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+#           .shuffle(len(samples))
+#           .batch(config.batch_size)
+#           .prefetch(tf.data.AUTOTUNE))
+
+#     return ds
+
 def flatten_to_slices(ds):
     # ds: mỗi phần tử là (volume, label) với volume.shape = (32, H, W, 1)
     return ds.flat_map(lambda vol, lab:
@@ -508,6 +455,16 @@ def import_inbreast_roi_dataset(
     if not samples:
         raise ValueError(f"No ROI samples found in {roi_dir} (sau khi lọc coords & labels)")
 
+#     # --- 2) fit label encoder để có num_classes ---
+#     labels = [lbl for _,_,lbl in samples]
+# # Cách đơn giản nhất:)
+#     label_encoder.fit(labels)
+#     classes = list(label_encoder.classes_)
+#     num_classes = len(classes)
+#     # num_classes = label_encoder.classes_.size
+#     print(f"[DEBUG] INbreast ROI: num_samples={len(samples)}, num_classes={num_classes}, classes={label_encoder.classes_}")
+#     label_to_idx = {cls: i for i, cls in enumerate(classes)}
+    # --- 2) Chuẩn bị label encoder & class_weights ---
     labels_str = [lbl for _,_,lbl in samples]
     label_encoder.fit(labels_str)
     labels_int = label_encoder.transform(labels_str)             # array shape=(N,)
@@ -517,7 +474,152 @@ def import_inbreast_roi_dataset(
 
     # map text→int ngay
     label_to_idx = {cls:i for i,cls in enumerate(classes)}
+    # --- 3) định nghĩa generator để generate ảnh + nhãn ---
+    # def _gen():
+    #     for dcm_fp, coords, label_name in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except InvalidDicomError:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         # normalize về [0,1]
+    #         arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+    #         # crop bounding-box
+    #         xs, ys = zip(*coords)
+    #         x0, x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+    #         y0, y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+    #         # resize
+    #         H, W = target_size or (
+    #             config.INBREAST_IMG_SIZE["HEIGHT"],
+    #             config.INBREAST_IMG_SIZE["WIDTH"]
+    #         )
+    #         roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+    #         yield roi[...,None], label_name.encode('utf-8')
 
+    # # --- 4) build tf.data.Dataset và encode nhãn ---
+    # H, W = target_size or (
+    #     config.INBREAST_IMG_SIZE["HEIGHT"],
+    #     config.INBREAST_IMG_SIZE["WIDTH"]
+    # )
+    # sig = (
+    #     tf.TensorSpec((H,W,1), tf.float32),
+    #     tf.TensorSpec((),     tf.string),
+    # )
+    # ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
+
+    # def _encode(img, lbl):
+    #     idx = tf.py_function(
+    #         lambda b: label_encoder.transform([b.decode()])[0],
+    #         [lbl], tf.int32
+    #     )
+    #     idx.set_shape([])
+    #     if num_classes > 2:
+    #         idx = tf.one_hot(idx, num_classes)
+    #     return img, idx
+
+    # ds = (ds
+    #       .map(_encode, num_parallel_calls=tf.data.AUTOTUNE)
+    #       .shuffle(len(samples))
+    #       .batch(config.batch_size)
+    #       .prefetch(tf.data.AUTOTUNE))
+
+    # return ds
+    # def gen():
+    #     for dcm_fp, coords, label_name in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except InvalidDicomError:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         arr = (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+
+    #         xs, ys = zip(*coords)
+    #         x0, x1 = max(0, min(xs)), min(arr.shape[1], max(xs))
+    #         y0, y1 = max(0, min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+
+    #         H, W = target_size or (
+    #             config.INBREAST_IMG_SIZE["HEIGHT"],
+    #             config.INBREAST_IMG_SIZE["WIDTH"]
+    #         )
+    #         roi = cv2.resize(roi, (W, H), interpolation=cv2.INTER_AREA)
+
+    #         img = roi[..., np.newaxis]
+    #         lbl_idx = np.int32(label_to_idx[label_name])
+    #         yield img, lbl_idx
+
+    # # --- 4) Build tf.data.Dataset & one-hot nếu cần ---
+    # H, W = target_size or (
+    #     config.INBREAST_IMG_SIZE["HEIGHT"],
+    #     config.INBREAST_IMG_SIZE["WIDTH"]
+    # )
+    # sig = (
+    #     tf.TensorSpec((H, W, 1), tf.float32),
+    #     tf.TensorSpec((),     tf.int32),
+    # )
+    # ds = tf.data.Dataset.from_generator(gen, output_signature=sig)
+
+    # if num_classes > 2:
+    #     ds = ds.map(lambda im, lb: (im, tf.one_hot(lb, num_classes)),
+    #                 num_parallel_calls=tf.data.AUTOTUNE)
+
+    # ds = (ds
+    #       .shuffle(len(samples))
+    #       .batch(config.batch_size)
+    #       .prefetch(tf.data.AUTOTUNE))
+
+    # return ds
+    # def _gen():
+    #     for dcm_fp, coords, lbl_txt in samples:
+    #         try:
+    #             ds = pydicom.dcmread(dcm_fp, force=True)
+    #         except:
+    #             continue
+    #         arr = ds.pixel_array.astype(np.float32)
+    #         arr = (arr - arr.min())/(arr.max()-arr.min()+1e-8)
+    #         xs, ys = zip(*coords)
+    #         x0,x1 = max(0,min(xs)), min(arr.shape[1], max(xs))
+    #         y0,y1 = max(0,min(ys)), min(arr.shape[0], max(ys))
+    #         roi = arr[y0:y1, x0:x1]
+    #         H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                              config.INBREAST_IMG_SIZE["WIDTH"])
+    #         roi = cv2.resize(roi, (W,H), interpolation=cv2.INTER_AREA)
+    #         yield roi[...,None], np.int32(label_to_idx[lbl_txt])
+
+    # # --- 4) build Dataset và optional one-hot ---
+    # H,W = target_size or (config.INBREAST_IMG_SIZE["HEIGHT"],
+    #                      config.INBREAST_IMG_SIZE["WIDTH"])
+    # # 1) Generator _gen vẫn yield roi,..., np.int64(label_idx) hoặc np.int32(label_idx)
+    # #    nhưng chúng ta sẽ ngay lập tức chuyển thành float32.
+
+    # sig = (tf.TensorSpec((H, W, 1), tf.float32),
+    #     tf.TensorSpec((), tf.int32))      # <-- dùng float32 cho nhãn luôn
+
+    # ds = tf.data.Dataset.from_generator(_gen, output_signature=sig)
+
+    # # 2) Chuyển nhãn số thành float32 (0.0,1.0) trước khi one-hot hoặc song song
+    # ds = ds.map(
+    #     lambda x, y: (x, tf.one_hot(y, num_classes)),
+    #     num_parallel_calls=tf.data.AUTOTUNE
+    # )
+
+    # # 3) Nếu categorical, one-hot lên float32
+    # if num_classes > 2:
+    #     ds = ds.map(
+    #         lambda x, y: (x, tf.one_hot(tf.cast(y, tf.float32), num_classes)),
+    #         num_parallel_calls=tf.data.AUTOTUNE
+    #     )
+
+    # # 4) Giữ nguyên assert_cardinality, shuffle, batch, prefetch
+    # ds = ds.apply(assert_cardinality(len(samples)))
+    # ds = ds.shuffle(len(samples)) \
+    #     .batch(config.batch_size) \
+    #     .prefetch(tf.data.AUTOTUNE)
+    # num_samples = len(samples)
+    # print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={classes}, class_weights={class_weights}")
+    # return ds, class_weights, num_classes, num_samples
+        # 1) Generator yield mỗi roi có shape (H, W, 1) và label int32
     def _gen():
         for dcm_fp, coords, lbl_txt in samples:
             try:
@@ -554,9 +656,31 @@ def import_inbreast_roi_dataset(
             lambda x, y: (x, tf.one_hot(y, num_classes)),
             num_parallel_calls=tf.data.AUTOTUNE
         )
+    #    Nếu binary hoặc sparse multiclass thì giữ y là int32
+
+    # # 4) Shuffle → Batch → Repeat → Prefetch
+    # ds = ds.apply(assert_cardinality(len(samples)))
+    # ds = ds.shuffle(buffer_size=len(samples))
+    # ds = ds.batch(config.batch_size, drop_remainder=True)
+    # ds = ds.repeat()                   # lặp vô hạn nếu dùng steps_per_epoch
+    # ds = ds.prefetch(tf.data.AUTOTUNE)
+
+    # num_samples = len(samples)
+    # print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={num_classes}, class_weights={class_weights}")
+
+    # # 5) Trả về đúng 4 biến
+    # return ds, class_weights, num_classes, num_samples
+    # Không batch/ repeat ở đây — chỉ trả về tf.data.Dataset “thô”
     num_samples = len(samples)
     print(f"[DEBUG] ROI dataset ready: N={num_samples}, classes={num_classes}, class_weights={class_weights}")
     return ds, class_weights, num_classes, num_samples
+
+# def dataset_stratified_split(split, data, labels):
+#     return train_test_split(data, labels,
+#                             test_size=split,
+#                             stratify=labels,
+#                             random_state=config.RANDOM_SEED,
+#                             shuffle=True)
 
 def calculate_class_weights(y_train, label_encoder):
     """
@@ -570,6 +694,7 @@ def calculate_class_weights(y_train, label_encoder):
                                                 np.unique(flat),
                                                 flat)
     return {i: w for i, w in enumerate(weights)}
+
 
 def import_cbisddsm_training_dataset(label_encoder):
     """
@@ -678,6 +803,30 @@ def dataset_stratified_split(split: float, dataset: np.ndarray, labels: np.ndarr
     return train_X, test_X, train_Y, test_Y
 
 
+# def calculate_class_weights(y_train, label_encoder):
+#     """
+#     Calculate class  weights for imbalanced datasets.
+#     """
+#     if label_encoder.classes_.size != 2:
+#         y_train = label_encoder.inverse_transform(np.argmax(y_train, axis=1))
+
+#     # Balanced class weights
+#     weights = class_weight.compute_class_weight("balanced",
+#                                                 np.unique(y_train),
+#                                                 y_train)
+#     class_weights = dict(enumerate(weights))
+
+#     # Manual class weights for CBIS-DDSM
+#     #class_weights = {0: 1.0, 1:1.5}
+
+#     # No class weights
+#     #class_weights = None
+
+#     if config.verbose_mode:
+#         print("Class weights: {}".format(str(class_weights)))
+
+#     return class_weights
+#     # return None
 def calculate_class_weights(y_train, label_encoder):
     """
     Tính toán trọng số lớp cho datasets không cân bằng.
@@ -693,6 +842,9 @@ def calculate_class_weights(y_train, label_encoder):
     
     # Thay đổi từ return None thành return class_weights
     return class_weights
+
+
+
 
 def crop_roi_image(data_dir):
     """

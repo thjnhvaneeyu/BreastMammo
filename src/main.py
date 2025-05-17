@@ -1,358 +1,404 @@
 #!/usr/bin/env python3
-# main_cnn.py
+# main.py (Không cắt cơ ngực - Đã cập nhật CLI và logic gọi hàm load)
 
 import os
 import sys
 import time
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
+import cv2
+import pydicom
+from pydicom.errors import InvalidDicomError
+
 import config
+# Đảm bảo các hàm này được import từ đúng vị trí
 from data_operations.data_preprocessing import (
+    make_class_weights,
+    dataset_stratified_split,
     import_minimias_dataset,
     import_cbisddsm_training_dataset,
     import_cbisddsm_testing_dataset,
     import_cmmd_dataset,
-    import_inbreast_roi_dataset,
-    import_inbreast_full_dataset
+    load_inbreast_data_no_pectoral_removal
+)
+from data_operations.data_transformations import (
+    elastic_transform
 )
 from cnn_models.cnn_model import CnnModel
 import argparse
-from data_operations.data_preprocessing import dataset_stratified_split, generate_image_transforms
-from data_operations.data_preprocessing import make_class_weights
 from tensorflow.keras import mixed_precision
-from utils import load_trained_model
-# === Bật mixed-precision toàn cục ===
+from utils import (load_trained_model, print_num_gpus_available,
+                   set_random_seeds, print_cli_arguments, print_runtime)
+
 policy = mixed_precision.Policy("mixed_float16")
 mixed_precision.set_global_policy(policy)
 
-# Project imports
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJECT_ROOT)
-DATA_ROOT_BREAST = '/kaggle/input/breastdata'
-DATA_ROOT_CMMD = '/kaggle/input/cmmddata/CMMD'
 
-def main():
-    # 1) CLI args
+DATA_ROOT_BREAST = getattr(config, 'DATA_ROOT_BREAST', '/kaggle/input/breastdata')
+# DATA_ROOT_CMMD is now expected to be handled by cli_args.data_dir if dataset is CMMD, or define similarly if fixed.
+
+# Hàm main_logic giờ sẽ nhận cli_args đã được parse
+def main_logic(cli_args):
+    print_num_gpus_available()
+    set_random_seeds()
+
+    # Cập nhật config từ cli_args (đặt lên đầu để các module khác có thể dùng config đã cập nhật)
+    config.dataset            = cli_args.dataset
+    config.mammogram_type     = cli_args.mammogram_type
+    config.model              = cli_args.model_name_arg
+    config.run_mode           = cli_args.runmode
+    config.learning_rate      = cli_args.learning_rate
+    config.batch_size         = cli_args.batch_size
+    config.max_epoch_frozen   = cli_args.max_epoch_frozen
+    config.max_epoch_unfrozen = cli_args.max_epoch_unfrozen
+    config.is_roi             = cli_args.roi # Note: was cli_args.use_roi for INbreast, now standardized to cli_args.roi
+    config.augment_data       = cli_args.apply_elastic or cli_args.apply_mixup or cli_args.apply_cutmix
+    config.verbose_mode       = cli_args.verbose_logging
+    config.name               = cli_args.name
+    
+    print_cli_arguments()
+
+    if config.verbose_mode:
+        print(f"[DEBUG] CLI Args received: {cli_args}")
+        print(f"[DEBUG] Config set: dataset={config.dataset}, model={config.model}, roi={config.is_roi}")
+        print(f"  Augmentation flags: Elastic={cli_args.apply_elastic}, MixUp={cli_args.apply_mixup}, CutMix={cli_args.apply_cutmix}")
+
+    # --- Dynamic LabelEncoder Initialization ---
+    le = LabelEncoder()
+    dataset_config_prefix = config.dataset.upper().replace("-", "_") # e.g., INBREAST, MINI_MIAS, CBIS_DDSM, CMMD
+    target_classes_attr = f"{dataset_config_prefix}_TARGET_CLASSES"
+    default_target_classes = ["Benign", "Malignant"] # Fallback if specific classes not in config
+
+    if hasattr(config, target_classes_attr):
+        target_classes = getattr(config, target_classes_attr)
+        print(f"[INFO] Using target classes for {config.dataset} from config: {target_classes_attr}")
+    else:
+        target_classes = default_target_classes
+        print(f"[WARNING] Attribute '{target_classes_attr}' not found in config. Using default target classes: {target_classes} for {config.dataset}.")
+    
+    le.fit(target_classes)
+    print(f"[INFO] Main LabelEncoder classes set for {config.dataset}: {le.classes_}")
+    # num_classes will be refined based on loaded data for each dataset below.
+    # Initialize with a value that will be checked/updated.
+    num_classes = len(le.classes_) 
+
+    X_np = y_np = None
+    X_train_np = X_val_np = X_test_np = None
+    y_train_np = y_val_np = y_test_np = None
+    class_weights = None
+
+    current_data_dir = cli_args.data_dir # Centralize data directory from CLI
+
+    # --- Xử lý cho INbreast ---
+    if config.dataset.upper() == "INBREAST":
+        target_size_inbreast = (config.INBREAST_IMG_SIZE["HEIGHT"], config.INBREAST_IMG_SIZE["WIDTH"])
+        
+        X_np, y_np = load_inbreast_data_no_pectoral_removal(
+            data_dir_inbreast=current_data_dir, # Use current_data_dir
+            label_encoder_ref=le,
+            use_roi_patches=config.is_roi, # Use standardized config.is_roi
+            target_size=target_size_inbreast,
+            enable_elastic=cli_args.apply_elastic,
+            elastic_alpha_val=cli_args.elastic_alpha,
+            elastic_sigma_val=cli_args.elastic_sigma,
+            enable_mixup=cli_args.apply_mixup,
+            mixup_alpha_val=cli_args.mixup_alpha,
+            enable_cutmix=cli_args.apply_cutmix,
+            cutmix_alpha_val=cli_args.cutmix_alpha
+        )
+        if X_np.size == 0: print("[ERROR] No INbreast data loaded. Exiting."); return
+        
+        # Determine num_classes from loaded data
+        if y_np.ndim == 1: # Scalar labels
+            num_classes = len(np.unique(y_np))
+            if num_classes == 1: num_classes = 2 # Assume binary if only one class present in sample
+        elif y_np.ndim == 2: # Already one-hot or mixed labels (like from MixUp/CutMix)
+            num_classes = y_np.shape[1]
+        if num_classes != len(le.classes_):
+             print(f"[INFO] Updated num_classes for INbreast from loaded data to: {num_classes} (LE initially had {len(le.classes_)})")
+
+        y_stratify = np.argmax(y_np, axis=1) if y_np.ndim > 1 and y_np.shape[1] > 1 else y_np
+        unique_labels_stratify = np.unique(y_stratify)
+        stratify_param = y_stratify if len(unique_labels_stratify) >= 2 else None
+
+        X_train_val, X_test_np, y_train_val, y_test_np = train_test_split(
+            X_np, y_np, test_size=0.2, stratify=stratify_param, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_val_stratify_inner = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val
+        unique_labels_stratify_inner = np.unique(y_train_val_stratify_inner)
+        stratify_param_inner = y_train_val_stratify_inner if len(unique_labels_stratify_inner) >=2 else None
+
+        X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+            X_train_val, y_train_val, test_size=0.25, stratify=stratify_param_inner, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        else: class_weights = None
+
+    # --- Xử lý cho mini-MIAS ---
+    elif config.dataset.upper() in ["MINI-MIAS", "MINI-MIAS-BINARY"]:
+        # Assuming import_minimias_dataset returns X, y (scalar labels)
+        # And current_data_dir is expected to point to the root of mini-MIAS data structured as needed by the import function.
+        # If mini-MIAS path is fixed, use os.path.join(DATA_ROOT_BREAST, config.dataset) or adjust current_data_dir logic.
+        X_np, y_scalar_labels = import_minimias_dataset(current_data_dir, le) # Pass le for consistent encoding
+        if X_np.size == 0: print(f"[ERROR] No {config.dataset} data loaded. Exiting."); return
+
+        # Determine num_classes from loaded data
+        num_classes = len(np.unique(y_scalar_labels))
+        if num_classes == 1: num_classes = 2 # Assume binary if only one class label present in data
+        if num_classes != len(le.classes_):
+             print(f"[INFO] Updated num_classes for {config.dataset} from loaded data to: {num_classes} (LE initially had {len(le.classes_)})")
+
+        # Convert scalar labels to one-hot encoding using the determined num_classes
+        y_np = tf.keras.utils.to_categorical(y_scalar_labels, num_classes=num_classes)
+
+        # Data splitting (similar to INbreast)
+        y_stratify = y_scalar_labels # Use scalar labels for stratification
+        unique_labels_stratify = np.unique(y_stratify)
+        stratify_param = y_stratify if len(unique_labels_stratify) >= 2 else None
+        
+        X_train_val, X_test_np, y_train_val, y_test_np = train_test_split(
+            X_np, y_np, test_size=0.2, stratify=stratify_param, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_val_stratify_inner = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val # Use one-hot for argmax if needed
+        unique_labels_stratify_inner = np.unique(y_train_val_stratify_inner)
+        stratify_param_inner = y_train_val_stratify_inner if len(unique_labels_stratify_inner) >=2 else None
+
+        X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+            X_train_val, y_train_val, test_size=0.25, stratify=stratify_param_inner, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        else: class_weights = None
+
+    # --- Xử lý cho CBIS-DDSM ---
+    elif config.dataset.upper() == "CBIS-DDSM":
+        # Assuming import functions return X_train, y_train_scalar, X_test, y_test_scalar
+        # And current_data_dir is used by these import functions.
+        # This section assumes your import functions might directly provide splits.
+        # If they return full X, y, then adapt splitting logic from INbreast/mini-MIAS.
+        print(f"[INFO] Loading CBIS-DDSM. Data directory: {current_data_dir}")
+        # The import functions should handle 'le' for encoding.
+        # Let's assume they return scalar labels that need one-hot encoding.
+        _X_train_np, _y_train_scalar = import_cbisddsm_training_dataset(le, data_root_dir=current_data_dir)
+        _X_test_np,  _y_test_scalar  = import_cbisddsm_testing_dataset(le, data_root_dir=current_data_dir)
+
+        if _X_train_np.size == 0 or _X_test_np.size == 0:
+            print("[ERROR] CBIS-DDSM training or testing data not loaded. Exiting."); return
+
+        # Determine num_classes from training data (or combined, ensure consistency)
+        num_classes = len(np.unique(_y_train_scalar))
+        if num_classes == 1: num_classes = 2
+        if num_classes != len(le.classes_):
+             print(f"[INFO] Updated num_classes for CBIS-DDSM from loaded data to: {num_classes} (LE initially had {len(le.classes_)})")
+
+        y_train_np = tf.keras.utils.to_categorical(_y_train_scalar, num_classes=num_classes)
+        y_test_np = tf.keras.utils.to_categorical(_y_test_scalar, num_classes=num_classes)
+        X_train_np = _X_train_np
+        X_test_np = _X_test_np
+        
+        # Create validation set from training set
+        y_train_stratify = _y_train_scalar
+        unique_labels_stratify = np.unique(y_train_stratify)
+        stratify_param_train = y_train_stratify if len(unique_labels_stratify) >=2 else None
+
+        X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+            X_train_np, y_train_np, test_size=0.2, # e.g., 20% of original train for validation
+            stratify=stratify_param_train, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        else: class_weights = None
+        
+    # --- Xử lý cho CMMD ---
+    elif config.dataset.upper() == "CMMD":
+        # Assuming import_cmmd_dataset returns X, y (scalar labels)
+        # And current_data_dir points to CMMD root.
+        X_np, y_scalar_labels = import_cmmd_dataset(current_data_dir, le) # Pass le
+        if X_np.size == 0: print("[ERROR] No CMMD data loaded. Exiting."); return
+
+        num_classes = len(np.unique(y_scalar_labels))
+        if num_classes == 1: num_classes = 2
+        if num_classes != len(le.classes_):
+             print(f"[INFO] Updated num_classes for CMMD from loaded data to: {num_classes} (LE initially had {len(le.classes_)})")
+        
+        y_np = tf.keras.utils.to_categorical(y_scalar_labels, num_classes=num_classes)
+        
+        # Data splitting
+        y_stratify = y_scalar_labels
+        unique_labels_stratify = np.unique(y_stratify)
+        stratify_param = y_stratify if len(unique_labels_stratify) >= 2 else None
+        
+        X_train_val, X_test_np, y_train_val, y_test_np = train_test_split(
+            X_np, y_np, test_size=0.2, stratify=stratify_param, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_val_stratify_inner = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val
+        unique_labels_stratify_inner = np.unique(y_train_val_stratify_inner)
+        stratify_param_inner = y_train_val_stratify_inner if len(unique_labels_stratify_inner) >=2 else None
+
+        X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+            X_train_val, y_train_val, test_size=0.25, stratify=stratify_param_inner, random_state=config.RANDOM_SEED, shuffle=True
+        )
+        
+        y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes_for_weights=num_classes)
+        else: class_weights = None
+
+    else:
+        print(f"[ERROR] Dataset '{config.dataset}' is not supported or logic is not implemented. Exiting.")
+        return
+
+    # --- Common logic post data loading and splitting ---
+    if num_classes == 0 or (X_train_np is not None and X_train_np.size == 0): # Check num_classes specifically
+        print(f"[ERROR] Number of classes is {num_classes} or no training data available for {config.dataset}. Cannot build or train model.")
+        return
+    
+    print(f"[INFO] Final configuration for {config.dataset}: num_classes for model={num_classes}, class_weights={class_weights}")
+    print(f"  Shapes: Train X:{X_train_np.shape if X_train_np is not None else 'None'}, Y:{y_train_np.shape if y_train_np is not None else 'None'}")
+    print(f"          Val   X:{X_val_np.shape if X_val_np is not None else 'None'}, Y:{y_val_np.shape if y_val_np is not None else 'None'}")
+    print(f"          Test  X:{X_test_np.shape if X_test_np is not None else 'None'}, Y:{y_test_np.shape if y_test_np is not None else 'None'}")
+
+
+    cnn = CnnModel(config.model, num_classes) # Use the determined num_classes
+    cnn.compile_model(config.learning_rate)
+
+    start_time_train = time.time()
+    if config.run_mode.lower() == "train":
+        print(f"[INFO] Running in TRAIN mode for {config.dataset}.")
+        if X_train_np is not None and y_train_np is not None and X_train_np.size > 0 :
+            cnn.train_model(X_train_np, X_val_np, y_train_np, y_val_np, class_weights)
+        else: print(f"[ERROR] Training data for {config.dataset} is empty or None. Cannot train."); return
+        print_runtime("Model training", time.time() - start_time_train)
+        cnn.save_model() # Consider making model name dataset-specific
+
+        print(f"[INFO] Evaluating model on test set for {config.dataset} after training...")
+        if X_test_np is not None and y_test_np is not None and X_test_np.size > 0:
+            cls_type_eval = 'binary' if num_classes == 2 else 'multiclass'
+            cnn.evaluate_model(X_test_np, y_test_np, le, cls_type_eval, time.time() - start_time_train)
+        else: print(f"[ERROR] Test data for {config.dataset} is empty or None. Cannot evaluate.")
+
+    elif config.run_mode.lower() == "test":
+        print(f"[INFO] Running in TEST mode for {config.dataset}.")
+        # Model path might need to be dataset-specific if you train separate models
+        loaded_keras_model = load_trained_model(model_name_prefix=f"{config.dataset}_{config.model}") # Example modification
+        if loaded_keras_model is None:
+            print(f"[ERROR] Failed to load trained model. Attempted with prefix: {config.dataset}_{config.model}")
+            raise FileNotFoundError("Failed to load trained model for testing.")
+        
+        output_neurons = loaded_keras_model.output_shape[-1]
+        actual_num_classes_model = output_neurons if output_neurons > 1 else 2 # Handle single neuron for binary
+
+        # If the loaded model's classes differ from what data expects, it could be an issue.
+        # Here, we re-initialize CnnModel's num_classes based on the loaded model.
+        if cnn.num_classes != actual_num_classes_model :
+            print(f"[INFO] Re-initializing CnnModel for loaded model with {actual_num_classes_model} classes (was {cnn.num_classes}).")
+            cnn = CnnModel(config.model, actual_num_classes_model) # Use model's actual classes
+        cnn.model = loaded_keras_model
+
+        if X_test_np is None or y_test_np is None or X_test_np.size == 0:
+            print(f"[ERROR] Test data for {config.dataset} is None or empty. Cannot evaluate."); return
+        
+        # Ensure `le` used for evaluation matches the classes the model was trained on.
+        # This might require saving/loading `le` with the model or ensuring consistent class definitions.
+        cls_type_eval = 'binary' if cnn.num_classes == 2 else 'multiclass'
+        cnn.evaluate_model(X_test_np, y_test_np, le, cls_type_eval, time.time() - start_time_train)
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mammogram DL pipeline")
-    parser.add_argument("-d", "--dataset",
-                        choices=["mini-MIAS","mini-MIAS-binary","CBIS-DDSM","CMMD","INbreast"],
-                        required=True,
-                        help="Dataset to use")
-    parser.add_argument("-mt", "--mammogram_type",
-                        choices=["calc","mass","all"], default="all",
-                        help="For CBIS-DDSM only")
-    parser.add_argument("-m", "--model",
-                        choices=["CNN","VGG","VGG-common","ResNet","Inception","DenseNet","MobileNet"],
-                        required=True,
-                        help="Model backbone")
-    parser.add_argument("-r", "--runmode",
-                        choices=["train","test"], default="train",
-                        help="train or test")
-    parser.add_argument("-lr", "--learning_rate", type=float,
-                        default=config.learning_rate, help="Learning rate")
-    parser.add_argument("-b", "--batch_size", type=int,
-                        default=config.batch_size, help="Batch size")
-    parser.add_argument("-e1", "--max_epoch_frozen", type=int,
-                        default=config.max_epoch_frozen, help="Frozen epochs")
-    parser.add_argument("-e2", "--max_epoch_unfrozen", type=int,
-                        default=config.max_epoch_unfrozen, help="Unfrozen epochs")
-    parser.add_argument("--roi", action="store_true",
-                        help="Use ROI mode for INbreast / mini-MIAS")
-    parser.add_argument("--augment", action="store_true",
-                        help="Apply augmentation transforms")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose logging")
-    parser.add_argument("-n", "--name", default=config.name,
-                        help="Experiment name")
+    # Adjusted choices for dataset to include others, assuming they are supported by data loading logic.
+    parser.add_argument("--data_dir", type=str, help="Path to the root dataset directory (e.g., INbreast/INbreast, CMMD_data_root, etc.). Structure inside depends on the dataset.")
+    parser.add_argument("-d", "--dataset", choices=["INbreast", "mini-MIAS", "mini-MIAS-binary", "CBIS-DDSM", "CMMD"], required=True, help="Dataset to use.")
+    parser.add_argument("--model_name_arg", "--model", dest="model_name_arg", choices=["CNN","VGG","VGG-common","ResNet","Inception","DenseNet","MobileNet"], required=True, help="Model backbone")
+    parser.add_argument("-r", "--runmode", choices=["train","test"], default="train", help="train or test")
+    parser.add_argument("-lr", "--learning_rate", type=float, default=config.learning_rate, help="Learning rate")
+    parser.add_argument("-b", "--batch_size", type=int, default=config.batch_size, help="Batch size")
+    parser.add_argument("-e1", "--max_epoch_frozen", type=int, default=config.max_epoch_frozen, help="Frozen epochs")
+    parser.add_argument("-e2", "--max_epoch_unfrozen", type=int, default=config.max_epoch_unfrozen, help="Unfrozen epochs")
+    parser.add_argument("--roi", action="store_true", help="Use ROI patches (mainly for INbreast, adapt if other datasets use ROIs).")
+    
+    parser.add_argument("--apply_elastic", action='store_true', help="Apply Elastic Transform.")
+    parser.add_argument("--elastic_alpha", type=float, default=34.0, help="Alpha for Elastic Transform.") # Default from original INbreast call
+    parser.add_argument("--elastic_sigma", type=float, default=4.0, help="Sigma for Elastic Transform.") # Default from original INbreast call
+    
+    parser.add_argument("--apply_mixup", action='store_true', help="Apply MixUp augmentation.")
+    parser.add_argument("--mixup_alpha", type=float, default=0.2, help="Alpha for MixUp.")
+    
+    parser.add_argument("--apply_cutmix", action='store_true', help="Apply CutMix augmentation.")
+    parser.add_argument("--cutmix_alpha", type=float, default=1.0, help="Alpha for CutMix.")
+    
+    parser.add_argument("--verbose_logging", action="store_true", default=config.verbose_mode, help="Verbose logging.")
+    parser.add_argument("-n", "--name", default=config.name, help="Experiment name.")
+    # Added mammogram_type for datasets other than INbreast, though INbreast sets it to "all"
+    parser.add_argument("--mammogram_type", default="all", help="Mammogram type (e.g., CC, MLO), relevant if dataset loader uses it.")
+
+
     args = parser.parse_args()
 
-    # 2) Override config from args
-    config.dataset            = args.dataset
-    config.mammogram_type     = args.mammogram_type
-    config.model              = args.model
+    # --- Data Directory Validation ---
+    if not args.data_dir:
+        # Try to use a global default if data_dir not provided
+        if args.dataset.upper() == "INBREAST" and DATA_ROOT_BREAST and os.path.isdir(os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")):
+            args.data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
+            print(f"[INFO] Using default DATA_ROOT_BREAST for INbreast. Effective data_dir: {args.data_dir}")
+        # Add similar default logic for other datasets if applicable, e.g., CMMD_DATA_ROOT
+        # elif args.dataset.upper() == "CMMD" and DATA_ROOT_CMMD_CLI_ARG_OR_CONFIG: # Example
+        #     args.data_dir = DATA_ROOT_CMMD_CLI_ARG_OR_CONFIG
+        #     print(f"[INFO] Using default for CMMD. Effective data_dir: {args.data_dir}")
+        else:
+            parser.error("--data_dir is required if a suitable default is not available for the selected dataset.")
+
+    # Specific validation for INbreast structure if it's the selected dataset
+    if args.dataset.upper() == "INBREAST":
+        if not (os.path.isdir(os.path.join(args.data_dir, "AllDICOMs")) and os.path.exists(os.path.join(args.data_dir, "INbreast.csv"))):
+            # Try to adjust if a parent directory was given
+            potential_path = os.path.join(args.data_dir, "INbreast", "INbreast")
+            if os.path.isdir(potential_path) and os.path.exists(os.path.join(potential_path, "INbreast.csv")):
+                args.data_dir = potential_path
+                print(f"[INFO] Adjusted INbreast data_dir to: {args.data_dir}")
+            else:
+                 parser.error(f"The provided --data_dir '{args.data_dir}' for INbreast does not point to the 'INbreast/INbreast' subfolder or is missing key components. It should contain 'AllDICOMs' and 'INbreast.csv'.")
+    
+    # For other datasets, you might add specific path validation here if needed.
+    # For example, check if args.data_dir is a valid directory:
+    elif not os.path.isdir(args.data_dir):
+        parser.error(f"The provided --data_dir '{args.data_dir}' is not a valid directory for dataset {args.dataset}.")
+
+
+    # Cập nhật config từ args (moved to top of main_logic, this is redundant here if main_logic uses cli_args directly)
+    # We are passing cli_args to main_logic, so config updates happen there.
+    # This section can be removed if all config updates are consolidated at the start of main_logic.
+    # For clarity, ensuring config is set based on final args values before main_logic is called:
+    config.dataset = args.dataset
+    config.model = args.model_name_arg
+    config.mammogram_type     = "all" if args.dataset.upper() == "INBREAST" else args.mammogram_type
     config.run_mode           = args.runmode
     config.learning_rate      = args.learning_rate
     config.batch_size         = args.batch_size
     config.max_epoch_frozen   = args.max_epoch_frozen
     config.max_epoch_unfrozen = args.max_epoch_unfrozen
-    config.is_roi             = args.roi
-    config.augment_data       = args.augment
-    config.verbose_mode       = args.verbose
+    config.is_roi             = args.roi # Standardized
+    config.augment_data       = args.apply_elastic or args.apply_mixup or args.apply_cutmix
+    config.verbose_mode       = args.verbose_logging
     config.name               = args.name
-    
-    if config.verbose_mode:
-        print(f"[DEBUG] Config: dataset={config.dataset}, model={config.model}, roi={config.is_roi}, augment={config.augment_data}")
+    config.ELASTIC_ALPHA      = args.elastic_alpha
+    config.ELASTIC_SIGMA      = args.elastic_sigma
+    config.MIXUP_ALPHA        = args.mixup_alpha
+    config.CUTMIX_ALPHA       = args.cutmix_alpha
 
-    # 2) Load & preprocess
-    le = LabelEncoder()
-    X_train = X_test = y_train = y_test = None
-    ds_train = ds_val = None
-    class_weights = None               # <<< thêm dòng này
-
-    if config.dataset in ["mini-MIAS","mini-MIAS-binary"]:
-        X, y = import_minimias_dataset(os.path.join(DATA_ROOT_BREAST, config.dataset), le)
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=42
-        )
-
-    elif config.dataset=="CBIS-DDSM":
-        X_train, y_train = import_cbisddsm_training_dataset(le)
-        X_test,  y_test  = import_cbisddsm_testing_dataset(le)
-
-    elif config.dataset.upper() == "CMMD":
-        # --- Load & stratified split CMMD (80/20 on y) ---
-        d = DATA_ROOT_CMMD
-        X, y = import_cmmd_dataset(d, le)
-        X_train, X_test, y_train, y_test = dataset_stratified_split(
-            0.2, X, y
-        )
-
-        # --- Determine number of classes ---
-        num_classes = y_train.shape[1] if y_train.ndim > 1 else 2
-
-        # --- Compute class weights only for binary case ---
-        if num_classes == 2:
-            # if one-hot, convert to label vector
-            labels = y_train.argmax(axis=1) if y_train.ndim > 1 else y_train
-            class_weights = make_class_weights(labels)
-        else:
-            class_weights = None
-
-        # downstream training / eval will use NumPy arrays
-        ds_train = ds_val = None
-
-    elif config.dataset.upper()=="INBREAST":
-        data_dir = os.path.join(DATA_ROOT_BREAST, "INbreast", "INbreast")
-        if config.is_roi:
-            ds, class_weights, num_classes, num_samples = import_inbreast_roi_dataset(
-                data_dir, le, target_size=(
-                     config.INBREAST_IMG_SIZE["HEIGHT"],
-                     config.INBREAST_IMG_SIZE["WIDTH"]
-                 ), csv_path="/kaggle/input/breastdata/INbreast/INbreast/INbreast.csv" 
-            )
-            ds = ds.shuffle(buffer_size=num_samples)
-            split = int(0.8 * num_samples)
-            ds_train = ds.take(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-            ds_val   = ds.skip(split).batch(config.batch_size).prefetch(tf.data.AUTOTUNE)
-        else:
-            X, y = import_inbreast_full_dataset(
-                data_dir, le,
-                target_size=(config.INBREAST_IMG_SIZE["HEIGHT"],
-                             config.INBREAST_IMG_SIZE["WIDTH"])
-            )
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, stratify=y, random_state=42
-            )
-            class_weights = make_class_weights(y_train)
-            if y.ndim>1: y = np.argmax(y,axis=1)
-            # drop Normal
-            normal_idx = np.where(le.classes_=="Normal")[0][0]
-            mask = (y!=normal_idx)
-            X, y = X[mask], y[mask]
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, stratify=y, random_state=42
-            )
-            class_weights = make_class_weights(y_train)
-    else:
-        raise ValueError("Unsupported dataset")
-
-    # 3) Build & compile model via CnnModel
-    # Determine num_classes
-    if ds_train is not None:
-        # num_classes = 2
-        pass
-    elif y_train is not None: # Dữ liệu NumPy
-        num_classes = y_train.shape[1] if y_train.ndim > 1 else len(np.unique(y_train))
-    else:
-        print("[WARNING] num_classes may not be correctly determined before model loading in test mode if y_train is None.")
-        num_classes = 2 # Hoặc giá trị mặc định nào đó
-    cnn = CnnModel(config.model, num_classes)
-    # Let CnnModel.compile_model handle loss & metrics
-    cnn.compile_model(config.learning_rate)
-
-    if config.augment_data and config.dataset == "INbreast": # Chỉ augment cho INbreast
-        print(f"Applying extended augmentation for INbreast (multiplier, CutMix, MixUp)...")
-        # Đảm bảo y_train là one-hot cho generate_image_transforms nếu nó mong đợi one-hot
-        # Hàm generate_image_transforms phiên bản mới đã tự xử lý việc này bên trong.
-        
-        # Kiểm tra và đảm bảo X_train có channel dimension nếu là ảnh xám
-        if X_train.ndim == 3: # (N, H, W)
-            X_train = np.expand_dims(X_train, axis=-1) # (N, H, W, 1)
-
-        X_train, y_train = generate_image_transforms(X_train, y_train)
-        # y_train trả về từ generate_image_transforms (phiên bản mới) sẽ là one-hot (hoặc mixed one-hot)
-        # hoặc scalar binary tùy thuộc vào logic cuối cùng của hàm đó.
-        # Nếu model của bạn yêu cầu scalar labels cho binary, bạn có thể cần argmax ở đây.
-        # Ví dụ: if num_classes == 2 and y_train.ndim > 1: y_train = np.argmax(y_train, axis=1)
-        
-        # Cập nhật lại class_weights nếu y_train thay đổi đáng kể về phân phối
-        # (Hàm make_class_weights cần y_train ở dạng scalar)
-        if y_train.ndim > 1 and y_train.shape[1] > 1: # Nếu y_train là one-hot
-            y_train_for_weights = np.argmax(y_train, axis=1)
-        else:
-            y_train_for_weights = y_train
-        class_weights = make_class_weights(y_train_for_weights)
-        print(f"Re-calculated class weights after INbreast augmentation: {class_weights}")
-
-
-    elif config.augment_data: # Augmentation cơ bản cho các dataset khác
-        print(f"Applying basic augmentation for {config.dataset}...")
-        if X_train is not None and y_train is not None:
-            if X_train.ndim == 3: # (N, H, W)
-                 X_train = np.expand_dims(X_train, axis=-1) # (N, H, W, 1)
-            X_train, y_train = generate_image_transforms(X_train, y_train)
-            # Cập nhật class_weights
-            if y_train.ndim > 1 and y_train.shape[1] > 1:
-                y_train_for_weights = np.argmax(y_train, axis=1)
-            else:
-                y_train_for_weights = y_train
-            class_weights = make_class_weights(y_train_for_weights)
-            print(f"Re-calculated class weights after basic augmentation for {config.dataset}: {class_weights}")
-        else:
-            print(f"Skipping augmentation for {config.dataset} as X_train or y_train is None (possibly using tf.data pipeline like CBIS-DDSM).")
-    # 4) If in test-mode: load saved .h5 and evaluate immediately
-# # 4) Chế độ TEST
-#     if config.run_mode.lower() == "test":
-#         print("[INFO] Running in TEST mode.")
-#         print(f"[INFO] Using dataset: {config.dataset}, Model: {config.model}, ROI: {config.is_roi}")
-#         fname = (
-#             f"dataset-{config.dataset}_type-{config.mammogram_type}"
-#             f"_model-{config.model}_lr-{config.learning_rate}"
-#             f"_b-{config.batch_size}_e1-{config.max_epoch_frozen}"
-#             f"_e2-{config.max_epoch_unfrozen}"
-#             f"_roi-{config.is_roi}_{config.name}.h5"
-#         )
-#         path = os.path.join(PROJECT_ROOT, "saved_models", fname)
-#         if not os.path.exists(path):
-#             raise FileNotFoundError(f"Model file not found: {path}")
-#         cnn._model = tf.keras.models.load_model(path)
-#         cls_type = 'binary' if num_classes==2 else 'multiclass'
-#         cnn.evaluate_model(X_test, y_test, le, cls_type, time.time())
-#         return
-
-#     # 5) TRAIN mode
-#     if ds_train is not None:
-#         # INbreast ROI
-#         # cnn.train_model(ds_train, ds_val, None, None, class_weights)
-# # main.py, ROI‐mode branch:
-#         cnn.compile_model(config.learning_rate)
-#         cnn.train_model(
-#             ds_train,
-#             ds_val,
-#             y_train=None,
-#             y_val=None,
-#             class_weights=class_weights
-#         )
-#     else:
-#         # numpy arrays
-#         cnn.train_model(X_train, X_test, y_train, y_test, class_weights)
-
-#     # 6) Save trained model
-#     cnn.save_model()
-
-#     # 7) Evaluate on test set
-#     cls_type = 'binary' if num_classes==2 else 'multiclass'
-#     cnn.evaluate_model(X_test, y_test, le, cls_type, time.time())
-
-# if __name__ == "__main__":
-#     main()
-
-    if config.run_mode.lower() == "test":
-        print("[INFO] Loading model for evaluation...")
-        # Hàm load_trained_model đã được sửa trong utils.py để tự compile
-        loaded_keras_model = load_trained_model()
-
-        if loaded_keras_model is None:
-            raise FileNotFoundError(
-                f"Không thể tải model dựa trên cấu hình hiện tại. "
-                "Vui lòng kiểm tra log từ 'load_trained_model' trong utils.py."
-            )
-
-        # Kiểm tra và cập nhật num_classes của cnn_instance nếu cần
-        output_neurons_loaded = loaded_keras_model.output_shape[-1]
-        actual_num_classes_from_loaded_model = output_neurons_loaded if output_neurons_loaded > 1 else 2
-        
-        if cnn.num_classes != actual_num_classes_from_loaded_model:
-            print(f"[INFO] CnnModel was initialized with {cnn.num_classes} classes, "
-                  f"but loaded model has {actual_num_classes_from_loaded_model} output classes. "
-                  f"Re-initializing CnnModel for consistency.")
-            cnn = CnnModel(config.model, actual_num_classes_from_loaded_model)
-        
-        cnn.model = loaded_keras_model # Gán model đã tải và compile
-
-        # Đảm bảo dữ liệu test có sẵn
-        if X_test is None or y_test is None:
-            print(f"[ERROR] Dữ liệu test (X_test hoặc y_test) là None cho dataset {config.dataset}. Không thể đánh giá.")
-            return
-        if le.classes_.size == 0:
-            print("[ERROR] LabelEncoder (le) chưa được fit. Không thể đánh giá chính xác tên lớp.")
-            # Cân nhắc fit le trên y_test nếu y_test là nhãn chữ, hoặc đảm bảo le được load/fit đúng.
-            # Ví dụ đơn giản: le.fit(y_test) nếu y_test chứa nhãn số 0,1... và bạn muốn map số đó ra chữ.
-            # Điều này phụ thuộc vào y_test là dạng số hay chữ, và evaluate_model kỳ vọng gì.
-            # Giả sử evaluate_model cần le đã fit để inverse_transform nhãn số về chữ.
-            # Và y_test truyền vào evaluate_model là nhãn số.
-            try:
-                unique_test_labels = np.unique(y_test)
-                if np.issubdtype(unique_test_labels.dtype, np.number): # Nếu y_test là số
-                    # Cần nhãn chữ để fit cho LabelEncoder hoạt động đúng nếu mục tiêu là map số -> chữ
-                    # Nếu không có nhãn chữ, tạo nhãn giả:
-                    if len(unique_test_labels) == 2 : le.fit(['Class_0', 'Class_1'])
-                    elif len(unique_test_labels) > 2 : le.fit([f'Class_{i}' for i in unique_test_labels])
-                    else: print("[WARNING] Cannot fit LabelEncoder on y_test as it's empty or has only one class after potential filtering.")
-                else: # Nếu y_test là chữ (ít khả năng ở giai đoạn này)
-                    le.fit(y_test)
-                print(f"[INFO] LabelEncoder refitted on y_test unique values. Classes: {le.classes_}")
-            except Exception as e_le_fit:
-                print(f"[WARNING] Could not fit LabelEncoder on y_test: {e_le_fit}. Evaluation report might lack proper class names.")
-
-
-        cls_type_eval = 'binary' if cnn.num_classes == 2 else 'multiclass'
-        print(f"[INFO] Evaluating with: X_test shape {X_test.shape}, y_test shape {y_test.shape}, num_classes {cnn.num_classes}, cls_type {cls_type_eval}")
-        
-        cnn.evaluate_model(X_test, y_test, le, cls_type_eval, time.time())
-        return # Kết thúc test mode
-
-    # --- Chế độ TRAIN ---
-    # Hàm train_model của CnnModel sẽ tự xử lý việc compile với learning rate phù hợp cho từng giai đoạn
-    print("[INFO] Running in TRAIN mode.")
-    if ds_train is not None: # INbreast ROI (sử dụng tf.data.Dataset)
-        print(f"[INFO] Training with INbreast ROI (tf.data.Dataset). Class weights: {class_weights}")
-        cnn.train_model(
-            ds_train,
-            ds_val,
-            y_train=None, # y_train, y_val không cần thiết khi dùng Dataset
-            y_val=None,
-            class_weights=class_weights # Truyền class_weights đã tính
-        )
-    elif X_train is not None and y_train is not None: # Dữ liệu NumPy
-        print(f"[INFO] Training with NumPy arrays. X_train shape: {X_train.shape}. Class weights: {class_weights}")
-        cnn.train_model(X_train, X_test, y_train, y_test, class_weights)
-    else:
-        print("[ERROR] Dữ liệu huấn luyện không có sẵn (X_train/y_train hoặc ds_train là None).")
-        return
-
-    # Lưu model sau khi huấn luyện
-    print("[INFO] Training complete. Saving model...")
-    cnn.save_model()
-
-    # Đánh giá model trên tập test sau khi huấn luyện
-    print("[INFO] Evaluating model on test set after training...")
-    if X_test is None or y_test is None:
-        print(f"[ERROR] Dữ liệu test (X_test hoặc y_test) là None sau khi huấn luyện. Không thể đánh giá.")
-        return
-    # le đã được fit trong quá trình tải dữ liệu
-    cls_type_eval_after_train = 'binary' if cnn.num_classes == 2 else 'multiclass'
-    cnn.evaluate_model(X_test, y_test, le, cls_type_eval_after_train, time.time()) # Sử dụng lại thời gian hiện tại
-
-if __name__ == "__main__":
     start_time_main = time.time()
-    main()
+    main_logic(args)
     print(f"Total execution time of main.py: {time.time() - start_time_main:.2f} seconds.")
-
-
-
