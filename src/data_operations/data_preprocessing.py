@@ -143,7 +143,24 @@ def load_inbreast_data_no_pectoral_removal(
             else:
                 image_array_original = np.zeros_like(image_array_original)
             image_array_original = np.clip(image_array_original, 0.0, 1.0)
-
+            # Kiểm tra nếu là ảnh đa khung và chọn khung hình đầu tiên
+            if image_array_original.ndim == 3:
+                # Giả định rằng nếu chiều đầu tiên nhỏ hơn các chiều khác, đó là số khung hình
+                # Đây là một heuristic, bạn có thể cần điều chỉnh tùy theo đặc điểm cụ thể của dữ liệu
+                if image_array_original.shape[0] < image_array_original.shape[1] and \
+                   image_array_original.shape[0] < image_array_original.shape[2]:
+                    if config.verbose_mode: # Sử dụng biến verbose_mode từ config của bạn
+                        print(f"  [INFO] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has shape {image_array_original.shape}. Assuming multi-frame, taking the first frame.")
+                    image_array_original = image_array_original[0] 
+                # Nếu không, và chiều cuối cùng là 1 hoặc 3 (đã là ảnh HWC rồi), thì không cần làm gì
+                elif image_array_original.shape[-1] == 1 or image_array_original.shape[-1] == 3:
+                    pass # Đã ở dạng (H, W, C) mong muốn
+                else: # Trường hợp 3 chiều không xác định rõ
+                    if config.verbose_mode:
+                        print(f"  [WARNING] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has an ambiguous 3D shape {image_array_original.shape}. Attempting to use first slice if it's small, otherwise this might lead to errors.")
+                    # Heuristic bổ sung: nếu chiều cuối cùng không phải là kênh màu điển hình, và chiều đầu nhỏ, vẫn lấy frame đầu
+                    if image_array_original.shape[-1] not in [1,3] and image_array_original.shape[0] < 10: # ví dụ < 10 frames
+                         image_array_original = image_array_original[0]
 
             birad_value_csv = str(row['Bi-Rads']).strip()
             current_label_text = None
