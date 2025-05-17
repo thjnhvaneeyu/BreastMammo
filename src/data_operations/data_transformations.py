@@ -804,7 +804,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
     dataset_name = getattr(config, 'dataset', '')
     # Đọc các hằng số multiplier từ config nếu có, nếu không dùng default
     if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
-    elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 2))
+    elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 3))
 
     class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
     if not class_counts or num_classes == 0:
