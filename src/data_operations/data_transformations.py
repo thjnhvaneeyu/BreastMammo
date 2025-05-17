@@ -766,6 +766,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
         num_classes = unique_labels_count if unique_labels_count > 0 else (int(np.max(labels)) + 1 if labels.size > 0 else 2)
         if num_classes == 0 : num_classes = 2 # Fallback
         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
+    print(f"    [INFO Aug] num_classes determined: {num_classes}, labels_one_hot shape: {labels_one_hot.shape}")
 
     # 2. Chuẩn bị initial_images_processed_for_aug
     initial_images_processed_for_aug = []
@@ -806,7 +807,11 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
     if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
     elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 3))
 
+    print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
+
     class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
+    print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
+
     if not class_counts or num_classes == 0:
         print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
     else:
