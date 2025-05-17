@@ -314,6 +314,13 @@ def main_logic(cli_args):
         # Ensure `le` used for evaluation matches the classes the model was trained on.
         # This might require saving/loading `le` with the model or ensuring consistent class definitions.
         cls_type_eval = 'binary' if cnn.num_classes == 2 else 'multiclass'
+        print(f"[DEBUG main_logic] Before final evaluation:")
+        print(f"  X_test_np shape: {X_test_np.shape if X_test_np is not None else 'None'}")
+        print(f"  y_test_np shape: {y_test_np.shape if y_test_np is not None else 'None'}")
+        print(f"  Number of classes in LabelEncoder: {len(le.classes_) if le.classes_ is not None else 'N/A'}")
+        print(f"  LabelEncoder classes: {le.classes_ if le.classes_ is not None else 'N/A'}")
+        print(f"  cls_type_eval: {cls_type_eval}") # Đây là cls_type_eval_after_train trong code bạn gửi
+
         cnn.evaluate_model(X_test_np, y_test_np, le, cls_type_eval, time.time() - start_time_train)
 
 

@@ -374,15 +374,39 @@ class CnnModel:
         else:
             y_true_labels = y_test.astype(int)
 
-        # --- Chuyển y_pred về dạng labels 1D nếu cần ---
-        if y_pred.ndim > 1:
-            y_pred_labels = np.argmax(y_pred, axis=1)
-        else:
-            y_pred_labels = y_pred
+        # # --- Chuyển y_pred về dạng labels 1D nếu cần ---
+        # if y_pred.ndim > 1:
+        #     y_pred_labels = np.argmax(y_pred, axis=1)
+        # else:
+        #     y_pred_labels = y_pred
+        y_pred_labels = y_pred
 
         # Giờ map ngược về nhãn chuỗi
         y_true_inv = label_encoder.inverse_transform(y_true_labels)
         y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
+        print(f"[DEBUG Evaluate] y_true_labels shape: {y_true_labels.shape}, y_pred_labels shape: {y_pred_labels.shape}")
+        # Kiểm tra kích thước trước khi inverse_transform
+        if y_true_labels.shape[0] != y_pred_labels.shape[0]:
+            print(f"[ERROR Evaluate] Mismatch in number of samples before inverse_transform:")
+            print(f"  y_true_labels samples: {y_true_labels.shape[0]}")
+            print(f"  y_pred_labels samples: {y_pred_labels.shape[0]}")
+            # Có thể raise lỗi ở đây hoặc xử lý khác
+            # For now, let's see what happens if we proceed, but this is likely the root of the inconsistency
+        
+        try:
+            y_true_inv = label_encoder.inverse_transform(y_true_labels)
+            y_pred_inv = label_encoder.inverse_transform(y_pred_labels)
+        except ValueError as e:
+            print(f"[ERROR Evaluate] Error during inverse_transform: {e}")
+            print(f"  Unique y_true_labels: {np.unique(y_true_labels)}")
+            print(f"  Unique y_pred_labels: {np.unique(y_pred_labels)}")
+            print(f"  LabelEncoder classes: {label_encoder.classes_}")
+            # Thêm thông tin debug để xem tại sao lại có lỗi này (ví dụ: nhãn không có trong encoder)
+            # raise e # Hoặc return để tránh crash hoàn toàn
+            return
+
+
+        print(f"[DEBUG Evaluate] y_true_inv length: {len(y_true_inv)}, y_pred_inv length: {len(y_pred_inv)}")
 
         # 3) Tính accuracy
         acc = accuracy_score(y_true_inv, y_pred_inv)
