@@ -807,10 +807,10 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
     if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
     elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 3))
 
-    print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
+    # print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
 
     class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
-    print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
+    # print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
 
     # if not class_counts or num_classes == 0:
     #     print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
