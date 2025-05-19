@@ -95,7 +95,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(Flatten(name="Flatten"))
     
     # 4) Dropout
-    model.add(Dropout(0.5, seed=config.RANDOM_SEED, name="Dropout_1"))
+    model.add(Dropout(0.6, seed=config.RANDOM_SEED, name="Dropout_1"))
     
     # 5) Fully Connected
     model.add(Dense(512, activation='relu', name='Dense_2'))
