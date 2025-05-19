@@ -3,8 +3,8 @@
 # from tensorflow.python.keras.layers import Conv2D, MaxPooling2D
 
 import config
-
-
+from tensorflow.keras import regularizers
+lambda_val = 0.001 # Start with a small value like 0.001 or 0.0001
 # def create_basic_cnn_model(num_classes: int):
 #     """
 #     Function to create a basic CNN.
@@ -44,7 +44,9 @@ from tensorflow.keras.layers import (
     MaxPooling2D,
     Flatten,
     Dropout,
-    Dense
+    Dense,
+    Activation,
+    BatchNormalization
 )
 
 def create_basic_cnn_model(num_classes: int):
@@ -67,9 +69,26 @@ def create_basic_cnn_model(num_classes: int):
     ))
     
     # 2) Convolutional + pooling layers
-    model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
-    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
-    model.add(Conv2D(16, (5, 5), padding='same', activation='relu', name="Conv2"))
+    # model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
+    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+    # model.add(Conv2D(16, (5, 5), padding='same', activation='relu', name="Conv2"))
+    model.add(tf.keras.layers.Conv2D(
+        64, (5, 5),
+        activation='relu',
+        kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
+        name="Conv1"
+    ))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+
+    model.add(tf.keras.layers.Conv2D(
+        32, (5, 5),
+        padding='same',
+        activation='relu',
+        kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
+        name="Conv2"
+    ))
+    model.add(BatchNormalization(name="BN1")) # Ngay sau Conv2D
+    model.add(Activation('relu', name="Relu1")) # Hoặc gộp activation='relu' vào Conv2D
     model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
     
     # 3) Flatten giờ không còn lỗi về layer thiếu input_shape
