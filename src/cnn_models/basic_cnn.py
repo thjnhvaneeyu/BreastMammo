@@ -98,7 +98,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(Dropout(0.6, seed=config.RANDOM_SEED, name="Dropout_1"))
     
     # 5) Fully Connected
-    model.add(Dense(512, activation='relu', name='Dense_2'))
+    model.add(Dense(1024, activation='relu', name='Dense_2'))
     
     # # 6) Output layer
     # if num_classes == 2:
