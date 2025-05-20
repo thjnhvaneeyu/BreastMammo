@@ -465,7 +465,15 @@ def main_logic(cli_args):
     start_time_train = time.time()
     if config.run_mode.lower() == "train":
         print(f"[INFO] Running in TRAIN mode for {config.dataset}.")
-        if X_train_np is not None and y_train_np is not None and X_train_np.size > 0 :
+        # if X_train_np is not None and y_train_np is not None and X_train_np.size > 0 :
+        if X_train_np is not None:
+            print(f"[DEBUG DTYPE PRE-FIT] X_train_np.dtype: {X_train_np.dtype}")
+        if y_train_np is not None:
+            print(f"[DEBUG DTYPE PRE-FIT] y_train_np.dtype: {y_train_np.dtype}")
+        if X_val_np is not None:
+            print(f"[DEBUG DTYPE PRE-FIT] X_val_np.dtype: {X_val_np.dtype}")
+        if y_val_np is not None:
+            print(f"[DEBUG DTYPE PRE-FIT] y_val_np.dtype: {y_val_np.dtype}")
             cnn.train_model(X_train_np, X_val_np, y_train_np, y_val_np, class_weights)
         else: print(f"[ERROR] Training data for {config.dataset} is empty or None. Cannot train."); return
         print_runtime("Model training", time.time() - start_time_train)
