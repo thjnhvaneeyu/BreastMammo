@@ -425,9 +425,6 @@ def main_logic(cli_args):
             X_train_val, y_train_val, test_size=0.25, stratify=stratify_param_inner, random_state=config.RANDOM_SEED, shuffle=True
         )
 # Trong main.py, sau khi có y_train_np, y_val_np, y_test_np
-
-        from collections import Counter
-
         print(f"\n[INFO] Class distribution for {config.dataset}:")
         if y_train_np is not None:
             # Nếu y_train_np là one-hot, cần argmax để lấy nhãn số
