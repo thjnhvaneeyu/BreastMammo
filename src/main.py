@@ -249,7 +249,7 @@ def main_logic(cli_args):
                     print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE for INbreast.")
                     if y_train_np is not None and y_train_np.size > 0:
                         y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes)
                     else: class_weights = None
                     print(f"[INFO main_logic] Calculated class weights (SMOTE failed/skipped): {class_weights}")
             else:
@@ -257,12 +257,12 @@ def main_logic(cli_args):
                 # Tính class_weights nếu không SMOTE và có dữ liệu
                 if y_train_np is not None and y_train_np.size > 0 :
                         y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes)
                 else: class_weights = None
         else: # Nếu không áp dụng SMOTE
             if y_train_np is not None and y_train_np.size > 0:
                     y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                    class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                    class_weights = make_class_weights(y_train_for_weights_initial, num_classes)
                     print(f"[INFO main_logic] Calculated class weights (SMOTE not applied): {class_weights}")
             else:
                 class_weights = None
