@@ -88,7 +88,7 @@ def print_cli_arguments() -> None:
     print(f"Max epochs (frozen): {config.max_epoch_frozen}")
     print(f"Max epochs (unfrozen): {config.max_epoch_unfrozen}")
     print(f"Use ROI: {config.is_roi}")
-    args = parser.parse_args()
+    # args = argparse.parse_args()
     # Augmentation general flag (derived)
     print(f"Apply basic augmentation (derived): {config.augment_data}")
     # Specific augmentation flags
