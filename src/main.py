@@ -483,6 +483,11 @@ if __name__ == "__main__":
                         type=float, 
                         default=2.0,  # Giá trị mặc định từ config hoặc theo ý bạn
                         help="Gamma parameter for Focal Loss.")
+    parser.add_argument("--apply_smote", 
+                        action="store_true",  # Tạo cờ boolean, nếu có mặt thì là True
+                        default=False,        # Giá trị mặc định nếu cờ không có mặt
+                        help="Apply SMOTE to the training data (primarily for INbreast).")
+
     parser.add_argument("--verbose_logging", action="store_true", default=config.verbose_mode, help="Verbose logging.")
     parser.add_argument("-n", "--name", default=config.name, help="Experiment name.")
     # Added mammogram_type for datasets other than INbreast, though INbreast sets it to "all"
