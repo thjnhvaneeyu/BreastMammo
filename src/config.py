@@ -36,9 +36,9 @@ XCEPTION_IMG_SIZE = INCEPTION_IMG_SIZE
 # Cho MobileNet tương thích với tên trong main.py
 MOBILENET_IMG_SIZE = MOBILE_NET_IMG_SIZE
 # Số epoch tối đa không cải thiện sẽ dừng training
-early_stopping_patience = 20  
+early_stopping_patience = 10  
 # Số epoch không cải thiện sẽ giảm learning rate
-reduce_lr_patience      = 3  
+reduce_lr_patience      = 6  
 # Hệ số giảm learning rate mỗi lần giảm
 reduce_lr_factor        = 0.5
 # Learning rate nhỏ nhất còn cho phép
