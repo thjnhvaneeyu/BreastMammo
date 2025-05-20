@@ -24,7 +24,7 @@ import skimage.util
 import skimage.filters # Cho GaussianBlur và map_coordinates
 from scipy.ndimage import map_coordinates
 import tensorflow as tf
-# import cv2 # cv2.resize có thể được thay thế bằng skimage.transform.resize nếu muốn đồng nhất
+import cv2 # cv2.resize có thể được thay thế bằng skimage.transform.resize nếu muốn đồng nhất
 
 import config # Đảm bảo file config.py tồn tại và đúng cấu trúc
 def focal_loss_factory(alpha=0.25, gamma=2.0):
@@ -565,9 +565,7 @@ import skimage.exposure
 import skimage.util
 import skimage.filters # Cho GaussianBlur
 import tensorflow as tf # Cần thiết cho MixUp/CutMix
-import cv2 # Để resize (nếu cần)
-
-import config # Đảm bảo file config.py tồn tại và đúng cấu trúc
+# Để resize (nếu cần)
 
 # ==============================================================
 # 0. Các hàm MixUp và CutMix (giữ nguyên từ phiên bản trước của bạn)

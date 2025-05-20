@@ -137,31 +137,65 @@ def load_inbreast_data_no_pectoral_removal(
             dicom_data = pydicom.dcmread(dicom_path)
             image_array_original = dicom_data.pixel_array.astype(np.float32)
             # Chuẩn hóa ảnh gốc về [0,1]
+            # min_val, max_val = np.min(image_array_original), np.max(image_array_original)
+            # if max_val - min_val > 1e-8:
+            #     image_array_original = (image_array_original - min_val) / (max_val - min_val)
+            # else:
+            #     image_array_original = np.zeros_like(image_array_original)
+            # image_array_original = np.clip(image_array_original, 0.0, 1.0)
+            # # Kiểm tra nếu là ảnh đa khung và chọn khung hình đầu tiên
+            # if image_array_original.ndim == 3:
+            #     # Giả định rằng nếu chiều đầu tiên nhỏ hơn các chiều khác, đó là số khung hình
+            #     # Đây là một heuristic, bạn có thể cần điều chỉnh tùy theo đặc điểm cụ thể của dữ liệu
+            #     if image_array_original.shape[0] < image_array_original.shape[1] and \
+            #        image_array_original.shape[0] < image_array_original.shape[2]:
+            #         if config.verbose_mode: # Sử dụng biến verbose_mode từ config của bạn
+            #             print(f"  [INFO] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has shape {image_array_original.shape}. Assuming multi-frame, taking the first frame.")
+            #         image_array_original = image_array_original[0] 
+            #     # Nếu không, và chiều cuối cùng là 1 hoặc 3 (đã là ảnh HWC rồi), thì không cần làm gì
+            #     elif image_array_original.shape[-1] == 1 or image_array_original.shape[-1] == 3:
+            #         pass # Đã ở dạng (H, W, C) mong muốn
+            #     else: # Trường hợp 3 chiều không xác định rõ
+            #         if config.verbose_mode:
+            #             print(f"  [WARNING] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has an ambiguous 3D shape {image_array_original.shape}. Attempting to use first slice if it's small, otherwise this might lead to errors.")
+            #         # Heuristic bổ sung: nếu chiều cuối cùng không phải là kênh màu điển hình, và chiều đầu nhỏ, vẫn lấy frame đầu
+            #         if image_array_original.shape[-1] not in [1,3] and image_array_original.shape[0] < 10: # ví dụ < 10 frames
+            #              image_array_original = image_array_original[0]
+            # ===== XỬ LÝ ẢNH ĐA KHUNG =====
+            if image_array_original.ndim == 3:
+                # Giả sử chiều đầu tiên là số khung hình nếu nó nhỏ hơn các chiều khác
+                # hoặc nếu pixel_array có số chiều > 2 và không phải là ảnh màu chuẩn (H,W,3)
+                is_multiframe_heuristic = (image_array_original.shape[0] < image_array_original.shape[1] and \
+                                           image_array_original.shape[0] < image_array_original.shape[2])
+                
+                is_standard_color_shape = (image_array_original.ndim == 3 and image_array_original.shape[-1] == 3)
+
+                if not is_standard_color_shape and image_array_original.ndim > 2 : # Check if it's likely multi-frame grayscale
+                    if config.verbose_mode:
+                        print(f"  [INFO] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has shape {image_array_original.shape}. Assuming multi-frame, taking the first frame.")
+                    image_array_original = image_array_original[0] # Lấy khung hình đầu tiên
+                # Nếu nó là (H, W, 3) rồi thì không cần làm gì ở bước này
+                elif is_standard_color_shape:
+                     pass
+                # Nếu là (H,W,1) thì cũng không cần làm gì ở đây
+                elif image_array_original.ndim == 3 and image_array_original.shape[-1] == 1:
+                    pass
+                else: # Các trường hợp 3D không rõ ràng khác, vẫn thử lấy frame đầu nếu chiều đầu nhỏ
+                    if image_array_original.shape[0] < 10 and image_array_original.shape[-1] not in [1,3]: # Heuristic
+                         if config.verbose_mode:
+                            print(f"  [WARNING] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has an ambiguous 3D shape {image_array_original.shape}. Taking first slice.")
+                         image_array_original = image_array_original[0]
+
+
+            # Bây giờ image_array_original nên là 2D (ảnh xám) hoặc (H,W,3) nếu DICOM gốc là màu
+            # Chuẩn hóa ảnh gốc về [0,1]
             min_val, max_val = np.min(image_array_original), np.max(image_array_original)
             if max_val - min_val > 1e-8:
                 image_array_original = (image_array_original - min_val) / (max_val - min_val)
             else:
                 image_array_original = np.zeros_like(image_array_original)
             image_array_original = np.clip(image_array_original, 0.0, 1.0)
-            # Kiểm tra nếu là ảnh đa khung và chọn khung hình đầu tiên
-            if image_array_original.ndim == 3:
-                # Giả định rằng nếu chiều đầu tiên nhỏ hơn các chiều khác, đó là số khung hình
-                # Đây là một heuristic, bạn có thể cần điều chỉnh tùy theo đặc điểm cụ thể của dữ liệu
-                if image_array_original.shape[0] < image_array_original.shape[1] and \
-                   image_array_original.shape[0] < image_array_original.shape[2]:
-                    if config.verbose_mode: # Sử dụng biến verbose_mode từ config của bạn
-                        print(f"  [INFO] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has shape {image_array_original.shape}. Assuming multi-frame, taking the first frame.")
-                    image_array_original = image_array_original[0] 
-                # Nếu không, và chiều cuối cùng là 1 hoặc 3 (đã là ảnh HWC rồi), thì không cần làm gì
-                elif image_array_original.shape[-1] == 1 or image_array_original.shape[-1] == 3:
-                    pass # Đã ở dạng (H, W, C) mong muốn
-                else: # Trường hợp 3 chiều không xác định rõ
-                    if config.verbose_mode:
-                        print(f"  [WARNING] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has an ambiguous 3D shape {image_array_original.shape}. Attempting to use first slice if it's small, otherwise this might lead to errors.")
-                    # Heuristic bổ sung: nếu chiều cuối cùng không phải là kênh màu điển hình, và chiều đầu nhỏ, vẫn lấy frame đầu
-                    if image_array_original.shape[-1] not in [1,3] and image_array_original.shape[0] < 10: # ví dụ < 10 frames
-                         image_array_original = image_array_original[0]
-
+            
             birad_value_csv = str(row['Bi-Rads']).strip()
             current_label_text = None
             for label_text, birad_code_list in config.INBREAST_BIRADS_MAPPING.items():
@@ -201,17 +235,29 @@ def load_inbreast_data_no_pectoral_removal(
                     
                     resized_patch = cv2.resize(roi_patch, target_size, interpolation=cv2.INTER_AREA)
                     
-                    # --- Xử lý kênh cho ROI patch ---
-                    if config.model != "CNN":
-                        if resized_patch.ndim == 2: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
-                        elif resized_patch.ndim == 3 and resized_patch.shape[-1] == 1: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
-                    elif config.model == "CNN":
-                        if resized_patch.ndim == 3 and resized_patch.shape[-1] == 3:
-                            resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_RGB2GRAY)
-                            resized_patch = np.expand_dims(resized_patch, axis=-1)
-                        elif resized_patch.ndim == 2:
-                             resized_patch = np.expand_dims(resized_patch, axis=-1)
+                    # # --- Xử lý kênh cho ROI patch ---
+                    # if config.model != "CNN":
+                    #     if resized_patch.ndim == 2: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
+                    #     elif resized_patch.ndim == 3 and resized_patch.shape[-1] == 1: resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB)
+                    # elif config.model == "CNN":
+                    #     if resized_patch.ndim == 3 and resized_patch.shape[-1] == 3:
+                    #         resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_RGB2GRAY)
+                    #         resized_patch = np.expand_dims(resized_patch, axis=-1)
+                    #     elif resized_patch.ndim == 2:
+                    #          resized_patch = np.expand_dims(resized_patch, axis=-1)
+                    if resized_patch.ndim == 3 and resized_patch.shape[-1] == 1:
+                        resized_patch = resized_patch.squeeze(axis=-1) # Chuyển (H,W,1) thành (H,W)
                     
+                    if config.model != "CNN": # Cần 3 kênh
+                        if resized_patch.ndim == 2: # Ảnh xám (H,W)
+                            resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_GRAY2RGB) # Thành (H,W,3)
+                        # Nếu đã là (H,W,3) thì không làm gì
+                    elif config.model == "CNN": # Cần 1 kênh
+                        if resized_patch.ndim == 3 and resized_patch.shape[-1] == 3: # Ảnh màu (H,W,3)
+                            resized_patch = cv2.cvtColor(resized_patch, cv2.COLOR_RGB2GRAY) # Thành (H,W)
+                        if resized_patch.ndim == 2: # Đảm bảo có channel dim
+                            resized_patch = np.expand_dims(resized_patch, axis=-1) # Thành (H,W,1)
+                                        
                     resized_patch = resized_patch.astype(np.float32)
                     min_rp, max_rp = np.min(resized_patch), np.max(resized_patch)
                     if max_rp - min_rp > 1e-8: resized_patch = (resized_patch - min_rp) / (max_rp - min_rp)
@@ -222,16 +268,32 @@ def load_inbreast_data_no_pectoral_removal(
                     labels_for_this_entry_text.append(current_label_text)
             
             else: # Full image
+                # resized_full_image = cv2.resize(image_array_original, target_size, interpolation=cv2.INTER_AREA)
+                # if config.model != "CNN":
+                #     if resized_full_image.ndim == 2: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
+                #     elif resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 1: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
+                # elif config.model == "CNN":
+                #     if resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 3:
+                #         resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_RGB2GRAY)
+                #         resized_full_image = np.expand_dims(resized_full_image, axis=-1)
+                #     elif resized_full_image.ndim == 2: resized_full_image = np.expand_dims(resized_full_image, axis=-1)
                 resized_full_image = cv2.resize(image_array_original, target_size, interpolation=cv2.INTER_AREA)
-                if config.model != "CNN":
-                    if resized_full_image.ndim == 2: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
-                    elif resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 1: resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB)
-                elif config.model == "CNN":
-                    if resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 3:
-                        resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_RGB2GRAY)
-                        resized_full_image = np.expand_dims(resized_full_image, axis=-1)
-                    elif resized_full_image.ndim == 2: resized_full_image = np.expand_dims(resized_full_image, axis=-1)
                 
+                # --- Xử lý kênh cho full image ---
+                # Đảm bảo resized_full_image là 2D (ảnh xám) trước khi cvtColor nếu nó đang là (H,W,1)
+                if resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 1:
+                    resized_full_image = resized_full_image.squeeze(axis=-1)
+
+                if config.model != "CNN": # Cần 3 kênh cho MobileNet
+                    if resized_full_image.ndim == 2: # Ảnh xám (H,W)
+                        resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB) # Thành (H,W,3)
+                    # Nếu đã là (H,W,3) thì không làm gì
+                elif config.model == "CNN": # Cần 1 kênh
+                    if resized_full_image.ndim == 3 and resized_full_image.shape[-1] == 3: # Ảnh màu (H,W,3)
+                        resized_full_image = cv2.cvtColor(resized_full_image, cv2.COLOR_RGB2GRAY) # Thành (H,W)
+                    if resized_full_image.ndim == 2: # Đảm bảo có channel dim
+                        resized_full_image = np.expand_dims(resized_full_image, axis=-1) # Thành (H,W,1)
+                                
                 resized_full_image = resized_full_image.astype(np.float32)
                 min_rfi, max_rfi = np.min(resized_full_image), np.max(resized_full_image)
                 if max_rfi - min_rfi > 1e-8 : resized_full_image = (resized_full_image - min_rfi) / (max_rfi - min_rfi)
@@ -261,6 +323,14 @@ def load_inbreast_data_no_pectoral_removal(
             print(f"  [ERROR] Failed to process DICOM entry {file_id_csv} (path: {dicom_path}): {e}")
             # import traceback; traceback.print_exc()
             continue
+    if all_images_data_accumulator:
+        first_shape = all_images_data_accumulator[0].shape
+        for i, img_arr in enumerate(all_images_data_accumulator):
+            if img_arr.shape != first_shape:
+                print(f"[CRITICAL ERROR] Inconsistent shape found in all_images_data_accumulator at index {i}. Shape: {img_arr.shape}, Expected: {first_shape}")
+                # Có thể bạn muốn dừng hoặc xử lý lỗi ở đây thay vì để np.array báo lỗi
+    # else:
+    #    print("[WARN] all_images_data_accumulator is empty before final np.array conversion.")
     
     print(f"[INFO] Total unique DICOM files processed and augmented: {processed_dicom_count}")
     if not all_images_data_accumulator:
