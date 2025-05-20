@@ -112,78 +112,78 @@ class CnnModel:
     #         loss_name = loss.name if hasattr(loss, 'name') else loss.__name__ if callable(loss) else str(loss)
     #         print(f"[INFO CnnModel] Model compiled with loss: {loss_name}, metrics: {[m.name for m in metrics_list]}")
 
-    # def train_model(self, X_train, X_val, y_train, y_val, class_weights) -> None:
-    #     """
-    #     Two-phase training for pretrained backbones; single-phase for custom CNN.
-    #     """
-    #     if self.model_name != "CNN":
-    #         # Phase 1: freeze base
-    #         # if config.max_epoch_frozen > 0:
-    #         #     for layer in self._model.layers:
-    #         #         layer.trainable = False
-    #         #     self.compile_model(config.learning_rate)
-    #         #     self._fit(X_train, X_val, y_train, y_val, class_weights,
-    #         #               epochs=config.max_epoch_frozen, frozen=True)
-    #         #     plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
-    #         if config.max_epoch_frozen > 0:
-    #             for layer in self._model.layers:
-    #                 # nếu là Dense (head) thì trainable, ngược lại freeze
-    #                 if isinstance(layer, tf.keras.layers.Dense):
-    #                     layer.trainable = True
-    #                 else:
-    #                     layer.trainable = False
+    def train_model(self, X_train, X_val, y_train, y_val, class_weights) -> None:
+        """
+        Two-phase training for pretrained backbones; single-phase for custom CNN.
+        """
+        if self.model_name != "CNN":
+            # Phase 1: freeze base
+            # if config.max_epoch_frozen > 0:
+            #     for layer in self._model.layers:
+            #         layer.trainable = False
+            #     self.compile_model(config.learning_rate)
+            #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+            #               epochs=config.max_epoch_frozen, frozen=True)
+            #     plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+            if config.max_epoch_frozen > 0:
+                for layer in self._model.layers:
+                    # nếu là Dense (head) thì trainable, ngược lại freeze
+                    if isinstance(layer, tf.keras.layers.Dense):
+                        layer.trainable = True
+                    else:
+                        layer.trainable = False
 
-    #             self.compile_model(config.learning_rate)
-    #             self._fit(X_train, X_val, y_train, y_val,
-    #                       class_weights,
-    #                       epochs=config.max_epoch_frozen,
-    #                             frozen=True)
-    #             if self.history and self.history.history: # Kiểm tra history không rỗng
-    #                 plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
-    #             else:
-    #                 print("[WARN CnnModel] No history found after frozen training phase. Skipping plot.")
+                self.compile_model(config.learning_rate)
+                self._fit(X_train, X_val, y_train, y_val,
+                          class_weights,
+                          epochs=config.max_epoch_frozen,
+                                frozen=True)
+                if self.history and self.history.history: # Kiểm tra history không rỗng
+                    plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+                else:
+                    print("[WARN CnnModel] No history found after frozen training phase. Skipping plot.")
                         
-    #         # Phase 2: unfreeze all
-    #     #     if config.max_epoch_unfrozen > 0:
-    #     #         for layer in self._model.layers:
-    #     #             layer.trainable = True
-    #     #         self.compile_model(1e-5)
-    #     #         self._fit(X_train, X_val, y_train, y_val, class_weights,
-    #     #                   epochs=config.max_epoch_unfrozen, frozen=False)
-    #     #         plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+            # Phase 2: unfreeze all
+        #     if config.max_epoch_unfrozen > 0:
+        #         for layer in self._model.layers:
+        #             layer.trainable = True
+        #         self.compile_model(1e-5)
+        #         self._fit(X_train, X_val, y_train, y_val, class_weights,
+        #                   epochs=config.max_epoch_unfrozen, frozen=False)
+        #         plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
 
-    #     # else:
-    #     #     # Custom CNN from scratch
-    #     #     self.compile_model(config.learning_rate)
-    #     #     self._fit(X_train, X_val, y_train, y_val, class_weights,
-    #     #               epochs=config.max_epoch_unfrozen, frozen=False)
-    #     #     plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
-    #         if config.max_epoch_unfrozen > 0:
-    #             for layer in self._model.layers:
-    #                 layer.trainable = True
+        # else:
+        #     # Custom CNN from scratch
+        #     self.compile_model(config.learning_rate)
+        #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+        #               epochs=config.max_epoch_unfrozen, frozen=False)
+        #     plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
+            if config.max_epoch_unfrozen > 0:
+                for layer in self._model.layers:
+                    layer.trainable = True
 
-    #             # learning rate thấp để fine-tune
-    #             self.compile_model(1e-5)
-    #             self._fit(X_train, X_val, y_train, y_val,
-    #                       class_weights,
-    #                       epochs=config.max_epoch_unfrozen,
-    #                             frozen=False)
-    #             if self.history and self.history.history: # Kiểm tra history không rỗng
-    #                 plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
-    #             else:
-    #                 print("[WARN CnnModel] No history found after unfrozen training phase. Skipping plot.")
+                # learning rate thấp để fine-tune
+                self.compile_model(1e-5)
+                self._fit(X_train, X_val, y_train, y_val,
+                          class_weights,
+                          epochs=config.max_epoch_unfrozen,
+                                frozen=False)
+                if self.history and self.history.history: # Kiểm tra history không rỗng
+                    plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+                else:
+                    print("[WARN CnnModel] No history found after unfrozen training phase. Skipping plot.")
 
-    #     else:
-    #         # custom CNN from scratch
-    #         self.compile_model(config.learning_rate)
-    #         self._fit(X_train, X_val, y_train, y_val,
-    #                   class_weights,
-    #                   epochs=config.max_epoch_unfrozen,
-    #                   frozen=False)
-    #         if self.history and self.history.history: # Kiểm tra history không rỗng
-    #             plot_training_results(self.history, "CNN_training", is_frozen_layers=False) # Hoặc True tùy bạn định nghĩa
-    #         else:
-    #             print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
+        else:
+            # custom CNN from scratch
+            self.compile_model(config.learning_rate)
+            self._fit(X_train, X_val, y_train, y_val,
+                      class_weights,
+                      epochs=config.max_epoch_unfrozen,
+                      frozen=False)
+            if self.history and self.history.history: # Kiểm tra history không rỗng
+                plot_training_results(self.history, "CNN_training", is_frozen_layers=False) # Hoặc True tùy bạn định nghĩa
+            else:
+                print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
     def compile_model(self, learning_rate: float) -> None:
         base_opt = Adam(learning_rate=learning_rate)
         opt = LossScaleOptimizer(base_opt) if getattr(config, 'mixed_precision_enabled', False) else base_opt
