@@ -88,15 +88,20 @@ def create_mobilenet_model(num_classes: int):
     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
     
     # 1) Input grayscale → 3 channels
-    inp = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
-    x_conc = Concatenate(name="Input_RGB_Grayscale")([inp, inp, inp]) # Đổi tên biến để không trùng inp
+    # inp = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
+    # x_conc = Concatenate(name="Input_RGB_Grayscale")([inp, inp, inp]) # Đổi tên biến để không trùng inp
 
-    # 2) Base MobileNetV2
+    # # 2) Base MobileNetV2
+    # base = MobileNetV2(include_top=False,
+    #                    weights='imagenet',
+    #                    input_tensor=x_conc) # Sử dụng x_conc
+    # x = base.output
+    inp = Input(shape=(img_height, img_width, 3), name="Input_RGB") # THAY ĐỔI Ở ĐÂY: từ 1 thành 3 kênh
+
     base = MobileNetV2(include_top=False,
                        weights='imagenet',
-                       input_tensor=x_conc) # Sử dụng x_conc
+                       input_tensor=inp) # input_tensor bây giờ là inp (3 kênh)
     x = base.output
-
     # 3) Head
     # Có thể chọn GlobalAveragePooling2D thay vì Flatten tùy theo hiệu năng mong muốn
     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) 
