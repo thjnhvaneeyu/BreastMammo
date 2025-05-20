@@ -9,7 +9,6 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from collections import Counter
 import cv2
 import pydicom
 from pydicom.errors import InvalidDicomError
