@@ -143,168 +143,168 @@ def main_logic(cli_args):
         # )
         # Trong main.py, sau khi có y_train_np, y_val_np, y_test_np
             # ===== KIỂM TRA NGAY SAU KHI LOAD =====
-            if X_np is None or X_np.size == 0 or y_np is None or y_np.size == 0:
-                print(f"[ERROR main_logic] load_inbreast_data_no_pectoral_removal returned empty data. X_np size: {X_np.size if X_np is not None else 'None'}, y_np size: {y_np.size if y_np is not None else 'None'}. Exiting.")
-                return
-            print(f"[DEBUG main_logic] After load_inbreast_data_no_pectoral_removal: X_np.shape={X_np.shape}, y_np.shape={y_np.shape}")
+        if X_np is None or X_np.size == 0 or y_np is None or y_np.size == 0:
+            print(f"[ERROR main_logic] load_inbreast_data_no_pectoral_removal returned empty data. X_np size: {X_np.size if X_np is not None else 'None'}, y_np size: {y_np.size if y_np is not None else 'None'}. Exiting.")
+            return
+        print(f"[DEBUG main_logic] After load_inbreast_data_no_pectoral_removal: X_np.shape={X_np.shape}, y_np.shape={y_np.shape}")
 
-            # Xác định num_classes TỪ LabelEncoder đã được fit bên trong hàm load
-            if hasattr(le, 'classes_') and len(le.classes_) > 0:
-                num_classes = len(le.classes_)
-                print(f"[INFO main_logic] LabelEncoder classes from data loader: {le.classes_}, num_classes set to: {num_classes}")
-                if num_classes < 2: # Cần ít nhất 2 lớp để phân loại
-                    print(f"[ERROR main_logic] Number of classes is {num_classes} after loading INbreast. Check BI-RADS mapping and data filtering.")
-                    return
+        # Xác định num_classes TỪ LabelEncoder đã được fit bên trong hàm load
+        if hasattr(le, 'classes_') and len(le.classes_) > 0:
+            num_classes = len(le.classes_)
+            print(f"[INFO main_logic] LabelEncoder classes from data loader: {le.classes_}, num_classes set to: {num_classes}")
+            if num_classes < 2: # Cần ít nhất 2 lớp để phân loại
+                print(f"[ERROR main_logic] Number of classes is {num_classes} after loading INbreast. Check BI-RADS mapping and data filtering.")
+                return
+        else:
+            print("[ERROR main_logic] LabelEncoder not fitted by data loader or no classes found. Cannot determine num_classes for INbreast.")
+            return
+
+        # Chuẩn bị y_for_stratify (nhãn 1D dạng số nguyên)
+        # Nếu y_np là one-hot (ví dụ sau MixUp/CutMix trong hàm load), cần argmax.
+        # Nếu y_np là nhãn số, dùng trực tiếp.
+        if y_np.ndim > 1 and y_np.shape[1] > 1: # Giả định là one-hot nếu có nhiều hơn 1 cột
+            y_for_stratify = np.argmax(y_np, axis=1)
+        else:
+            y_for_stratify = y_np.astype(int) # Đảm bảo là int
+        
+        unique_labels_stratify, counts_stratify = np.unique(y_for_stratify, return_counts=True)
+        # Điều kiện stratify: mỗi lớp phải có ít nhất 2 mẫu để có thể chia (1 cho train, 1 cho test/val)
+        can_stratify_initial_split = len(unique_labels_stratify) >= num_classes and all(c >= 2 for c in counts_stratify)
+
+        stratify_param_initial = y_for_stratify if can_stratify_initial_split else None
+        if not can_stratify_initial_split:
+            print(f"[WARNING main_logic] Initial split for INbreast cannot be stratified. Unique labels: {unique_labels_stratify}, Counts: {counts_stratify}. num_classes expected: {num_classes}. Splitting without stratification.")
+
+        # Chia lần 1: train_val (80%) và test (20%)
+        X_train_val, X_test_np, y_train_val, y_test_np = train_test_split(
+            X_np, y_np, 
+            test_size=0.2, 
+            stratify=stratify_param_initial, 
+            random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42, 
+            shuffle=True
+        )
+        if X_train_val.size == 0 or y_train_val.size == 0:
+            print(f"[ERROR main_logic] First split resulted in empty X_train_val or y_train_val. X_train_val size: {X_train_val.size}, y_train_val size: {y_train_val.size}. Exiting.")
+            return
+        print(f"[DEBUG main_logic] After 1st split: X_train_val.shape={X_train_val.shape}, X_test_np.shape={X_test_np.shape}")
+
+        # Chuẩn bị y_for_stratify cho split validation (từ y_train_val)
+        y_train_val_for_stratify = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val.astype(int)
+        unique_labels_val_split, counts_val_split = np.unique(y_train_val_for_stratify, return_counts=True)
+        can_stratify_val_split = len(unique_labels_val_split) >= num_classes and all(c >= 1 for c in counts_val_split) # Cần ít nhất 1 mẫu/lớp
+
+        stratify_param_val = y_train_val_for_stratify if can_stratify_val_split else None
+        if not can_stratify_val_split:
+                print(f"[WARNING main_logic] Train/validation split for INbreast cannot be stratified. Unique labels in train_val: {unique_labels_val_split}, Counts: {counts_val_split}. Splitting without stratification.")
+        
+        # Chia lần 2: train (60% tổng) và validation (20% tổng) từ X_train_val (80% tổng)
+        # test_size=0.25 (của 80%) = 20% tổng thể
+        X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+            X_train_val, y_train_val, 
+            test_size=0.25, 
+            stratify=stratify_param_val, 
+            random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42, 
+            shuffle=True
+        )
+        if X_train_np.size == 0 or y_train_np.size == 0:
+            print(f"[ERROR main_logic] Second split resulted in empty X_train_np or y_train_np. X_train_np size: {X_train_np.size}, y_train_np size: {y_train_np.size}. Exiting.")
+            return
+        print(f"[DEBUG main_logic] After 2nd split: X_train_np.shape={X_train_np.shape}, X_val_np.shape={X_val_np.shape}")
+        
+        # === IN PHÂN PHỐI LỚP SAU KHI CHIA TÁCH HOÀN CHỈNH ===
+        print(f"\n[INFO] Class distribution for {config.dataset} (Full Images) AFTER ALL SPLITS:")
+        # (Thêm các print Counter như ở phiên bản trước để kiểm tra số lượng mẫu mỗi lớp trong train, val, test)
+        for name, data_y in [("Training", y_train_np), ("Validation", y_val_np), ("Test", y_test_np)]:
+            if data_y is not None and data_y.size > 0:
+                labels_dist = np.argmax(data_y, axis=1) if data_y.ndim > 1 and data_y.shape[1] > 1 else data_y.astype(int)
+                print(f"  {name} set ({len(labels_dist)} samples): {Counter(labels_dist)}")
             else:
-                print("[ERROR main_logic] LabelEncoder not fitted by data loader or no classes found. Cannot determine num_classes for INbreast.")
-                return
-
-            # Chuẩn bị y_for_stratify (nhãn 1D dạng số nguyên)
-            # Nếu y_np là one-hot (ví dụ sau MixUp/CutMix trong hàm load), cần argmax.
-            # Nếu y_np là nhãn số, dùng trực tiếp.
-            if y_np.ndim > 1 and y_np.shape[1] > 1: # Giả định là one-hot nếu có nhiều hơn 1 cột
-                y_for_stratify = np.argmax(y_np, axis=1)
-            else:
-                y_for_stratify = y_np.astype(int) # Đảm bảo là int
-            
-            unique_labels_stratify, counts_stratify = np.unique(y_for_stratify, return_counts=True)
-            # Điều kiện stratify: mỗi lớp phải có ít nhất 2 mẫu để có thể chia (1 cho train, 1 cho test/val)
-            can_stratify_initial_split = len(unique_labels_stratify) >= num_classes and all(c >= 2 for c in counts_stratify)
-
-            stratify_param_initial = y_for_stratify if can_stratify_initial_split else None
-            if not can_stratify_initial_split:
-                print(f"[WARNING main_logic] Initial split for INbreast cannot be stratified. Unique labels: {unique_labels_stratify}, Counts: {counts_stratify}. num_classes expected: {num_classes}. Splitting without stratification.")
-
-            # Chia lần 1: train_val (80%) và test (20%)
-            X_train_val, X_test_np, y_train_val, y_test_np = train_test_split(
-                X_np, y_np, 
-                test_size=0.2, 
-                stratify=stratify_param_initial, 
-                random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42, 
-                shuffle=True
-            )
-            if X_train_val.size == 0 or y_train_val.size == 0:
-                print(f"[ERROR main_logic] First split resulted in empty X_train_val or y_train_val. X_train_val size: {X_train_val.size}, y_train_val size: {y_train_val.size}. Exiting.")
-                return
-            print(f"[DEBUG main_logic] After 1st split: X_train_val.shape={X_train_val.shape}, X_test_np.shape={X_test_np.shape}")
-
-            # Chuẩn bị y_for_stratify cho split validation (từ y_train_val)
-            y_train_val_for_stratify = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val.astype(int)
-            unique_labels_val_split, counts_val_split = np.unique(y_train_val_for_stratify, return_counts=True)
-            can_stratify_val_split = len(unique_labels_val_split) >= num_classes and all(c >= 1 for c in counts_val_split) # Cần ít nhất 1 mẫu/lớp
-
-            stratify_param_val = y_train_val_for_stratify if can_stratify_val_split else None
-            if not can_stratify_val_split:
-                 print(f"[WARNING main_logic] Train/validation split for INbreast cannot be stratified. Unique labels in train_val: {unique_labels_val_split}, Counts: {counts_val_split}. Splitting without stratification.")
-            
-            # Chia lần 2: train (60% tổng) và validation (20% tổng) từ X_train_val (80% tổng)
-            # test_size=0.25 (của 80%) = 20% tổng thể
-            X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
-                X_train_val, y_train_val, 
-                test_size=0.25, 
-                stratify=stratify_param_val, 
-                random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42, 
-                shuffle=True
-            )
-            if X_train_np.size == 0 or y_train_np.size == 0:
-                print(f"[ERROR main_logic] Second split resulted in empty X_train_np or y_train_np. X_train_np size: {X_train_np.size}, y_train_np size: {y_train_np.size}. Exiting.")
-                return
-            print(f"[DEBUG main_logic] After 2nd split: X_train_np.shape={X_train_np.shape}, X_val_np.shape={X_val_np.shape}")
-            
-            # === IN PHÂN PHỐI LỚP SAU KHI CHIA TÁCH HOÀN CHỈNH ===
-            print(f"\n[INFO] Class distribution for {config.dataset} (Full Images) AFTER ALL SPLITS:")
-            # (Thêm các print Counter như ở phiên bản trước để kiểm tra số lượng mẫu mỗi lớp trong train, val, test)
-            for name, data_y in [("Training", y_train_np), ("Validation", y_val_np), ("Test", y_test_np)]:
-                if data_y is not None and data_y.size > 0:
-                    labels_dist = np.argmax(data_y, axis=1) if data_y.ndim > 1 and data_y.shape[1] > 1 else data_y.astype(int)
-                    print(f"  {name} set ({len(labels_dist)} samples): {Counter(labels_dist)}")
-                else:
-                    print(f"  {name} set is empty or None.")
+                print(f"  {name} set is empty or None.")
 
             # === ƯU TIÊN 2: SMOTE ===
-            if config.APPLY_SMOTE: # Sử dụng cờ từ config đã được cli_args cập nhật
-                print(f"\n[INFO] Applying SMOTE to INbreast training data (Full Images)...")
-                if X_train_np is not None and X_train_np.size > 0 and y_train_np is not None and y_train_np.size > 0:
-                    original_y_train_shape_for_smote = y_train_np.shape 
-                    y_train_labels_for_smote = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                    
-                    print(f"  Original y_train distribution before SMOTE: {Counter(y_train_labels_for_smote)}")
-                    original_X_train_shape_for_smote = X_train_np.shape
-                    X_train_reshaped_for_smote = X_train_np.reshape(original_X_train_shape_for_smote[0], -1) 
+        if config.APPLY_SMOTE: # Sử dụng cờ từ config đã được cli_args cập nhật
+            print(f"\n[INFO] Applying SMOTE to INbreast training data (Full Images)...")
+            if X_train_np is not None and X_train_np.size > 0 and y_train_np is not None and y_train_np.size > 0:
+                original_y_train_shape_for_smote = y_train_np.shape 
+                y_train_labels_for_smote = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
+                
+                print(f"  Original y_train distribution before SMOTE: {Counter(y_train_labels_for_smote)}")
+                original_X_train_shape_for_smote = X_train_np.shape
+                X_train_reshaped_for_smote = X_train_np.reshape(original_X_train_shape_for_smote[0], -1) 
 
-                    smote_instance = SMOTE(random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42)
-                    try:
-                        X_train_smote, y_train_smote_labels = smote_instance.fit_resample(X_train_reshaped_for_smote, y_train_labels_for_smote)
-                        print(f"  y_train distribution after SMOTE: {Counter(y_train_smote_labels)}")
-                        X_train_np = X_train_smote.reshape(-1, original_X_train_shape_for_smote[1], original_X_train_shape_for_smote[2], original_X_train_shape_for_smote[3])
-
-                        if original_y_train_shape_for_smote.ndim > 1 and original_y_train_shape_for_smote.shape[1] > 1:
-                            y_train_np = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
-                        else:
-                            y_train_np = y_train_smote_labels
-                        
-                        print(f"[INFO main_logic] Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np={y_train_np.shape}")
-                        print("[INFO main_logic] Setting class_weights to None after SMOTE.")
-                        class_weights = None 
-                    except ValueError as e_smote:
-                        print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE for INbreast.")
-                        if y_train_np is not None and y_train_np.size > 0:
-                            y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                            class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
-                        else: class_weights = None
-                        print(f"[INFO main_logic] Calculated class weights (SMOTE failed/skipped): {class_weights}")
-                else:
-                    print("[INFO main_logic] SMOTE skipped for INbreast as training data is empty or None.")
-                    # Tính class_weights nếu không SMOTE và có dữ liệu
-                    if y_train_np is not None and y_train_np.size > 0 :
-                         y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                         class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
-                    else: class_weights = None
-            else: # Nếu không áp dụng SMOTE
-                if y_train_np is not None and y_train_np.size > 0:
-                     y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
-                     class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
-                     print(f"[INFO main_logic] Calculated class weights (SMOTE not applied): {class_weights}")
-                else:
-                    class_weights = None
-                    print(f"[INFO main_logic] class_weights set to None as y_train_np is empty (SMOTE not applied).")
-
-
-        # === ƯU TIÊN 3: ĐIỀU CHỈNH CLASS_WEIGHTS THỦ CÔNG ===
-        if (class_weights is not None and (not config.APPLY_SMOTE or config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0)) or \
-           (class_weights is None and config.APPLY_SMOTE and config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0): # Trường hợp SMOTE làm class_weights=None nhưng vẫn muốn boost
-            
-            print(f"\n[INFO] Attempting manual class weight adjustment for INbreast.")
-            if class_weights is None and config.APPLY_SMOTE and config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0:
-                print("  SMOTE was applied and class_weights is None. Creating base weights for manual boost.")
-                # Tạo weights cơ sở (ví dụ: cân bằng) rồi boost từ đó
-                # Điều này giả định sau SMOTE, các lớp đã gần cân bằng
-                base_weight_val = 1.0 
-                class_weights = {i: base_weight_val for i in range(num_classes)}
-
-
-            if class_weights is not None: # Kiểm tra lại class_weights sau khi có thể đã được tạo ở trên
-                print(f"  Current weights before manual boost: {class_weights}")
+                smote_instance = SMOTE(random_state=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else 42)
                 try:
-                    if hasattr(le, 'classes_') and 'Malignant' in le.classes_:
-                        malignant_class_index = list(le.classes_).index('Malignant')
-                        print(f"  LabelEncoder classes: {le.classes_}, Malignant index: {malignant_class_index}")
+                    X_train_smote, y_train_smote_labels = smote_instance.fit_resample(X_train_reshaped_for_smote, y_train_labels_for_smote)
+                    print(f"  y_train distribution after SMOTE: {Counter(y_train_smote_labels)}")
+                    X_train_np = X_train_smote.reshape(-1, original_X_train_shape_for_smote[1], original_X_train_shape_for_smote[2], original_X_train_shape_for_smote[3])
 
-                        if malignant_class_index in class_weights:
-                            original_malignant_weight = class_weights.get(malignant_class_index, 1.0)
-                            if config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0: # Chỉ boost nếu factor > 1
-                                class_weights[malignant_class_index] = original_malignant_weight * config.INBREAST_MANUAL_WEIGHT_BOOST
-                                print(f"  Manually boosted Malignant class ({malignant_class_index}) weight by factor {config.INBREAST_MANUAL_WEIGHT_BOOST}.")
-                            print(f"  Final class_weights for INbreast after manual adjustment: {class_weights}")
-                        else:
-                            print(f"[WARNING] Malignant class index {malignant_class_index} not found in class_weights: {class_weights}. Manual boost not applied.")
+                    if original_y_train_shape_for_smote.ndim > 1 and original_y_train_shape_for_smote.shape[1] > 1:
+                        y_train_np = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
                     else:
-                        print("[WARNING] LabelEncoder not fitted correctly or 'Malignant' not in classes. Cannot apply manual weight boost precisely.")
-                except Exception as e_cw:
-                    print(f"[ERROR] Failed to manually adjust class weights for INbreast: {e_cw}")
+                        y_train_np = y_train_smote_labels
+                    
+                    print(f"[INFO main_logic] Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np={y_train_np.shape}")
+                    print("[INFO main_logic] Setting class_weights to None after SMOTE.")
+                    class_weights = None 
+                except ValueError as e_smote:
+                    print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE for INbreast.")
+                    if y_train_np is not None and y_train_np.size > 0:
+                        y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
+                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                    else: class_weights = None
+                    print(f"[INFO main_logic] Calculated class weights (SMOTE failed/skipped): {class_weights}")
             else:
-                 print("[INFO] Manual class weight boost skipped as class_weights is None and no base was created (e.g. SMOTE not run, or other issue).")
-    
+                print("[INFO main_logic] SMOTE skipped for INbreast as training data is empty or None.")
+                # Tính class_weights nếu không SMOTE và có dữ liệu
+                if y_train_np is not None and y_train_np.size > 0 :
+                        y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
+                        class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                else: class_weights = None
+        else: # Nếu không áp dụng SMOTE
+            if y_train_np is not None and y_train_np.size > 0:
+                    y_train_for_weights_initial = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np.astype(int)
+                    class_weights = make_class_weights(y_train_for_weights_initial, num_classes_for_weights=num_classes)
+                    print(f"[INFO main_logic] Calculated class weights (SMOTE not applied): {class_weights}")
+            else:
+                class_weights = None
+                print(f"[INFO main_logic] class_weights set to None as y_train_np is empty (SMOTE not applied).")
+
+
+    # === ƯU TIÊN 3: ĐIỀU CHỈNH CLASS_WEIGHTS THỦ CÔNG ===
+    if (class_weights is not None and (not config.APPLY_SMOTE or config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0)) or \
+        (class_weights is None and config.APPLY_SMOTE and config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0): # Trường hợp SMOTE làm class_weights=None nhưng vẫn muốn boost
+        
+        print(f"\n[INFO] Attempting manual class weight adjustment for INbreast.")
+        if class_weights is None and config.APPLY_SMOTE and config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0:
+            print("  SMOTE was applied and class_weights is None. Creating base weights for manual boost.")
+            # Tạo weights cơ sở (ví dụ: cân bằng) rồi boost từ đó
+            # Điều này giả định sau SMOTE, các lớp đã gần cân bằng
+            base_weight_val = 1.0 
+            class_weights = {i: base_weight_val for i in range(num_classes)}
+
+
+        if class_weights is not None: # Kiểm tra lại class_weights sau khi có thể đã được tạo ở trên
+            print(f"  Current weights before manual boost: {class_weights}")
+            try:
+                if hasattr(le, 'classes_') and 'Malignant' in le.classes_:
+                    malignant_class_index = list(le.classes_).index('Malignant')
+                    print(f"  LabelEncoder classes: {le.classes_}, Malignant index: {malignant_class_index}")
+
+                    if malignant_class_index in class_weights:
+                        original_malignant_weight = class_weights.get(malignant_class_index, 1.0)
+                        if config.INBREAST_MANUAL_WEIGHT_BOOST > 1.0: # Chỉ boost nếu factor > 1
+                            class_weights[malignant_class_index] = original_malignant_weight * config.INBREAST_MANUAL_WEIGHT_BOOST
+                            print(f"  Manually boosted Malignant class ({malignant_class_index}) weight by factor {config.INBREAST_MANUAL_WEIGHT_BOOST}.")
+                        print(f"  Final class_weights for INbreast after manual adjustment: {class_weights}")
+                    else:
+                        print(f"[WARNING] Malignant class index {malignant_class_index} not found in class_weights: {class_weights}. Manual boost not applied.")
+                else:
+                    print("[WARNING] LabelEncoder not fitted correctly or 'Malignant' not in classes. Cannot apply manual weight boost precisely.")
+            except Exception as e_cw:
+                print(f"[ERROR] Failed to manually adjust class weights for INbreast: {e_cw}")
+        else:
+                print("[INFO] Manual class weight boost skipped as class_weights is None and no base was created (e.g. SMOTE not run, or other issue).")
+
         # y_train_val_stratify_inner = np.argmax(y_train_val, axis=1) if y_train_val.ndim > 1 and y_train_val.shape[1] > 1 else y_train_val
         # unique_labels_stratify_inner = np.unique(y_train_val_stratify_inner)
         # stratify_param_inner = y_train_val_stratify_inner if len(unique_labels_stratify_inner) >=2 else None
