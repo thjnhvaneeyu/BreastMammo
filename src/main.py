@@ -237,9 +237,10 @@ def main_logic(cli_args):
                     print(f"  y_train distribution after SMOTE: {Counter(y_train_smote_labels)}")
                     X_train_np = X_train_smote.reshape(-1, original_X_train_shape_for_smote[1], original_X_train_shape_for_smote[2], original_X_train_shape_for_smote[3])
 
-                    if original_y_train_shape_for_smote.ndim > 1 and original_y_train_shape_for_smote.shape[1] > 1:
-                        y_train_np = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
-                    else:
+                    if len(original_y_train_shape_for_smote) > 1 and original_y_train_shape_for_smote[1] > 1: # Kiểm tra xem y_train_np ban đầu có phải là 2D và có nhiều hơn 1 cột (dấu hiệu của one-hot)
+                        # num_classes ở đây nên là số lớp đã được xác định trước đó từ LabelEncoder
+                        y_train_np = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes) 
+                    else: # Nếu y_train_np ban đầu là 1D, giữ nguyên output 1D từ SMOTE
                         y_train_np = y_train_smote_labels
                     
                     print(f"[INFO main_logic] Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np={y_train_np.shape}")
