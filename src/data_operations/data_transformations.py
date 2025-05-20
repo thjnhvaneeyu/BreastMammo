@@ -10,6 +10,7 @@ import skimage as sk
 import skimage.filters # Cho GaussianBlur
 import skimage.exposure # Cho điều chỉnh độ sáng (gamma) hoặc rescale_intensity
 import random
+import tensorflow.keras.backend as K
 
 # src/data_operations/data_transformations.py
 
@@ -26,7 +27,82 @@ import tensorflow as tf
 # import cv2 # cv2.resize có thể được thay thế bằng skimage.transform.resize nếu muốn đồng nhất
 
 import config # Đảm bảo file config.py tồn tại và đúng cấu trúc
+def focal_loss_factory(alpha=0.25, gamma=2.0):
+    """
+    Factory for creating a focal loss function.
+    This version is designed to work with one-hot encoded y_true
+    and softmax predictions y_pred for binary or multi-class cases.
+    """
+    def focal_loss_fixed(y_true, y_pred):
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
 
+        epsilon = K.epsilon()
+        y_pred = K.clip(y_pred, epsilon, 1. - epsilon)
+
+        # Calculate cross_entropy for each class
+        cross_entropy = -y_true * K.log(y_pred)
+
+        # Calculate p_t (probability of the true class)
+        p_t = K.sum(y_true * y_pred, axis=-1) # Sum over class dimension
+
+        # Calculate modulating factor (1 - p_t)^gamma
+        modulating_factor = K.pow(1.0 - p_t, gamma)
+
+        # Calculate alpha factor
+        # For binary (num_classes=2), if y_true is [0,1] for Malignant (class 1)
+        # alpha_t for Malignant = alpha, for Benign = 1-alpha
+        # A more general way for multi-class is to have an alpha per class or apply alpha to positive samples.
+        # Here, we apply alpha to the "true" class contributions.
+        # The `alpha` parameter of the factory is typically the weight for the positive/minority class.
+        # If using with num_classes=2, and y_true=[?, alpha_class_target_prob],
+        # this alpha is applied when y_true_for_alpha_class = 1.
+        
+        # For this implementation, alpha will weight the loss of each sample.
+        # If y_true is one-hot, let's assume alpha applies to the samples of the class
+        # that is considered "positive". For binary, if malignant is class 1:
+        # alpha_weights = tf.where(K.equal(K.argmax(y_true, axis=-1), 1), alpha, 1.0 - alpha) # if argmax=1 is positive
+        # A simpler approach (as in many papers) is to scale the contribution of each class by its alpha_t
+        # For focal loss, alpha usually balances importance of positive/negative examples.
+        # FL(pt) = - alpha_t * (1 - pt)^gamma * log(pt)
+        # Here, pt is the prob of the true class. The ce term above is -log(pt) for the true class.
+        # So, we need to multiply ce by alpha_t * (1-pt)^gamma.
+        # If alpha is for the "positive" class examples (e.g. malignant):
+        
+        # Assuming alpha is the weight for the class indicated by the second column in one-hot y_true
+        # This is a common setup for binary classification where class 1 is the positive class.
+        alpha_per_sample = tf.where(tf.equal(y_true[:, 1], 1.0), alpha, 1.0 - alpha)
+        alpha_per_sample = K.expand_dims(alpha_per_sample, axis=-1) # Make it broadcastable with cross_entropy if summing later
+        
+        # If using multi-class, alpha might be a list/tensor of weights per class.
+        # For now, this alpha logic is more suited for binary (as num_classes=2).
+        # If num_classes > 2, alpha typically becomes a vector of class weights.
+        # For binary as CCE with 2 classes, this application of alpha is one way.
+
+        f_loss = modulating_factor * K.sum(cross_entropy, axis=-1) # Summing CE over classes first
+        
+        # If alpha is meant to balance positive/negative examples as a whole
+        # weighted_loss = alpha_per_sample * f_loss # This would apply alpha to the sample's total loss
+        
+        # A more direct application for focal loss is:
+        # loss = alpha_t * (1-p_t)^gamma * CE_t
+        # where CE_t is the cross_entropy of the true class.
+        # cross_entropy sum already handles the CE_t part for one-hot.
+        # So, the loss for a sample is alpha_for_that_sample_type * (1-p_t)^gamma * (sum over class (y_true_c * -log(y_pred_c)))
+        # If alpha is a scalar, it is often applied to the positive class instances.
+        # Let's assume the alpha parameter is for the "positive" class contribution to the loss.
+        # The most common formulation:
+        focal_loss_unweighted = modulating_factor * K.sum(cross_entropy, axis=-1) # (1-pt)^gamma * CE
+
+        # If y_true has shape (batch, 2), where y_true[:,1] is for malignant class
+        # We want to apply `alpha` if it's a malignant sample, `1-alpha` if benign
+        alpha_weight_per_sample = tf.where(tf.equal(y_true[:, 1], 1.0), alpha, 1.0 - alpha)
+        
+        weighted_focal_loss = alpha_weight_per_sample * focal_loss_unweighted
+
+        return K.mean(weighted_focal_loss) # Mean over batch
+        
+    return focal_loss_fixed
 # --- HÀM ELASTIC TRANSFORM (Đã implement ở lượt trước) ---
 def elastic_transform(image_array_input: np.ndarray,
                       alpha: float,

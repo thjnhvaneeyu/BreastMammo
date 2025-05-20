@@ -27,6 +27,7 @@ from data_visualisation.csv_report import generate_csv_report, generate_csv_meta
 from data_visualisation.plots      import plot_training_results, plot_confusion_matrix, plot_comparison_chart
 from data_visualisation.roc_curves import plot_roc_curve_binary, plot_roc_curve_multiclass
 from data_operations.data_preprocessing import flatten_to_slices
+from data_operations.data_transformations import focal_loss_factory
 
 class CnnModel:
     def __init__(self, model_name: str, num_classes: int):
@@ -52,123 +53,188 @@ class CnnModel:
         else:
             raise ValueError(f"Unsupported model: {model_name}")
 
-    def compile_model(self, learning_rate: float) -> None:
-        """
-        Compile with appropriate loss & metric:
-         - 2 classes → BinaryCrossentropy + BinaryAccuracy
-         - >2 classes → CategoricalCrossentropy + CategoricalAccuracy
-        """
-        # if self.num_classes == 2:
-        #     self._model.compile(
-        #         optimizer=Adam(learning_rate),
-        #         loss=BinaryCrossentropy(),
-        #         metrics=[BinaryAccuracy()]
-        #     )
-        # else:
-        #     self._model.compile(
-        #         optimizer=Adam(learning_rate),
-        #         loss=CategoricalCrossentropy(),
-        #         metrics=[CategoricalAccuracy()]
-        #     )
-        # Khởi tạo optimizer và alias để callback tìm attribute 'lr'
-        # opt = Adam(learning_rate=learning_rate)
-        # # Thiết lập alias cho legacy callbacks
-        # setattr(opt, 'lr', opt.learning_rate)
-    # 1. Tạo Adam gốc
-        base_opt = Adam(learning_rate=learning_rate)
-        # 2. Wrap để mixed precision (nếu policy = 'mixed_float16')
-        opt = LossScaleOptimizer(base_opt)
+    # def compile_model(self, learning_rate: float) -> None:
+    #     """
+    #     Compile with appropriate loss & metric:
+    #      - 2 classes → BinaryCrossentropy + BinaryAccuracy
+    #      - >2 classes → CategoricalCrossentropy + CategoricalAccuracy
+    #     """
+    #     # if self.num_classes == 2:
+    #     #     self._model.compile(
+    #     #         optimizer=Adam(learning_rate),
+    #     #         loss=BinaryCrossentropy(),
+    #     #         metrics=[BinaryAccuracy()]
+    #     #     )
+    #     # else:
+    #     #     self._model.compile(
+    #     #         optimizer=Adam(learning_rate),
+    #     #         loss=CategoricalCrossentropy(),
+    #     #         metrics=[CategoricalAccuracy()]
+    #     #     )
+    #     # Khởi tạo optimizer và alias để callback tìm attribute 'lr'
+    #     # opt = Adam(learning_rate=learning_rate)
+    #     # # Thiết lập alias cho legacy callbacks
+    #     # setattr(opt, 'lr', opt.learning_rate)
+    # # 1. Tạo Adam gốc
+    #     base_opt = Adam(learning_rate=learning_rate)
+    #     # 2. Wrap để mixed precision (nếu policy = 'mixed_float16')
+    #     opt = LossScaleOptimizer(base_opt)
 
-        # 3. Thiết lập alias 'lr' lên LossScaleOptimizer → trỏ về base_opt.learning_rate
+    #     # 3. Thiết lập alias 'lr' lên LossScaleOptimizer → trỏ về base_opt.learning_rate
+    #     setattr(opt, 'lr', base_opt.learning_rate)
+
+
+    #     if self.num_classes == 2:
+    #         use_focal = getattr(config, 'USE_FOCAL_LOSS', False)
+    #         is_inbreast = getattr(config, 'dataset', '') == "INbreast"
+
+    #         if use_focal and is_inbreast:
+    #             print("[INFO CnnModel] Compiling INbreast model with Focal Loss.")
+    #             focal_alpha = getattr(config, 'FOCAL_LOSS_ALPHA', 0.25)
+    #             focal_gamma = getattr(config, 'FOCAL_LOSS_GAMMA', 2.0)
+    #             loss = focal_loss_factory(alpha=focal_alpha, gamma=focal_gamma)
+    #             print(f"  Focal Loss params: alpha={focal_alpha}, gamma={focal_gamma}")
+    #         else:
+    #             loss = CategoricalCrossentropy()
+    #         self._model.compile(
+    #             optimizer=opt,
+    #             loss=CategoricalCrossentropy(),
+    #             metrics=[CategoricalAccuracy(name="accuracy")]
+    #         )
+    #         metrics_list.append(tf.keras.metrics.AUC(name='auc')) # Ví dụ thêm AUC
+
+    #     else:
+    #         self._model.compile(
+    #             optimizer=opt,
+    #             loss=BinaryCrossentropy(),
+    #             metrics=[BinaryAccuracy(name="accuracy")]
+    #         )
+    #         loss_name = loss.name if hasattr(loss, 'name') else loss.__name__ if callable(loss) else str(loss)
+    #         print(f"[INFO CnnModel] Model compiled with loss: {loss_name}, metrics: {[m.name for m in metrics_list]}")
+
+    # def train_model(self, X_train, X_val, y_train, y_val, class_weights) -> None:
+    #     """
+    #     Two-phase training for pretrained backbones; single-phase for custom CNN.
+    #     """
+    #     if self.model_name != "CNN":
+    #         # Phase 1: freeze base
+    #         # if config.max_epoch_frozen > 0:
+    #         #     for layer in self._model.layers:
+    #         #         layer.trainable = False
+    #         #     self.compile_model(config.learning_rate)
+    #         #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+    #         #               epochs=config.max_epoch_frozen, frozen=True)
+    #         #     plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+    #         if config.max_epoch_frozen > 0:
+    #             for layer in self._model.layers:
+    #                 # nếu là Dense (head) thì trainable, ngược lại freeze
+    #                 if isinstance(layer, tf.keras.layers.Dense):
+    #                     layer.trainable = True
+    #                 else:
+    #                     layer.trainable = False
+
+    #             self.compile_model(config.learning_rate)
+    #             self._fit(X_train, X_val, y_train, y_val,
+    #                       class_weights,
+    #                       epochs=config.max_epoch_frozen,
+    #                             frozen=True)
+    #             if self.history and self.history.history: # Kiểm tra history không rỗng
+    #                 plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
+    #             else:
+    #                 print("[WARN CnnModel] No history found after frozen training phase. Skipping plot.")
+                        
+    #         # Phase 2: unfreeze all
+    #     #     if config.max_epoch_unfrozen > 0:
+    #     #         for layer in self._model.layers:
+    #     #             layer.trainable = True
+    #     #         self.compile_model(1e-5)
+    #     #         self._fit(X_train, X_val, y_train, y_val, class_weights,
+    #     #                   epochs=config.max_epoch_unfrozen, frozen=False)
+    #     #         plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+
+    #     # else:
+    #     #     # Custom CNN from scratch
+    #     #     self.compile_model(config.learning_rate)
+    #     #     self._fit(X_train, X_val, y_train, y_val, class_weights,
+    #     #               epochs=config.max_epoch_unfrozen, frozen=False)
+    #     #     plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
+    #         if config.max_epoch_unfrozen > 0:
+    #             for layer in self._model.layers:
+    #                 layer.trainable = True
+
+    #             # learning rate thấp để fine-tune
+    #             self.compile_model(1e-5)
+    #             self._fit(X_train, X_val, y_train, y_val,
+    #                       class_weights,
+    #                       epochs=config.max_epoch_unfrozen,
+    #                             frozen=False)
+    #             if self.history and self.history.history: # Kiểm tra history không rỗng
+    #                 plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
+    #             else:
+    #                 print("[WARN CnnModel] No history found after unfrozen training phase. Skipping plot.")
+
+    #     else:
+    #         # custom CNN from scratch
+    #         self.compile_model(config.learning_rate)
+    #         self._fit(X_train, X_val, y_train, y_val,
+    #                   class_weights,
+    #                   epochs=config.max_epoch_unfrozen,
+    #                   frozen=False)
+    #         if self.history and self.history.history: # Kiểm tra history không rỗng
+    #             plot_training_results(self.history, "CNN_training", is_frozen_layers=False) # Hoặc True tùy bạn định nghĩa
+    #         else:
+    #             print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
+    def compile_model(self, learning_rate: float) -> None:
+        base_opt = Adam(learning_rate=learning_rate)
+        opt = LossScaleOptimizer(base_opt) if getattr(config, 'mixed_precision_enabled', False) else base_opt
         setattr(opt, 'lr', base_opt.learning_rate)
 
+        current_loss_function = None
+        metrics_list = [] # Khởi tạo metrics_list
 
         if self.num_classes == 2:
-            self._model.compile(
-                optimizer=opt,
-                loss=CategoricalCrossentropy(),
-                metrics=[CategoricalAccuracy(name="accuracy")]
-            )
-        else:
-            self._model.compile(
-                optimizer=opt,
-                loss=BinaryCrossentropy(),
-                metrics=[BinaryAccuracy(name="accuracy")]
-            )
+            use_focal = getattr(config, 'USE_FOCAL_LOSS', False)
+            is_inbreast = getattr(config, 'dataset', '') == "INbreast"
 
-
-    def train_model(self, X_train, X_val, y_train, y_val, class_weights) -> None:
-        """
-        Two-phase training for pretrained backbones; single-phase for custom CNN.
-        """
-        if self.model_name != "CNN":
-            # Phase 1: freeze base
-            # if config.max_epoch_frozen > 0:
-            #     for layer in self._model.layers:
-            #         layer.trainable = False
-            #     self.compile_model(config.learning_rate)
-            #     self._fit(X_train, X_val, y_train, y_val, class_weights,
-            #               epochs=config.max_epoch_frozen, frozen=True)
-            #     plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
-            if config.max_epoch_frozen > 0:
-                for layer in self._model.layers:
-                    # nếu là Dense (head) thì trainable, ngược lại freeze
-                    if isinstance(layer, tf.keras.layers.Dense):
-                        layer.trainable = True
-                    else:
-                        layer.trainable = False
-
-                self.compile_model(config.learning_rate)
-                self._fit(X_train, X_val, y_train, y_val,
-                          class_weights,
-                          epochs=config.max_epoch_frozen,
-                                frozen=True)
-                if self.history and self.history.history: # Kiểm tra history không rỗng
-                    plot_training_results(self.history, "Initial_training", is_frozen_layers=True)
-                else:
-                    print("[WARN CnnModel] No history found after frozen training phase. Skipping plot.")
-                        
-            # Phase 2: unfreeze all
-        #     if config.max_epoch_unfrozen > 0:
-        #         for layer in self._model.layers:
-        #             layer.trainable = True
-        #         self.compile_model(1e-5)
-        #         self._fit(X_train, X_val, y_train, y_val, class_weights,
-        #                   epochs=config.max_epoch_unfrozen, frozen=False)
-        #         plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
-
-        # else:
-        #     # Custom CNN from scratch
-        #     self.compile_model(config.learning_rate)
-        #     self._fit(X_train, X_val, y_train, y_val, class_weights,
-        #               epochs=config.max_epoch_unfrozen, frozen=False)
-        #     plot_training_results(self.history, "CNN_training", is_frozen_layers=False)
-            if config.max_epoch_unfrozen > 0:
-                for layer in self._model.layers:
-                    layer.trainable = True
-
-                # learning rate thấp để fine-tune
-                self.compile_model(1e-5)
-                self._fit(X_train, X_val, y_train, y_val,
-                          class_weights,
-                          epochs=config.max_epoch_unfrozen,
-                                frozen=False)
-                if self.history and self.history.history: # Kiểm tra history không rỗng
-                    plot_training_results(self.history, "Fine_tuning_training", is_frozen_layers=False)
-                else:
-                    print("[WARN CnnModel] No history found after unfrozen training phase. Skipping plot.")
-
-        else:
-            # custom CNN from scratch
-            self.compile_model(config.learning_rate)
-            self._fit(X_train, X_val, y_train, y_val,
-                      class_weights,
-                      epochs=config.max_epoch_unfrozen,
-                      frozen=False)
-            if self.history and self.history.history: # Kiểm tra history không rỗng
-                plot_training_results(self.history, "CNN_training", is_frozen_layers=False) # Hoặc True tùy bạn định nghĩa
+            if use_focal and is_inbreast:
+                print("[INFO CnnModel] Compiling INbreast model with Focal Loss.")
+                focal_alpha = getattr(config, 'FOCAL_LOSS_ALPHA', 0.25)
+                focal_gamma = getattr(config, 'FOCAL_LOSS_GAMMA', 2.0)
+                current_loss_function = focal_loss_factory(alpha=focal_alpha, gamma=focal_gamma)
+                print(f"  Focal Loss params: alpha={focal_alpha}, gamma={focal_gamma}")
             else:
-                print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
+                # Mặc định CategoricalCrossentropy cho 2 lớp nếu output model là softmax 2 units
+                current_loss_function = CategoricalCrossentropy() 
+            
+            metrics_list.append(CategoricalAccuracy(name="accuracy"))
+            # Bạn có thể thêm AUC ở đây nếu muốn
+            # metrics_list.append(tf.keras.metrics.AUC(name='auc_binary', curve='ROC'))
+
+
+        elif self.num_classes > 2: # Đa lớp (hơn 2 lớp)
+            current_loss_function = CategoricalCrossentropy()
+            metrics_list.append(CategoricalAccuracy(name="accuracy"))
+            # metrics_list.append(tf.keras.metrics.AUC(name='auc_multiclass', multi_label=True, num_thresholds=200))
+
+
+        else: # Trường hợp self.num_classes = 1 (sigmoid output) hoặc lỗi num_classes < 1
+            print(f"[WARNING CnnModel] num_classes is {self.num_classes}. Compiling with BinaryCrossentropy and BinaryAccuracy.")
+            current_loss_function = BinaryCrossentropy()
+            metrics_list.append(BinaryAccuracy(name="accuracy"))
+            # metrics_list.append(tf.keras.metrics.AUC(name='auc_single_sigmoid', curve='ROC'))
+
+
+        self._model.compile(
+            optimizer=opt,
+            loss=current_loss_function, # Sử dụng biến current_loss_function
+            metrics=metrics_list
+        )
+        
+        loss_name = current_loss_function.name if hasattr(current_loss_function, 'name') else \
+                    (current_loss_function.__name__ if callable(current_loss_function) and hasattr(current_loss_function, '__name__') else str(current_loss_function))
+        
+        metric_names = [m.name if hasattr(m, 'name') else str(m) for m in metrics_list]
+        print(f"[INFO CnnModel] Model compiled with loss: {loss_name}, metrics: {metric_names}")
 
     def _fit(self, X_train, X_val, y_train, y_val, class_weights, epochs, frozen):
         self._model.optimizer.lr = self._model.optimizer.learning_rate

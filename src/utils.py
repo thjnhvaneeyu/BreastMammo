@@ -66,18 +66,49 @@ def print_cli_arguments() -> None:
     Print command line arguments and all code configurations to the terminal.
     :return: None
     """
+    # print("\nSettings used:")
+    # print("Dataset: {}".format(config.dataset))
+    # print("Mammogram type: {}".format(config.mammogram_type))
+    # print("CNN Model: {}".format(config.model))
+    # print("Run mode: {}".format(config.run_mode))
+    # print("Learning rate: {}".format(config.learning_rate))
+    # print("Batch size: {}".format(config.batch_size))
+    # print("Max number of epochs when original CNN layers are frozen: {}".format(config.max_epoch_frozen))
+    # print("Max number of epochs when original CNN layers are unfrozen: {}".format(config.max_epoch_unfrozen))
+    # print("Verbose mode: {}".format(config.verbose_mode))
+    # print("Experiment name: {}\n".format(config.name))
     print("\nSettings used:")
-    print("Dataset: {}".format(config.dataset))
-    print("Mammogram type: {}".format(config.mammogram_type))
-    print("CNN Model: {}".format(config.model))
-    print("Run mode: {}".format(config.run_mode))
-    print("Learning rate: {}".format(config.learning_rate))
-    print("Batch size: {}".format(config.batch_size))
-    print("Max number of epochs when original CNN layers are frozen: {}".format(config.max_epoch_frozen))
-    print("Max number of epochs when original CNN layers are unfrozen: {}".format(config.max_epoch_unfrozen))
-    print("Verbose mode: {}".format(config.verbose_mode))
-    print("Experiment name: {}\n".format(config.name))
+    print(f"Dataset: {config.dataset}")
+    print(f"Mammogram type: {config.mammogram_type}")
+    print(f"CNN Model: {config.model}")
+    print(f"Run mode: {config.run_mode}")
+    print(f"Learning rate: {config.learning_rate}")
+    print(f"Batch size: {config.batch_size}")
+    print(f"Max epochs (frozen): {config.max_epoch_frozen}")
+    print(f"Max epochs (unfrozen): {config.max_epoch_unfrozen}")
+    print(f"Use ROI: {config.is_roi}")
+    args = parser.parse_args()
+    # Augmentation general flag (derived)
+    print(f"Apply basic augmentation (derived): {config.augment_data}")
+    # Specific augmentation flags
+    print(f"  Apply Elastic Transform: {getattr(config, 'apply_elastic', cli_args.apply_elastic if 'cli_args' in globals() else False)}") # Fallback
+    print(f"    Elastic Alpha: {getattr(config, 'ELASTIC_ALPHA', 'N/A')}")
+    print(f"    Elastic Sigma: {getattr(config, 'ELASTIC_SIGMA', 'N/A')}")
+    print(f"  Apply MixUp: {getattr(config, 'apply_mixup', cli_args.apply_mixup if 'cli_args' in globals() else False)}")
+    print(f"    MixUp Alpha: {getattr(config, 'MIXUP_ALPHA', 'N/A')}")
+    print(f"  Apply CutMix: {getattr(config, 'apply_cutmix', cli_args.apply_cutmix if 'cli_args' in globals() else False)}")
+    print(f"    CutMix Alpha: {getattr(config, 'CUTMIX_ALPHA', 'N/A')}")
 
+    # SMOTE, Focal Loss, Manual Weight Boost flags
+    print(f"Apply SMOTE (for INbreast): {getattr(config, 'APPLY_SMOTE', False)}")
+    print(f"Use Focal Loss (for INbreast): {getattr(config, 'USE_FOCAL_LOSS', False)}")
+    if getattr(config, 'USE_FOCAL_LOSS', False):
+        print(f"  Focal Loss Alpha: {getattr(config, 'FOCAL_LOSS_ALPHA', 0.25)}")
+        print(f"  Focal Loss Gamma: {getattr(config, 'FOCAL_LOSS_GAMMA', 2.0)}")
+    print(f"Manual Weight Boost (for INbreast): {getattr(config, 'INBREAST_MANUAL_WEIGHT_BOOST', 1.0)}")
+    
+    print(f"Verbose mode: {config.verbose_mode}")
+    print(f"Experiment name: {config.name}\n")
 
 # def save_output_figure(title: str) -> None:
 #     """
