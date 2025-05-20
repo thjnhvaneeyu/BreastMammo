@@ -487,6 +487,10 @@ if __name__ == "__main__":
                         action="store_true",  # Tạo cờ boolean, nếu có mặt thì là True
                         default=False,        # Giá trị mặc định nếu cờ không có mặt
                         help="Apply SMOTE to the training data (primarily for INbreast).")
+    parser.add_argument("--manual_weight_boost", 
+                        type=float, 
+                        default=1.0,  # Giá trị mặc định (1.0 nghĩa là không boost)
+                        help="Factor to manually boost the weight of the Malignant class for INbreast (e.g., 2.0). Active if SMOTE is off or boost > 1.0.")
 
     parser.add_argument("--verbose_logging", action="store_true", default=config.verbose_mode, help="Verbose logging.")
     parser.add_argument("-n", "--name", default=config.name, help="Experiment name.")
