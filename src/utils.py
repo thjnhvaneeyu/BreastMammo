@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 import os
 import config
+import argparse # Đảm bảo đã import argparse
 
 
 def set_random_seeds() -> None:
