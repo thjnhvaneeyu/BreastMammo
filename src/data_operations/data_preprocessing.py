@@ -161,31 +161,66 @@ def load_inbreast_data_no_pectoral_removal(
             #         # Heuristic bổ sung: nếu chiều cuối cùng không phải là kênh màu điển hình, và chiều đầu nhỏ, vẫn lấy frame đầu
             #         if image_array_original.shape[-1] not in [1,3] and image_array_original.shape[0] < 10: # ví dụ < 10 frames
             #              image_array_original = image_array_original[0]
-            # ===== XỬ LÝ ẢNH ĐA KHUNG =====
+            processed_2d_image = None
             if image_array_original.ndim == 3:
-                # Giả sử chiều đầu tiên là số khung hình nếu nó nhỏ hơn các chiều khác
-                # hoặc nếu pixel_array có số chiều > 2 và không phải là ảnh màu chuẩn (H,W,3)
-                is_multiframe_heuristic = (image_array_original.shape[0] < image_array_original.shape[1] and \
-                                           image_array_original.shape[0] < image_array_original.shape[2])
-                
-                is_standard_color_shape = (image_array_original.ndim == 3 and image_array_original.shape[-1] == 3)
-
-                if not is_standard_color_shape and image_array_original.ndim > 2 : # Check if it's likely multi-frame grayscale
+                # Trường hợp 1: (num_frames, H, W) - Ảnh xám đa khung
+                if image_array_original.shape[0] < image_array_original.shape[1] and \
+                image_array_original.shape[0] < image_array_original.shape[2] and \
+                image_array_original.shape[0] < 10: # Heuristic: số khung thường nhỏ
                     if config.verbose_mode:
-                        print(f"  [INFO] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has shape {image_array_original.shape}. Assuming multi-frame, taking the first frame.")
-                    image_array_original = image_array_original[0] # Lấy khung hình đầu tiên
-                # Nếu nó là (H, W, 3) rồi thì không cần làm gì ở bước này
-                elif is_standard_color_shape:
-                     pass
-                # Nếu là (H,W,1) thì cũng không cần làm gì ở đây
-                elif image_array_original.ndim == 3 and image_array_original.shape[-1] == 1:
-                    pass
-                else: # Các trường hợp 3D không rõ ràng khác, vẫn thử lấy frame đầu nếu chiều đầu nhỏ
-                    if image_array_original.shape[0] < 10 and image_array_original.shape[-1] not in [1,3]: # Heuristic
-                         if config.verbose_mode:
-                            print(f"  [WARNING] DICOM {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else file_id_csv} has an ambiguous 3D shape {image_array_original.shape}. Taking first slice.")
-                         image_array_original = image_array_original[0]
+                        print(f"    [DEBUG DICOM Load] Multi-frame grayscale detected. Taking frame 0.")
+                    processed_2d_image = image_array_original[0] # Lấy khung hình đầu tiên
+                # Trường hợp 2: (H, W, 1) - Ảnh xám đơn khung nhưng có chiều kênh
+                elif image_array_original.shape[-1] == 1:
+                    if config.verbose_mode:
+                        print(f"    [DEBUG DICOM Load] Grayscale with channel dim detected. Squeezing.")
+                    processed_2d_image = image_array_original.squeeze(axis=-1)
+                # Trường hợp 3: (H, W, 3) - Ảnh màu (ít gặp trong mammography nhưng cần xử lý)
+                elif image_array_original.shape[-1] == 3:
+                    if config.verbose_mode:
+                        print(f"    [DEBUG DICOM Load] Color image (H,W,3) detected. Converting to grayscale.")
+                    # Chuyển sang float 0-1 trước khi convert nếu chưa
+                    if np.max(image_array_original) > 1.0: # Giả sử > 1 là chưa chuẩn hóa
+                        temp_norm = (image_array_original - np.min(image_array_original)) / (np.max(image_array_original) - np.min(image_array_original) + 1e-8)
+                        processed_2d_image = cv2.cvtColor(temp_norm.astype(np.float32), cv2.COLOR_RGB2GRAY)
+                    else:
+                        processed_2d_image = cv2.cvtColor(image_array_original.astype(np.float32), cv2.COLOR_RGB2GRAY)
+                else: # Các trường hợp 3D không xác định rõ
+                    if config.verbose_mode:
+                        print(f"    [WARNING DICOM Load] Ambiguous 3D shape {image_array_original.shape}. Attempting to take first slice/frame.")
+                    processed_2d_image = image_array_original[0] # Thử lấy slice đầu tiên
 
+            elif image_array_original.ndim == 2: # Ảnh xám 2D (H,W)
+                if config.verbose_mode:
+                    print(f"    [DEBUG DICOM Load] Grayscale 2D image detected.")
+                processed_2d_image = image_array_original
+
+            elif image_array_original.ndim == 4: # Ví dụ (num_frames, H, W, C)
+                if config.verbose_mode:
+                    print(f"    [DEBUG DICOM Load] 4D DICOM detected ({image_array_original.shape}). Taking frame 0.")
+                first_frame = image_array_original[0]
+                if first_frame.shape[-1] == 3: # Nếu frame đầu là màu
+                    if config.verbose_mode:
+                        print(f"      [DEBUG DICOM Load] Frame 0 is color. Converting to grayscale.")
+                    if np.max(first_frame) > 1.0:
+                        temp_norm_frame = (first_frame - np.min(first_frame)) / (np.max(first_frame) - np.min(first_frame) + 1e-8)
+                        processed_2d_image = cv2.cvtColor(temp_norm_frame.astype(np.float32), cv2.COLOR_RGB2GRAY)
+                    else:
+                        processed_2d_image = cv2.cvtColor(first_frame.astype(np.float32), cv2.COLOR_RGB2GRAY)
+                elif first_frame.shape[-1] == 1: # Nếu frame đầu là grayscale (H,W,1)
+                    if config.verbose_mode:
+                        print(f"      [DEBUG DICOM Load] Frame 0 is grayscale (H,W,1). Squeezing.")
+                    processed_2d_image = first_frame.squeeze(axis=-1)
+                else: # Không xác định
+                    print(f"    [ERROR DICOM Load] Unhandled 4D frame shape: {first_frame.shape}. Skipping DICOM.")
+                    continue
+            else:
+                print(f"  [ERROR DICOM Load] Unhandled DICOM shape: {image_array_original.shape}. Skipping DICOM.")
+                continue
+
+            if processed_2d_image is None: # Nếu không xử lý được
+                print(f"  [ERROR DICOM Load] Could not derive a 2D image from DICOM {dicom_path}. Skipping.")
+                continue
 
             # Bây giờ image_array_original nên là 2D (ảnh xám) hoặc (H,W,3) nếu DICOM gốc là màu
             # Chuẩn hóa ảnh gốc về [0,1]
@@ -299,6 +334,37 @@ def load_inbreast_data_no_pectoral_removal(
                 if max_rfi - min_rfi > 1e-8 : resized_full_image = (resized_full_image - min_rfi) / (max_rfi - min_rfi)
                 else: resized_full_image = np.zeros_like(resized_full_image)
                 resized_full_image = np.clip(resized_full_image, 0.0, 1.0)
+    # --- XỬ LÝ KÊNH CUỐI CÙNG TRƯỚC KHI THÊM VÀO LIST ---
+    # final_processed_image hiện tại là ảnh xám 2D (H, W) đã được resize và chuẩn hóa 0-1
+
+                output_image_for_model = None
+                if config.model != "CNN": # Cần 3 kênh (ví dụ: MobileNet)
+                    # if final_processed_image.ndim == 2: # Chắc chắn là 2D ở đây
+                    output_image_for_model = cv2.cvtColor(resized_full_image, cv2.COLOR_GRAY2RGB) # Thành (H,W,3)
+                    # else: ERROR, không nên xảy ra nếu logic trên đúng
+                else: # config.model == "CNN", cần 1 kênh
+                    # if final_processed_image.ndim == 2:
+                    output_image_for_model = np.expand_dims(resized_full_image, axis=-1) # Thành (H,W,1)
+                    # else: ERROR
+
+                if output_image_for_model is None:
+                    print(f"    [ERROR DICOM Process] Could not finalize image channels for {dicom_path}. Skipping.")
+                    continue
+
+                # Chuẩn hóa lại lần cuối sau tất cả các bước (đặc biệt nếu cvtColor thay đổi dải giá trị)
+                output_image_for_model = output_image_for_model.astype(np.float32)
+                min_f, max_f = np.min(output_image_for_model), np.max(output_image_for_model)
+                if max_f - min_f > 1e-8:
+                    output_image_for_model = (output_image_for_model - min_f) / (max_f - min_f)
+                else:
+                    output_image_for_model = np.zeros_like(output_image_for_model)
+                output_image_for_model = np.clip(output_image_for_model, 0.0, 1.0)
+
+                if config.verbose_mode:
+                    print(f"    [DEBUG DICOM Process] Final shape for model {config.model}: {output_image_for_model.shape} for {dicom_path}")
+
+                images_for_this_entry.append(output_image_for_model)
+                # labels_for_this_entry_text.append(current_label_text) # Thêm label tương ứng
 
                 images_for_this_entry.append(resized_full_image)
                 labels_for_this_entry_text.append(current_label_text)
