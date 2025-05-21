@@ -151,59 +151,113 @@ ssl._create_default_https_context = ssl._create_unverified_context
 #     return final_model
 
 
+# def create_mobilenet_model(num_classes: int):
+#     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
+#     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+    
+#     # Input của toàn bộ mô hình vẫn là ảnh xám 1 kênh
+#     inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_MobileNet")
+    
+#     # Lặp kênh để tạo ảnh 3 kênh
+#     x_conc = Concatenate(name="MobileNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray]) 
+#     # x_conc bây giờ có shape (None, H, W, 3)
+    
+#     # Tạo một Input layer mới CỤ THỂ cho base_mobilenet
+#     mobilenet_input = Input(shape=(img_height, img_width, 3), name="MobileNet_Base_Input")
+    
+#     # Khởi tạo MobileNetV2 base, sử dụng Input layer mới này
+#     base_mobilenet_model = MobileNetV2(input_tensor=mobilenet_input, # Dùng input_tensor ở đây
+#                                  include_top=False,
+#                                  weights='imagenet',
+#                                  name="MobileNetV2_Base_Explicit_Input")
+    
+#     # Lấy output của base_mobilenet_model
+#     base_output = base_mobilenet_model.output 
+    
+#     # Tạo một Model trung gian từ mobilenet_input đến base_output
+#     # Điều này "đóng gói" base_mobilenet với input 3 kênh rõ ràng của nó
+#     intermediate_base_model = Model(inputs=mobilenet_input, outputs=base_output, name="Wrapped_MobileNet_Base")
+
+#     # Bây giờ, truyền x_conc (3 kênh từ dữ liệu của bạn) vào intermediate_base_model
+#     x = intermediate_base_model(x_conc)
+
+#     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) 
+#     # x = Flatten()(x) # Nếu giữ Flatten
+
+#     # Sử dụng giá trị từ config một cách an toàn
+#     random_seed_val = getattr(config, 'RANDOM_SEED', None)
+#     x = Dropout(0.2, seed=random_seed_val, name="Dropout_1")(x) # Đặt tên để dễ debug
+#     x = Dense(512, activation='relu', name="Dense_1")(x)
+#     x = Dense(32, activation='relu', name="Dense_2")(x)
+
+#     # Lớp output - Đã sửa đổi
+#     if num_classes == 2:
+#         out = Dense(num_classes, activation='softmax', name='Output')(x) # 2 units, softmax
+#     elif num_classes > 2:
+#         out = Dense(num_classes, activation='softmax', name='Output')(x)
+#     else: # num_classes = 1 hoặc < 1
+#         print(f"[WARNING] mobilenet_v2: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
+#         out = Dense(1, activation='sigmoid', name='Output')(x)
+
+#     final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom') # Đổi tên biến model
+
+#     verbose_mode_val = getattr(config, 'verbose_mode', False)
+#     if verbose_mode_val:
+#         print("CNN Model used (MobileNetV2_Custom):")
+#         final_model.summary()
+        
+#     return final_model
+
 def create_mobilenet_model(num_classes: int):
     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
     
-    # Input của toàn bộ mô hình vẫn là ảnh xám 1 kênh
+    # Input của toàn bộ mô hình custom là ảnh xám 1 kênh
     inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_MobileNet")
+    if config.verbose_mode: print(f"    [MobileNet Create] inp_gray.shape: {inp_gray.shape}")
     
-    # Lặp kênh để tạo ảnh 3 kênh
-    x_conc = Concatenate(name="MobileNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray]) 
-    # x_conc bây giờ có shape (None, H, W, 3)
+    # Lớp Concatenate để chuyển từ 1 kênh sang 3 kênh
+    x_conc = Concatenate(name="MobileNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray])
+    if config.verbose_mode: print(f"    [MobileNet Create] x_conc.shape (after concat): {x_conc.shape}") # Phải là (None, H, W, 3)
     
-    # Tạo một Input layer mới CỤ THỂ cho base_mobilenet
-    mobilenet_input = Input(shape=(img_height, img_width, 3), name="MobileNet_Base_Input")
-    
-    # Khởi tạo MobileNetV2 base, sử dụng Input layer mới này
-    base_mobilenet_model = MobileNetV2(input_tensor=mobilenet_input, # Dùng input_tensor ở đây
+    # Khởi tạo MobileNetV2 base, chỉ định input_shape là 3 kênh.
+    # KHÔNG sử dụng input_tensor ở đây.
+    base_mobilenet = MobileNetV2(input_shape=(img_height, img_width, 3), 
                                  include_top=False,
                                  weights='imagenet',
-                                 name="MobileNetV2_Base_Explicit_Input")
+                                 name="MobileNetV2_Base") # Đặt tên để dễ theo dõi
+    if config.verbose_mode: 
+        print(f"    [MobileNet Create] base_mobilenet (MobileNetV2_Base) is created.")
+        print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}") # Phải là (None, H, W, 3)
+
+    # Gọi base_mobilenet như một hàm (layer) với x_conc (3 kênh) làm đầu vào.
+    x = base_mobilenet(x_conc) 
+    if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet(x_conc)): {x.shape}")
     
-    # Lấy output của base_mobilenet_model
-    base_output = base_mobilenet_model.output 
+    # Các lớp custom phía trên
+    x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
     
-    # Tạo một Model trung gian từ mobilenet_input đến base_output
-    # Điều này "đóng gói" base_mobilenet với input 3 kênh rõ ràng của nó
-    intermediate_base_model = Model(inputs=mobilenet_input, outputs=base_output, name="Wrapped_MobileNet_Base")
-
-    # Bây giờ, truyền x_conc (3 kênh từ dữ liệu của bạn) vào intermediate_base_model
-    x = intermediate_base_model(x_conc)
-
-    x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) 
-    # x = Flatten()(x) # Nếu giữ Flatten
-
-    # Sử dụng giá trị từ config một cách an toàn
     random_seed_val = getattr(config, 'RANDOM_SEED', None)
-    x = Dropout(0.2, seed=random_seed_val, name="Dropout_1")(x) # Đặt tên để dễ debug
-    x = Dense(512, activation='relu', name="Dense_1")(x)
-    x = Dense(32, activation='relu', name="Dense_2")(x)
+    x = Dropout(0.2, seed=random_seed_val, name="MobileNet_Dropout_1")(x)
+    x = Dense(512, activation='relu', name="MobileNet_Dense_1")(x)
+    x = Dense(32, activation='relu', name="MobileNet_Dense_2")(x)
 
-    # Lớp output - Đã sửa đổi
+    # Lớp output
     if num_classes == 2:
-        out = Dense(num_classes, activation='softmax', name='Output')(x) # 2 units, softmax
+        out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
     elif num_classes > 2:
-        out = Dense(num_classes, activation='softmax', name='Output')(x)
-    else: # num_classes = 1 hoặc < 1
-        print(f"[WARNING] mobilenet_v2: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
-        out = Dense(1, activation='sigmoid', name='Output')(x)
+        out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
+    else: # num_classes <= 1 (trường hợp fallback, ít khi xảy ra nếu num_classes được xác định đúng)
+        print(f"[WARNING create_mobilenet_model] num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid.")
+        out = Dense(1, activation='sigmoid', name='MobileNet_Output')(x)
+            
+    final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom_Corrected')
 
-    final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom') # Đổi tên biến model
-
-    verbose_mode_val = getattr(config, 'verbose_mode', False)
-    if verbose_mode_val:
-        print("CNN Model used (MobileNetV2_Custom):")
-        final_model.summary()
-        
+    if getattr(config, 'verbose_mode', False):
+        print("--- MobileNetV2_Custom_Corrected Summary ---")
+        final_model.summary(line_length=150) # Tăng line_length
+        # Nếu bạn muốn xem summary của base_mobilenet riêng:
+        # print("\n--- MobileNetV2_Base (internal) Summary ---")
+        # base_mobilenet.summary(line_length=150)
+            
     return final_model
