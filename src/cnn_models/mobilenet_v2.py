@@ -373,9 +373,8 @@ def create_mobilenet_model(num_classes: int):
     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
     
-    # Biến để giữ tensor input cuối cùng cho Model và tensor sẽ được đưa vào MobileNetV2 base
-    final_model_input_tensor = None
-    processed_input_for_base = None
+    final_model_input_tensor = None # Tensor Input cho toàn bộ Model cuối cùng
+    processed_input_for_base = None # Tensor sẽ được đưa vào MobileNetV2 base
 
     dataset_name_upper = getattr(config, 'dataset', '').upper()
 
@@ -385,24 +384,29 @@ def create_mobilenet_model(num_classes: int):
     # Xử lý kênh đầu vào dựa trên dataset
     if dataset_name_upper == "INBREAST" and config.model.upper() == "MOBILENET":
         # INbreast cho MobileNet: Giả định dữ liệu đầu vào đã là 3 kênh từ hàm load
+        # Do đó, Input của model này phải là 3 kênh.
         inp_rgb_inbreast = Input(shape=(img_height, img_width, 3), name="Input_RGB_INbreast_MobileNet")
-        if config.verbose_mode: print(f"    [MobileNet Create INBREAST] Input layer is 3-channel: {inp_rgb_inbreast.shape}")
-        processed_input_for_base = inp_rgb_inbreast
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create INBREAST] Input layer is 3-channel: {inp_rgb_inbreast.shape}")
+        processed_input_for_base = inp_rgb_inbreast # Dùng trực tiếp, không Concatenate
         final_model_input_tensor = inp_rgb_inbreast
+
     elif dataset_name_upper == "CMMD" and config.model.upper() == "MOBILENET":
         # CMMD cho MobileNet: Giả định dữ liệu đầu vào là 1 kênh, cần Concatenate
         inp_gray_cmmd = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_CMMD_MobileNet")
-        if config.verbose_mode: print(f"    [MobileNet Create CMMD] Input layer is 1-channel: {inp_gray_cmmd.shape}")
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create CMMD] Input layer is 1-channel: {inp_gray_cmmd.shape}")
         
         x_conc_cmmd = Concatenate(name="CMMD_MobileNet_Grayscale_to_RGB")([inp_gray_cmmd, inp_gray_cmmd, inp_gray_cmmd])
-        if config.verbose_mode: print(f"    [MobileNet Create CMMD] Concatenated to 3-channel: {x_conc_cmmd.shape}")
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create CMMD] Concatenated to 3-channel: {x_conc_cmmd.shape}")
         processed_input_for_base = x_conc_cmmd
         final_model_input_tensor = inp_gray_cmmd
     else:
-        # Trường hợp mặc định (hoặc các model khác không phải MobileNet, hoặc dataset khác không được xử lý riêng)
-        # Giả định đầu vào là 1 kênh và sẽ được concatenate nếu model là MobileNet
-        # Nếu model không phải MobileNet, các hàm create_..._model khác sẽ được gọi.
-        # Đoạn này cụ thể cho MobileNet, nên nếu dataset không phải INbreast/CMMD mà model là MobileNet, ta vẫn giả định 1 kênh.
+        # Trường hợp mặc định cho MobileNet (nếu dataset không phải INbreast hoặc CMMD nhưng model là MobileNet)
+        # Hoặc nếu hàm này được gọi bởi một model khác không phải MobileNet (dù tên hàm là create_mobilenet_model)
+        # Để an toàn, nếu model là MobileNet, ta giả định 1 kênh và concat.
+        # Nếu model không phải MobileNet, logic này không nên được chạy (CnnModel.__init__ sẽ chọn đúng hàm create).
         if config.model.upper() == "MOBILENET":
             if config.verbose_mode:
                 print(f"    [MobileNet Create DEFAULT] Dataset '{config.dataset}' with MobileNet. Assuming 1-channel input and concatenating.")
@@ -411,11 +415,11 @@ def create_mobilenet_model(num_classes: int):
             processed_input_for_base = x_conc_default
             final_model_input_tensor = inp_gray_default
         else:
-            # Nếu hàm này được gọi nhầm cho model khác CNN/MobileNet, trả lỗi sớm
-            # Tuy nhiên, CnnModel.__init__ nên chọn đúng hàm create_...
-            # Để an toàn, có thể mặc định là 3 kênh nếu không phải CNN
-            print(f"    [MobileNet Create FALLBACK] Model is {config.model}. Assuming 3-channel input direct for other pre-trained models if this function is mistakenly called.")
-            inp_rgb_fallback = Input(shape=(img_height, img_width, 3), name="Input_RGB_Fallback_MobileNet")
+            # Fallback này ít khi xảy ra nếu CnnModel chọn đúng hàm.
+            # Nếu model không phải MobileNet, nó nên có hàm create riêng.
+            # Tuy nhiên, để code chạy được, ta mặc định input 3 kênh cho các model pretrain khác.
+            print(f"    [MobileNet Create FALLBACK] Model is {config.model} (not MobileNet but this function was called). Assuming 3-channel input directly.")
+            inp_rgb_fallback = Input(shape=(img_height, img_width, 3), name="Input_RGB_Fallback_OtherModel")
             processed_input_for_base = inp_rgb_fallback
             final_model_input_tensor = inp_rgb_fallback
 
@@ -423,10 +427,9 @@ def create_mobilenet_model(num_classes: int):
     if processed_input_for_base is None or final_model_input_tensor is None:
         raise ValueError(f"Could not determine input tensors for MobileNet based on dataset '{config.dataset}' and model '{config.model}'.")
     
-    # Đảm bảo processed_input_for_base là 3 kênh trước khi đưa vào MobileNetV2
+    # Đảm bảo processed_input_for_base là 3 kênh trước khi đưa vào MobileNetV2 base
     if processed_input_for_base.shape[-1] != 3:
-        # Điều này không nên xảy ra nếu logic ở trên đúng
-        raise ValueError(f"Internal Error: 'processed_input_for_base' for MobileNetV2 base is not 3-channel. Shape: {processed_input_for_base.shape}")
+        raise ValueError(f"Internal Error: 'processed_input_for_base' tensor going into MobileNetV2 base must have 3 channels, but got shape {processed_input_for_base.shape}")
 
     if config.verbose_mode:
         print(f"    [MobileNet Create] Effective input tensor to MobileNetV2 base has shape: {processed_input_for_base.shape}")
@@ -436,8 +439,19 @@ def create_mobilenet_model(num_classes: int):
                                  include_top=False,
                                  weights='imagenet',
                                  name="MobileNetV2_Base") # Giữ tên này nhất quán
+    
     if config.verbose_mode: 
-        print(f"    [MobileNet Create] base_mobilenet.input.shape (actual tensor passed): {base_mobilenet.input.shape}") 
+        # Sửa lỗi AttributeError bằng cách kiểm tra kiểu của base_mobilenet.input
+        actual_input_to_base = base_mobilenet.input
+        if isinstance(actual_input_to_base, list):
+            if actual_input_to_base: # Nếu list không rỗng
+                print(f"    [MobileNet Create] base_mobilenet.input is a LIST. Shape of first input tensor: {actual_input_to_base[0].shape}")
+            else:
+                print(f"    [MobileNet Create] base_mobilenet.input is an EMPTY LIST.")
+        elif hasattr(actual_input_to_base, 'shape'): # Nếu là một tensor đơn lẻ
+            print(f"    [MobileNet Create] base_mobilenet.input is a TENSOR. Shape: {actual_input_to_base.shape}")
+        else:
+            print(f"    [MobileNet Create] base_mobilenet.input is of unexpected type: {type(actual_input_to_base)}")
     
     x = base_mobilenet.output 
     if config.verbose_mode: 
@@ -450,6 +464,7 @@ def create_mobilenet_model(num_classes: int):
     x = Dense(512, activation='relu', name="MobileNet_Dense_1")(x)
     x = Dense(32, activation='relu', name="MobileNet_Dense_2")(x)
 
+    # Lớp output
     if num_classes == 2:
         out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
     elif num_classes > 2:
