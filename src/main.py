@@ -34,8 +34,8 @@ from tensorflow.keras import mixed_precision
 from utils import (load_trained_model, print_num_gpus_available,
                    set_random_seeds, print_cli_arguments, print_runtime)
 
-policy = mixed_precision.Policy("mixed_float16")
-mixed_precision.set_global_policy(policy)
+# policy = mixed_precision.Policy("mixed_float16")
+# mixed_precision.set_global_policy(policy)
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
