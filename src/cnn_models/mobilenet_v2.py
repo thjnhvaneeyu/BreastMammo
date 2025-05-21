@@ -208,33 +208,54 @@ ssl._create_default_https_context = ssl._create_unverified_context
         
 #     return final_model
 
+# def create_mobilenet_model(num_classes: int):
+#     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
+#     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+    
+#     # Input của toàn bộ mô hình custom là ảnh xám 1 kênh
+#     inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_MobileNet")
+#     if config.verbose_mode: print(f"    [MobileNet Create] inp_gray.shape: {inp_gray.shape}")
+    
+#     # Lớp Concatenate để chuyển từ 1 kênh sang 3 kênh
+#     x_conc = Concatenate(name="MobileNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray])
+#     if config.verbose_mode: print(f"    [MobileNet Create] x_conc.shape (after concat): {x_conc.shape}") # Phải là (None, H, W, 3)
+    
+#     # Khởi tạo MobileNetV2 base, chỉ định input_shape là 3 kênh.
+#     # KHÔNG sử dụng input_tensor ở đây.
+#     base_mobilenet = MobileNetV2(input_shape=(img_height, img_width, 3), 
+#                                  include_top=False,
+#                                  weights='imagenet',
+#                                  name="MobileNetV2_Base") # Đặt tên để dễ theo dõi
+#     if config.verbose_mode: 
+#         print(f"    [MobileNet Create] base_mobilenet (MobileNetV2_Base) is created.")
+#         print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}") # Phải là (None, H, W, 3)
+
+#     # Gọi base_mobilenet như một hàm (layer) với x_conc (3 kênh) làm đầu vào.
+#     x = base_mobilenet(x_conc) 
+#     if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet(x_conc)): {x.shape}")
+    
+#     # Các lớp custom phía trên
+#     x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
 def create_mobilenet_model(num_classes: int):
     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
-    
-    # Input của toàn bộ mô hình custom là ảnh xám 1 kênh
-    inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_MobileNet")
-    if config.verbose_mode: print(f"    [MobileNet Create] inp_gray.shape: {inp_gray.shape}")
-    
-    # Lớp Concatenate để chuyển từ 1 kênh sang 3 kênh
-    x_conc = Concatenate(name="MobileNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray])
-    if config.verbose_mode: print(f"    [MobileNet Create] x_conc.shape (after concat): {x_conc.shape}") # Phải là (None, H, W, 3)
-    
-    # Khởi tạo MobileNetV2 base, chỉ định input_shape là 3 kênh.
-    # KHÔNG sử dụng input_tensor ở đây.
-    base_mobilenet = MobileNetV2(input_shape=(img_height, img_width, 3), 
+
+    # Input của mô hình bây giờ là ảnh 3 kênh
+    inp_rgb = Input(shape=(img_height, img_width, 3), name="Input_RGB_MobileNet")
+    if config.verbose_mode: print(f"    [MobileNet Create] inp_rgb.shape: {inp_rgb.shape}")
+
+    # Không cần Concatenate nữa
+
+    base_mobilenet = MobileNetV2(input_tensor=inp_rgb, # Truyền trực tiếp inp_rgb
                                  include_top=False,
                                  weights='imagenet',
-                                 name="MobileNetV2_Base") # Đặt tên để dễ theo dõi
+                                 name="MobileNetV2_Base")
     if config.verbose_mode: 
-        print(f"    [MobileNet Create] base_mobilenet (MobileNetV2_Base) is created.")
-        print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}") # Phải là (None, H, W, 3)
+        print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}")
 
-    # Gọi base_mobilenet như một hàm (layer) với x_conc (3 kênh) làm đầu vào.
-    x = base_mobilenet(x_conc) 
-    if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet(x_conc)): {x.shape}")
-    
-    # Các lớp custom phía trên
+    x = base_mobilenet.output # Output của base_mobilenet
+    if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet): {x.shape}")
+
     x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
     
     random_seed_val = getattr(config, 'RANDOM_SEED', None)
