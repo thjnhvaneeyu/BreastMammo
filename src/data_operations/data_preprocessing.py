@@ -729,9 +729,6 @@ def load_inbreast_data_no_pectoral_removal(
                 final_model_input_image = np.zeros_like(final_model_input_image)
             final_model_input_image = np.clip(final_model_input_image, 0.0, 1.0)
 
-            if config.verbose_mode:
-                print(f"    [DEBUG DICOM Finalize] Final input shape for model {config.model}: {final_model_input_image.shape} from {dicom_path}")
-            
             images_for_this_entry_processed.append(final_model_input_image)
             # labels_for_this_entry_text_local.append(current_label_text) # Sẽ thêm sau augment
 
