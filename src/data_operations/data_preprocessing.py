@@ -615,8 +615,8 @@ def load_inbreast_data_no_pectoral_removal(
             dicom_data = pydicom.dcmread(dicom_path)
             image_array_original_unnormalized = dicom_data.pixel_array.astype(np.float32)
             
-            if config.verbose_mode:
-                print(f"  [DEBUG DICOM Initial] Path: {dicom_path}, Initial Shape: {image_array_original_unnormalized.shape}, Ndim: {image_array_original_unnormalized.ndim}")
+            # if config.verbose_mode:
+            #     print(f"  [DEBUG DICOM Initial] Path: {dicom_path}, Initial Shape: {image_array_original_unnormalized.shape}, Ndim: {image_array_original_unnormalized.ndim}")
 
             # Bước 1: Đảm bảo có được một khung hình ảnh xám 2D (H, W) duy nhất
             single_gray_frame_2d = None
