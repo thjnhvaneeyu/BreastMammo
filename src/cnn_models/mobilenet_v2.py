@@ -272,7 +272,8 @@ def create_mobilenet_model(num_classes: int):
         print(f"[WARNING create_mobilenet_model] num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid.")
         out = Dense(1, activation='sigmoid', name='MobileNet_Output')(x)
             
-    final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom_Corrected')
+    # final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom_Corrected')
+    final_model = Model(inputs=inp_rgb, outputs=out, name='MobileNetV2_Custom_Corrected')
 
     if getattr(config, 'verbose_mode', False):
         print("--- MobileNetV2_Custom_Corrected Summary ---")
