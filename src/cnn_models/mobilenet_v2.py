@@ -236,26 +236,115 @@ ssl._create_default_https_context = ssl._create_unverified_context
     
 #     # Các lớp custom phía trên
 #     x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
+# def create_mobilenet_model(num_classes: int):
+#     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
+#     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+
+#     # Input của mô hình bây giờ là ảnh 3 kênh
+#     inp_rgb = Input(shape=(img_height, img_width, 3), name="Input_RGB_MobileNet")
+#     if config.verbose_mode: print(f"    [MobileNet Create] inp_rgb.shape: {inp_rgb.shape}")
+
+#     # Không cần Concatenate nữa
+
+#     base_mobilenet = MobileNetV2(input_tensor=inp_rgb, # Truyền trực tiếp inp_rgb
+#                                  include_top=False,
+#                                  weights='imagenet',
+#                                  name="MobileNetV2_Base")
+#     if config.verbose_mode: 
+#         print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}")
+
+#     x = base_mobilenet.output # Output của base_mobilenet
+#     if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet): {x.shape}")
+
+#     x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
+    
+#     random_seed_val = getattr(config, 'RANDOM_SEED', None)
+#     x = Dropout(0.2, seed=random_seed_val, name="MobileNet_Dropout_1")(x)
+#     x = Dense(512, activation='relu', name="MobileNet_Dense_1")(x)
+#     x = Dense(32, activation='relu', name="MobileNet_Dense_2")(x)
+
+#     # Lớp output
+#     if num_classes == 2:
+#         out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
+#     elif num_classes > 2:
+#         out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
+#     else: # num_classes <= 1 (trường hợp fallback, ít khi xảy ra nếu num_classes được xác định đúng)
+#         print(f"[WARNING create_mobilenet_model] num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid.")
+#         out = Dense(1, activation='sigmoid', name='MobileNet_Output')(x)
+            
+#     # final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom_Corrected')
+#     final_model = Model(inputs=inp_rgb, outputs=out, name='MobileNetV2_Custom_Corrected')
+
+#     if getattr(config, 'verbose_mode', False):
+#         print("--- MobileNetV2_Custom_Corrected Summary ---")
+#         final_model.summary(line_length=150) # Tăng line_length
+#         # Nếu bạn muốn xem summary của base_mobilenet riêng:
+#         # print("\n--- MobileNetV2_Base (internal) Summary ---")
+#         # base_mobilenet.summary(line_length=150)
+            
+#     return final_model
+
 def create_mobilenet_model(num_classes: int):
     img_height = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
     img_width = getattr(config, 'MOBILE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+    
+    final_model_input_tensor = None # Tensor Input cho toàn bộ Model cuối cùng
+    processed_input_for_base = None # Tensor sẽ được đưa vào MobileNetV2 base
 
-    # Input của mô hình bây giờ là ảnh 3 kênh
-    inp_rgb = Input(shape=(img_height, img_width, 3), name="Input_RGB_MobileNet")
-    if config.verbose_mode: print(f"    [MobileNet Create] inp_rgb.shape: {inp_rgb.shape}")
+    dataset_name_upper = getattr(config, 'dataset', '').upper()
 
-    # Không cần Concatenate nữa
+    if dataset_name_upper == "INBREAST":
+        # INbreast được giả định là đã cung cấp ảnh 3 kênh từ hàm load dữ liệu
+        # Do đó, Input của model này phải là 3 kênh.
+        inp_rgb_inbreast = Input(shape=(img_height, img_width, 3), name="Input_RGB_INbreast_MobileNet")
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create INBREAST] Input layer is 3-channel: {inp_rgb_inbreast.shape}")
+        processed_input_for_base = inp_rgb_inbreast # Dùng trực tiếp, không Concatenate
+        final_model_input_tensor = inp_rgb_inbreast
 
-    base_mobilenet = MobileNetV2(input_tensor=inp_rgb, # Truyền trực tiếp inp_rgb
+    elif dataset_name_upper == "CMMD":
+        # CMMD được giả định là cung cấp ảnh 1 kênh từ hàm load dữ liệu
+        # Model sẽ nhận 1 kênh và Concatenate thành 3 kênh bên trong.
+        inp_gray_cmmd = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_CMMD_MobileNet")
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create CMMD] Input layer is 1-channel: {inp_gray_cmmd.shape}")
+        
+        x_conc_cmmd = Concatenate(name="CMMD_MobileNet_Grayscale_to_RGB")([inp_gray_cmmd, inp_gray_cmmd, inp_gray_cmmd])
+        if config.verbose_mode: 
+            print(f"    [MobileNet Create CMMD] Concatenated to 3-channel: {x_conc_cmmd.shape}")
+        processed_input_for_base = x_conc_cmmd
+        final_model_input_tensor = inp_gray_cmmd
+    else:
+        # Xử lý mặc định hoặc cho các dataset khác: giả định 1 kênh và concat
+        if config.verbose_mode:
+            print(f"    [MobileNet Create DEFAULT] Dataset '{config.dataset}' not explicitly INBREAST or CMMD. Assuming 1-channel input and concatenating.")
+        inp_gray_default = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_Default_MobileNet")
+        x_conc_default = Concatenate(name="Default_MobileNet_Grayscale_to_RGB")([inp_gray_default, inp_gray_default, inp_gray_default])
+        processed_input_for_base = x_conc_default
+        final_model_input_tensor = inp_gray_default
+
+    if processed_input_for_base is None or final_model_input_tensor is None:
+        raise ValueError("Input tensor for MobileNet base or final model could not be determined based on dataset.")
+    
+    if config.verbose_mode:
+        print(f"    [MobileNet Create] Effective input tensor to MobileNetV2 base has shape: {processed_input_for_base.shape}")
+
+    # Sử dụng input_tensor khi khởi tạo MobileNetV2 base
+    # input_tensor này phải là 3 kênh
+    if processed_input_for_base.shape[-1] != 3:
+        raise ValueError(f"Tensor 'processed_input_for_base' going into MobileNetV2 base must have 3 channels, but got shape {processed_input_for_base.shape}")
+
+    base_mobilenet = MobileNetV2(input_tensor=processed_input_for_base, 
                                  include_top=False,
                                  weights='imagenet',
                                  name="MobileNetV2_Base")
     if config.verbose_mode: 
-        print(f"    [MobileNet Create] base_mobilenet.input_shape (expected by base): {base_mobilenet.input_shape}")
-
-    x = base_mobilenet.output # Output của base_mobilenet
-    if config.verbose_mode: print(f"    [MobileNet Create] x.shape (output of base_mobilenet): {x.shape}")
-
+        print(f"    [MobileNet Create] base_mobilenet.input.shape (actual tensor passed): {base_mobilenet.input.shape}") # Phải là (None, H, W, 3)
+    
+    x = base_mobilenet.output 
+    if config.verbose_mode: 
+        print(f"    [MobileNet Create] x.shape (output of base_mobilenet): {x.shape}")
+    
     x = GlobalAveragePooling2D(name="MobileNet_GlobalAvgPool")(x)
     
     random_seed_val = getattr(config, 'RANDOM_SEED', None)
@@ -268,18 +357,14 @@ def create_mobilenet_model(num_classes: int):
         out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
     elif num_classes > 2:
         out = Dense(num_classes, activation='softmax', name='MobileNet_Output')(x)
-    else: # num_classes <= 1 (trường hợp fallback, ít khi xảy ra nếu num_classes được xác định đúng)
+    else: 
         print(f"[WARNING create_mobilenet_model] num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid.")
         out = Dense(1, activation='sigmoid', name='MobileNet_Output')(x)
             
-    # final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom_Corrected')
-    final_model = Model(inputs=inp_rgb, outputs=out, name='MobileNetV2_Custom_Corrected')
+    final_model = Model(inputs=final_model_input_tensor, outputs=out, name='MobileNetV2_Custom_DatasetSpecificInput')
 
     if getattr(config, 'verbose_mode', False):
-        print("--- MobileNetV2_Custom_Corrected Summary ---")
-        final_model.summary(line_length=150) # Tăng line_length
-        # Nếu bạn muốn xem summary của base_mobilenet riêng:
-        # print("\n--- MobileNetV2_Base (internal) Summary ---")
-        # base_mobilenet.summary(line_length=150)
+        print(f"--- MobileNetV2_Custom_DatasetSpecificInput ({config.dataset}) Summary ---")
+        final_model.summary(line_length=150)
             
     return final_model

@@ -867,26 +867,12 @@ def import_cmmd_dataset(data_dir: str, label_encoder, target_size=None) -> (np.n
             image_path = os.path.join(label_path, image_file)
             if not os.path.isfile(image_path) or not image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 continue
-            # try:
-            #     # Load ảnh; đảm bảo ảnh grayscale 1 kênh
-            #     image = load_img(image_path, color_mode="grayscale", target_size=target_size)
-            #     image_array = img_to_array(image) / 255.0  # chuyển thành mảng và chuẩn hóa [0,1]
-            #     images.append(image_array)
-            #     labels.append(label_folder)  # label chính là tên thư mục
             try:
+                # Load ảnh; đảm bảo ảnh grayscale 1 kênh
                 image = load_img(image_path, color_mode="grayscale", target_size=target_size)
-                image_array = img_to_array(image) # Shape (H, W, 1)
-
-                # ===== THAY ĐỔI CHO CMMD KHI DÙNG MODEL 3 KÊNH =====
-                if config.model != "CNN": # Nếu model không phải CNN (ví dụ MobileNet, VGG, ResNet)
-                    # Chuyển ảnh xám (H,W,1) sang (H,W,3) bằng cách lặp kênh
-                    image_array_rgb = cv2.cvtColor(image_array, cv2.COLOR_GRAY2RGB) # image_array là float 0-255
-                    image_array = image_array_rgb 
-                # ====================================================
-
-                image_array = image_array / 255.0 # Chuẩn hóa sau khi đã có đúng số kênh
+                image_array = img_to_array(image) / 255.0  # chuyển thành mảng và chuẩn hóa [0,1]
                 images.append(image_array)
-                labels.append(label_folder)
+                labels.append(label_folder)  # label chính là tên thư mục
             except Exception as e:
                 print(f"Error processing file {image_path}: {e}")
     if len(images) == 0 or len(labels) == 0:
