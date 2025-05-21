@@ -96,12 +96,27 @@ def create_mobilenet_model(num_classes: int):
     #                    weights='imagenet',
     #                    input_tensor=x_conc) # Sử dụng x_conc
     # x = base.output
-    inp = Input(shape=(img_height, img_width, 3), name="Input_RGB") # THAY ĐỔI Ở ĐÂY: từ 1 thành 3 kênh
+    # Input của toàn bộ mô hình vẫn là ảnh xám 1 kênh
+    inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
 
-    base = MobileNetV2(include_top=False,
-                       weights='imagenet',
-                       input_tensor=inp) # input_tensor bây giờ là inp (3 kênh)
-    x = base.output
+    # Lặp kênh để tạo ảnh 3 kênh
+    x_conc = Concatenate(name="Input_RGB_From_Grayscale")([inp_gray, inp_gray, inp_gray]) # Shape: (None, H, W, 3)
+
+    # Tạo MobileNetV2 base, nó sẽ tự tạo Input layer (None, H, W, 3) nếu không có input_tensor
+    # Sau đó, chúng ta truyền x_conc (đã có 3 kênh) vào nó.
+    base_mobilenet = MobileNetV2(input_shape=(img_height, img_width, 3), # Định nghĩa input_shape cho base model
+                                 include_top=False,
+                                 weights='imagenet')
+
+    # Truyền output của Concatenate vào base model
+    x = base_mobilenet(x_conc) # x_conc có shape (None, H, W, 3)
+
+    # inp = Input(shape=(img_height, img_width, 3), name="Input_RGB") # THAY ĐỔI Ở ĐÂY: từ 1 thành 3 kênh
+
+    # base = MobileNetV2(include_top=False,
+    #                    weights='imagenet',
+    #                    input_tensor=inp) # input_tensor bây giờ là inp (3 kênh)
+    # x = base.output
     # 3) Head
     # Có thể chọn GlobalAveragePooling2D thay vì Flatten tùy theo hiệu năng mong muốn
     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) 
@@ -122,7 +137,7 @@ def create_mobilenet_model(num_classes: int):
         print(f"[WARNING] mobilenet_v2: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
         out = Dense(1, activation='sigmoid', name='Output')(x)
 
-    final_model = Model(inputs=inp, outputs=out, name='MobileNetV2_Custom') # Đổi tên biến model
+    final_model = Model(inputs=inp_gray, outputs=out, name='MobileNetV2_Custom') # Đổi tên biến model
 
     verbose_mode_val = getattr(config, 'verbose_mode', False)
     if verbose_mode_val:
