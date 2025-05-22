@@ -190,4 +190,4 @@ def create_basic_cnn_model(num_classes: int):
     # if verbose_mode_val:
     #     model.summary()
     
-    # return model
+    return model
