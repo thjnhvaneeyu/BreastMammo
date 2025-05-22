@@ -600,6 +600,6 @@ def create_mobilenet_model(num_classes: int):
 
     if getattr(config, 'verbose_mode', False):
         print(f"--- MobileNetV2_Custom ({config.dataset}) Summary ---")
-        final_model.summary(line_length=150)
+        # final_model.summary(line_length=150)
             
     return final_model

@@ -186,8 +186,8 @@ def create_basic_cnn_model(num_classes: int):
         ))
     
     # In summary nếu đang ở chế độ debug
-    verbose_mode_val = getattr(config, 'verbose_mode', False)
-    if verbose_mode_val:
-        model.summary()
+    # verbose_mode_val = getattr(config, 'verbose_mode', False)
+    # if verbose_mode_val:
+    #     model.summary()
     
-    return model
+    # return model
