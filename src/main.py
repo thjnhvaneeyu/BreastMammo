@@ -122,6 +122,8 @@ def main_logic(cli_args):
         if X_np_loaded is None or X_np_loaded.size == 0 or y_np_loaded_text is None or y_np_loaded_text.size == 0:
             print(f"[ERROR main_logic] Load_inbreast_data returned empty data. Exiting.")
             return
+        else:
+            print("[DEBUG MAIN] X_np_loaded is None or empty!")
 
         # Fit LabelEncoder với tất cả các nhãn text đã tải và xác định num_classes
         le.fit(y_np_loaded_text)

@@ -266,6 +266,7 @@ def load_inbreast_data_no_pectoral_removal(
                 else:
                     final_model_input_image = np.zeros_like(final_model_input_image)
                 final_model_input_image = np.clip(final_model_input_image, 0.0, 1.0)
+                print(f"    [DEBUG LOAD] Appending image for {dicom_path}. Shape: {final_model_input_image.shape}, Min: {np.min(final_model_input_image):.2f}, Max: {np.max(final_model_input_image):.2f}, Mean: {np.mean(final_model_input_image):.2f}, Label: {current_label_text}")
 
                 all_images_data_accumulator.append(final_model_input_image)
                 all_labels_text_accumulator.append(current_label_text) # Lưu nhãn text
