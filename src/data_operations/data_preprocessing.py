@@ -184,22 +184,24 @@ def load_inbreast_data_no_pectoral_removal(
                 if config.verbose_mode: print(f"  [CRITICAL ERROR DICOM Frame] Could not get valid 2D frame from {dicom_path}. Shape was {single_gray_frame_2d.shape if single_gray_frame_2d is not None else 'None'}. Skipping.")
                 continue
             
-            # # Chuẩn hóa ảnh xám 2D về [0,1]
-            # min_val_norm, max_val_norm = np.min(single_gray_frame_2d), np.max(single_gray_frame_2d)
-            # current_image_processed_2d = np.zeros_like(single_gray_frame_2d, dtype=np.float32)
-            # if max_val_norm - min_val_norm > 1e-8:
-            #     current_image_processed_2d = (single_gray_frame_2d - min_val_norm) / (max_val_norm - min_val_norm)
-            # # current_image_processed_2d = np.clip(current_image_processed_2d, 0.0, 1.0)
-            min_val, max_val = np.min(final_model_input_image), np.max(final_model_input_image)
-            if max_val - min_val > 1e-8:
-                final_model_input_image = (final_model_input_image - min_val) / (max_val - min_val)
+            # Chuẩn hóa ảnh xám 2D về [0,1]
+            min_val_norm, max_val_norm = np.min(single_gray_frame_2d), np.max(single_gray_frame_2d)
+            current_image_processed_2d = np.zeros_like(single_gray_frame_2d, dtype=np.float32)
+            if max_val_norm - min_val_norm > 1e-8:
+                current_image_processed_2d = (single_gray_frame_2d - min_val_norm) / (max_val_norm - min_val_norm)
             else:
-                # Nếu ảnh là hằng số, đặt tất cả pixel thành giá trị hằng số đó (đã được chuẩn hóa)
-                # Điều này giả định đầu vào 'final_model_input_image' trước bước này đã được xử lý phần nào.
-                # Nếu đó là một ảnh hằng số, chỉ cần đảm bảo nó được cắt trong khoảng [0,1].
-                # Một phép gán an toàn nếu các giá trị được mong đợi là đồng nhất và đã được điều chỉnh tỷ lệ:
-                final_model_input_image.fill(np.clip(min_val, 0.0, 1.0))
-            final_model_input_image = np.clip(final_model_input_image, 0.0, 1.0)
+                current_image_processed_2d.fill(np.clip(min_val_norm, 0.0, 1.0))
+            current_image_processed_2d = np.clip(current_image_processed_2d, 0.0, 1.0)
+            # min_val, max_val = np.min(final_model_input_image), np.max(final_model_input_image)
+            # if max_val - min_val > 1e-8:
+            #     final_model_input_image = (final_model_input_image - min_val) / (max_val - min_val)
+            # else:
+            #     # Nếu ảnh là hằng số, đặt tất cả pixel thành giá trị hằng số đó (đã được chuẩn hóa)
+            #     # Điều này giả định đầu vào 'final_model_input_image' trước bước này đã được xử lý phần nào.
+            #     # Nếu đó là một ảnh hằng số, chỉ cần đảm bảo nó được cắt trong khoảng [0,1].
+            #     # Một phép gán an toàn nếu các giá trị được mong đợi là đồng nhất và đã được điều chỉnh tỷ lệ:
+            #     final_model_input_image.fill(np.clip(min_val, 0.0, 1.0))
+            # final_model_input_image = np.clip(final_model_input_image, 0.0, 1.0)
             # images_for_this_entry_raw: chứa các ảnh 2D (đã resize) từ DICOM này
             images_for_this_entry_raw_2d = []
 
