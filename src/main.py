@@ -159,9 +159,13 @@ def main_logic(cli_args):
             random_state=config.RANDOM_SEED,
             shuffle=True
         )
-        y_train_np = y_train_np_encoded
-        y_val_np = y_val_np_encoded
-        y_test_np = y_test_np_encoded # Cập nhật luôn y_test_np cho nhất quán
+        # y_train_np = y_train_np_encoded
+        # y_val_np = y_val_np_encoded
+        # y_test_np = y_test_np_encoded # Cập nhật luôn y_test_np cho nhất quán
+        y_train_np = y_train_np_encoded.astype(np.float32)
+        y_val_np = y_val_np_encoded.astype(np.float32)
+        # Tương tự cho y_test_np
+        y_test_np = y_test_np_encoded.astype(np.float32)
         print(f"[INFO main_logic] INbreast data split: Train {X_train_np.shape[0]}, Val {X_val_np.shape[0]}, Test {X_test_np.shape[0]}")
 
         # --- ÁP DỤNG TĂNG CƯỜNG DỮ LIỆU CHỈ CHO TẬP HUẤN LUYỆN ---
