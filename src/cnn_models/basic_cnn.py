@@ -136,7 +136,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(Flatten(name="Flatten"))
     model.add(Dropout(0.6, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
     
-    model.add(Dense(256, activation='relu', name='Dense_FC_256'))
+    model.add(Dense(512, activation='relu', name='Dense_FC_512'))
     # # 6) Output layer
     # if num_classes == 2:
     #     # Nhị phân
