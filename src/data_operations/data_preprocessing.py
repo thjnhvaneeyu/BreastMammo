@@ -184,13 +184,22 @@ def load_inbreast_data_no_pectoral_removal(
                 if config.verbose_mode: print(f"  [CRITICAL ERROR DICOM Frame] Could not get valid 2D frame from {dicom_path}. Shape was {single_gray_frame_2d.shape if single_gray_frame_2d is not None else 'None'}. Skipping.")
                 continue
             
-            # Chuẩn hóa ảnh xám 2D về [0,1]
-            min_val_norm, max_val_norm = np.min(single_gray_frame_2d), np.max(single_gray_frame_2d)
-            current_image_processed_2d = np.zeros_like(single_gray_frame_2d, dtype=np.float32)
-            if max_val_norm - min_val_norm > 1e-8:
-                current_image_processed_2d = (single_gray_frame_2d - min_val_norm) / (max_val_norm - min_val_norm)
-            current_image_processed_2d = np.clip(current_image_processed_2d, 0.0, 1.0)
-
+            # # Chuẩn hóa ảnh xám 2D về [0,1]
+            # min_val_norm, max_val_norm = np.min(single_gray_frame_2d), np.max(single_gray_frame_2d)
+            # current_image_processed_2d = np.zeros_like(single_gray_frame_2d, dtype=np.float32)
+            # if max_val_norm - min_val_norm > 1e-8:
+            #     current_image_processed_2d = (single_gray_frame_2d - min_val_norm) / (max_val_norm - min_val_norm)
+            # current_image_processed_2d = np.clip(current_image_processed_2d, 0.0, 1.0)
+            min_val, max_val = np.min(final_model_input_image), np.max(final_model_input_image)
+            if max_val - min_val > 1e-8:
+                final_model_input_image = (final_model_input_image - min_val) / (max_val - min_val)
+            else:
+                # Nếu ảnh là hằng số, đặt tất cả pixel thành giá trị hằng số đó (đã được chuẩn hóa)
+                # Điều này giả định đầu vào 'final_model_input_image' trước bước này đã được xử lý phần nào.
+                # Nếu đó là một ảnh hằng số, chỉ cần đảm bảo nó được cắt trong khoảng [0,1].
+                # Một phép gán an toàn nếu các giá trị được mong đợi là đồng nhất và đã được điều chỉnh tỷ lệ:
+                final_model_input_image.fill(np.clip(min_val, 0.0, 1.0))
+            final_model_input_image = np.clip(final_model_input_image, 0.0, 1.0)
             # images_for_this_entry_raw: chứa các ảnh 2D (đã resize) từ DICOM này
             images_for_this_entry_raw_2d = []
 
@@ -218,12 +227,12 @@ def load_inbreast_data_no_pectoral_removal(
                     xs_roi = [p[0] for p in coords_roi]; ys_roi = [p[1] for p in coords_roi]
                     x_min_r, x_max_r = int(min(xs_roi)), int(max(xs_roi))
                     y_min_r, y_max_r = int(min(ys_roi)), int(max(ys_roi))
-                    h_img_r, w_img_r = current_image_processed_2d.shape[:2]
+                    h_img_r, w_img_r = final_model_input_image.shape[:2]
                     x_min_r, y_min_r = max(0, x_min_r), max(0, y_min_r)
                     x_max_r, y_max_r = min(w_img_r - 1, x_max_r), min(h_img_r - 1, y_max_r)
 
                     if x_min_r < x_max_r and y_min_r < y_max_r:
-                        roi_patch_from_2d = current_image_processed_2d[y_min_r:y_max_r+1, x_min_r:x_max_r+1]
+                        roi_patch_from_2d = final_model_input_image[y_min_r:y_max_r+1, x_min_r:x_max_r+1]
                         if roi_patch_from_2d.size > 0:
                             resized_roi_2d = cv2.resize(roi_patch_from_2d, target_size, interpolation=cv2.INTER_AREA)
                             images_for_this_entry_raw_2d.append(resized_roi_2d)
@@ -236,7 +245,7 @@ def load_inbreast_data_no_pectoral_removal(
                     if config.verbose_mode: print(f"    [DEBUG ROI] No valid ROIs processed for {dicom_path} though use_roi_patches is True. Skipping this DICOM.")
                     continue # Bỏ qua DICOM này
             else: # Full image
-                resized_full_2d = cv2.resize(current_image_processed_2d, target_size, interpolation=cv2.INTER_AREA)
+                resized_full_2d = cv2.resize(final_model_input_image, target_size, interpolation=cv2.INTER_AREA)
                 images_for_this_entry_raw_2d.append(resized_full_2d)
 
             # Xử lý kênh và thêm vào accumulator
