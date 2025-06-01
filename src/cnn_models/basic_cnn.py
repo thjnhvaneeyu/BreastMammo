@@ -3,6 +3,7 @@
 # from tensorflow.python.keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 import config
+from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras import regularizers
 lambda_val = 0.0001 # Start with a small value like 0.001 or 0.0001
 # def create_basic_cnn_model(num_classes: int):
@@ -138,9 +139,10 @@ def create_basic_cnn_model(num_classes: int):
     
     # model.add(Dense(512, activation='relu', name='Dense_FC_512'))
     # Trong basic_cnn.py
-    model.add(Conv2D(32, (3, 3), padding='same', name="Conv1_32"))
+    model.add(Conv2D(32, (3, 3), padding='same',kernel_initializer='he_normal', name="Conv1_32"))
     model.add(BatchNormalization(name="BN1"))
-    model.add(Activation('relu', name="Relu1"))
+    # model.add(Activation('relu', name="Relu1"))
+    model.add(LeakyReLU(alpha=0.01, name="LeakyRelu1")) # Hoặc alpha=0.2
     model.add(MaxPooling2D((2, 2), name="Pool1"))
 
     model.add(Conv2D(64, (3, 3), padding='same', name="Conv2_64"))
