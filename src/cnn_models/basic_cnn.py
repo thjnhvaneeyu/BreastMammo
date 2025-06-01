@@ -4,7 +4,7 @@
 import tensorflow as tf
 import config
 from tensorflow.keras import regularizers
-lambda_val = 0.001 # Start with a small value like 0.001 or 0.0001
+lambda_val = 0.0001 # Start with a small value like 0.001 or 0.0001
 # def create_basic_cnn_model(num_classes: int):
 #     """
 #     Function to create a basic CNN.
