@@ -5,7 +5,7 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
@@ -186,7 +186,7 @@ class CnnModel:
             else:
                 print("[WARN CnnModel] No history found after CNN training phase. Skipping plot.")
     def compile_model(self, learning_rate: float) -> None:
-        base_opt = Adam(learning_rate=learning_rate)
+        base_opt = SGD(learning_rate=learning_rate)
         opt = LossScaleOptimizer(base_opt) if getattr(config, 'mixed_precision_enabled', False) else base_opt
         setattr(opt, 'lr', base_opt.learning_rate)
 
