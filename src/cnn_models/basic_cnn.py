@@ -165,7 +165,7 @@ def create_basic_cnn_model(num_classes: int):
         model.add(Dense(
             num_classes, # Sử dụng num_classes (sẽ là 2)
             activation='softmax', # Dùng softmax cho CategoricalCrossentropy
-            # kernel_initializer="random_uniform", # Có thể bỏ để dùng default của Keras
+            kernel_initializer="random_uniform", # Có thể bỏ để dùng default của Keras
             name='Output'
         ))
     elif num_classes > 2: # Trường hợp đa lớp rõ ràng
