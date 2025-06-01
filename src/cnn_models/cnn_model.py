@@ -11,6 +11,7 @@ from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 # from tensorflow.data.experimental import cardinality
 import shutil
+import matplotlib.pyplot as plt # Thêm import này ở đầu file cnn_model.py nếu chưa có
 from tensorflow.keras.mixed_precision import LossScaleOptimizer
 from tensorflow.data import experimental as tfdata_exp
 from tensorflow.data.experimental import assert_cardinality, cardinality
@@ -259,6 +260,68 @@ class CnnModel:
             verbose=1
         )
         callbacks = [es, rlrp]
+
+        print("[DEBUG Sanity Check] Checking a sample from training data...")
+        if isinstance(X_train, tf.data.Dataset):
+            for images_batch, labels_batch_data in X_train.take(1): # Đổi tên labels_batch để tránh nhầm lẫn
+                print(f"  Sample batch images shape: {images_batch.shape}")
+                print(f"  Sample batch labels shape: {labels_batch_data.shape}") # Sử dụng tên mới
+                for i in range(min(3, images_batch.shape[0])):
+                    plt.figure(figsize=(3,3))
+                    plt.imshow(images_batch[i, :, :, 0], cmap='gray')
+                    
+                    label_to_show_val = labels_batch_data[i].numpy() # Sử dụng tên mới
+                    # Sử dụng thể hiện label_encoder (đã được truyền vào)
+                    if hasattr(LabelEncoder, 'classes_') and LabelEncoder.classes_ is not None and len(LabelEncoder.classes_) > 0:
+                        if labels_batch_data[i].ndim > 0 and labels_batch_data[i].shape[0] == len(LabelEncoder.classes_):
+                            try:
+                                label_to_show_val = LabelEncoder.inverse_transform([np.argmax(labels_batch_data[i].numpy())])[0]
+                            except Exception as e:
+                                label_to_show_val = f"Argmax/InvTransform Error: {e}"
+                        elif labels_batch_data[i].ndim == 0 : 
+                            try:
+                                label_to_show_val = LabelEncoder.inverse_transform([labels_batch_data[i].numpy()])[0]
+                            except Exception as e:
+                                label_to_show_val = f"Scalar/InvTransform Error: {labels_batch_data[i].numpy()} - {e}"
+                        else:
+                            label_to_show_val = f"Raw label: {labels_batch_data[i].numpy()} (shape mismatch for LE)"
+                    else:
+                        label_to_show_val = f"Raw label: {labels_batch_data[i].numpy()} (LE not fit or no classes)"
+
+                    plt.title(f"Sample {i} - Label: {label_to_show_val}")
+                    plt.savefig(f"debug_train_sample_dataset_{i}.png") # Thêm dataset vào tên file để phân biệt
+                    plt.close()
+                break 
+        else: # NumPy array
+            print(f"  Sample batch images shape: {X_train[:min(3, X_train.shape[0])].shape}")
+            print(f"  Sample batch labels shape: {y_train[:min(3, y_train.shape[0])].shape}")
+            for i in range(min(3, X_train.shape[0])):
+                plt.figure(figsize=(3,3))
+                plt.imshow(X_train[i, :, :, 0], cmap='gray')
+                
+                label_to_show_val = y_train[i]
+                if hasattr(LabelEncoder, 'classes_') and LabelEncoder.classes_ is not None and len(LabelEncoder.classes_) > 0:
+                    if y_train[i].ndim > 0 and y_train[i].shape[0] == len(LabelEncoder.classes_):
+                        try:
+                            label_to_show_val = LabelEncoder.inverse_transform([np.argmax(y_train[i])])[0]
+                        except Exception as e:
+                            label_to_show_val = f"Argmax/InvTransform Error: {e}"
+                    elif y_train[i].ndim == 0 :
+                        try:
+                            label_to_show_val = LabelEncoder.inverse_transform([y_train[i]])[0]
+                        except Exception as e:
+                            label_to_show_val = f"Scalar/InvTransform Error: {y_train[i]} - {e}"
+                    else:
+                       label_to_show_val = f"Raw label: {y_train[i]} (shape mismatch for LE)"
+                else:
+                    label_to_show_val = f"Raw label: {y_train[i]} (LE not fit or no classes)"
+
+                plt.title(f"Sample {i} - Label: {label_to_show_val}")
+                plt.savefig(f"debug_train_sample_numpy_{i}.png")
+                plt.close()
+        print("[DEBUG Sanity Check] Finished checking sample data.")
+        # --- KẾT THÚC SANITY CHECK CODE ---
+
     #     if isinstance(X_train, tf.data.Dataset):
     #         # 1. Tính số batch mỗi epoch qua cardinality
     #         train_steps = int(tfdata_exp.cardinality(X_train).numpy())
