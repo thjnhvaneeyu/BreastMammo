@@ -100,43 +100,69 @@ def create_basic_cnn_model(num_classes: int):
     # # 5) Fully Connected
     # model.add(Dense(256, activation='relu', name='Dense_2'))
     # Block 1
-    model.add(Conv2D(
-        64, (5, 5), # Kernel 5x5, 64 filters
-        activation='relu', # Sử dụng 'relu' trực tiếp thay vì BN + Activation riêng ở lớp đầu
-        padding='same', # Thêm padding để giữ kích thước không gian
-        kernel_regularizer=regularizers.l2(lambda_val),
-        name="Conv1_5x5_64"
-    ))
-    model.add(BatchNormalization(name="BN1"))
-    model.add(Activation('relu', name="Relu1_after_BN"))
-    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+    # model.add(Conv2D(
+    #     64, (5, 5), # Kernel 5x5, 64 filters
+    #     activation='relu', # Sử dụng 'relu' trực tiếp thay vì BN + Activation riêng ở lớp đầu
+    #     padding='same', # Thêm padding để giữ kích thước không gian
+    #     kernel_regularizer=regularizers.l2(lambda_val),
+    #     name="Conv1_5x5_64"
+    # ))
+    # model.add(BatchNormalization(name="BN1"))
+    # model.add(Activation('relu', name="Relu1_after_BN"))
+    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
     
-    # Block 2
-    model.add(Conv2D(
-        128, (3, 3), # Kernel 3x3, 128 filters
-        padding='same',
-        # kernel_regularizer=regularizers.l2(lambda_val),
-        name="Conv2_3x3_128"
-    ))
-    model.add(BatchNormalization(name="BN2"))
-    model.add(Activation('relu', name="Relu2"))
-    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
+    # # Block 2
+    # model.add(Conv2D(
+    #     128, (3, 3), # Kernel 3x3, 128 filters
+    #     padding='same',
+    #     kernel_regularizer=regularizers.l2(lambda_val),
+    #     name="Conv2_3x3_128"
+    # ))
+    # model.add(BatchNormalization(name="BN2"))
+    # model.add(Activation('relu', name="Relu2"))
+    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
 
-    # Block 3 (New)
-    model.add(Conv2D(
-        64, (3, 3), # Kernel 3x3, 64 filters
-        padding='same',
-        # kernel_regularizer=regularizers.l2(lambda_val),
-        name="Conv3_3x3_64"
-    ))
-    model.add(BatchNormalization(name="BN3"))
-    model.add(Activation('relu', name="Relu3"))
-    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool3"))
+    # # Block 3 (New)
+    # model.add(Conv2D(
+    #     64, (3, 3), # Kernel 3x3, 64 filters
+    #     padding='same',
+    #     # kernel_regularizer=regularizers.l2(lambda_val),
+    #     name="Conv3_3x3_64"
+    # ))
+    # model.add(BatchNormalization(name="BN3"))
+    # model.add(Activation('relu', name="Relu3"))
+    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool3"))
     
-    model.add(Flatten(name="Flatten"))
+    # model.add(Flatten(name="Flatten"))
     # model.add(Dropout(0.3, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
     
-    model.add(Dense(512, activation='relu', name='Dense_FC_512'))
+    # model.add(Dense(512, activation='relu', name='Dense_FC_512'))
+    # Trong basic_cnn.py
+    model.add(Conv2D(32, (3, 3), padding='same', name="Conv1_32"))
+    model.add(BatchNormalization(name="BN1"))
+    model.add(Activation('relu', name="Relu1"))
+    model.add(MaxPooling2D((2, 2), name="Pool1"))
+
+    model.add(Conv2D(64, (3, 3), padding='same', name="Conv2_64"))
+    model.add(BatchNormalization(name="BN2"))
+    model.add(Activation('relu', name="Relu2"))
+    model.add(MaxPooling2D((2, 2), name="Pool2"))
+
+    model.add(Conv2D(128, (3, 3), padding='same', name="Conv3_128"))
+    model.add(BatchNormalization(name="BN3"))
+    model.add(Activation('relu', name="Relu3"))
+    model.add(MaxPooling2D((2, 2), name="Pool3"))
+
+    model.add(Conv2D(256, (3, 3), padding='same', name="Conv4_256")) # Thêm lớp
+    model.add(BatchNormalization(name="BN4"))
+    model.add(Activation('relu', name="Relu4"))
+    model.add(MaxPooling2D((2, 2), name="Pool4"))
+
+    model.add(Flatten(name="Flatten"))
+    # model.add(Dropout(0.3, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
+    model.add(Dense(512, activation='relu', name='Dense_FC1'))
+    # model.add(Dense(256, activation='relu', name='Dense_FC2')) # Có thể thêm 1 lớp Dense nữa
+    # Lớp output giữ nguyên (softmax với 2 units)
     # # 6) Output layer
     # if num_classes == 2:
     #     # Nhị phân
