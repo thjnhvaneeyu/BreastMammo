@@ -126,7 +126,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(Conv2D(
         64, (3, 3), # Kernel 3x3, 64 filters
         padding='same',
-        kernel_regularizer=regularizers.l2(lambda_val),
+        # kernel_regularizer=regularizers.l2(lambda_val),
         name="Conv3_3x3_64"
     ))
     model.add(BatchNormalization(name="BN3"))
