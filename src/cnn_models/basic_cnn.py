@@ -134,7 +134,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool3"))
     
     model.add(Flatten(name="Flatten"))
-    model.add(Dropout(0.5, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
+    model.add(Dropout(0.3, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
     
     model.add(Dense(512, activation='relu', name='Dense_FC_512'))
     # # 6) Output layer
