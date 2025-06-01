@@ -403,16 +403,52 @@ def main_logic(cli_args):
         X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
             X_train_val, y_train_val, test_size=0.25, stratify=stratify_param_inner, random_state=config.RANDOM_SEED, shuffle=True
         )
+        # if config.augment_data:
+        #     print(f"\n[INFO main_logic] Applying data augmentation to {config.dataset} training set...")
+        #     X_train_np, y_train_np_encoded = generate_image_transforms(
+        #         X_train_np, y_train_np_encoded,
+        #         apply_elastic=cli_args.apply_elastic, elastic_alpha=cli_args.elastic_alpha, elastic_sigma=cli_args.elastic_sigma,
+        #         apply_mixup=cli_args.apply_mixup, mixup_alpha=cli_args.mixup_alpha,
+        #         apply_cutmix=cli_args.apply_cutmix, cutmix_alpha=cli_args.cutmix_alpha
+        #     )
+        # y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
+        # class_weights = make_class_weights(y_train_for_weights, num_classes)
+        y_labels_for_class_weights_calc = None # Biến tạm để lưu nhãn dùng tính class weights
+
         if config.augment_data:
             print(f"\n[INFO main_logic] Applying data augmentation to {config.dataset} training set...")
-            X_train_np, y_train_np_encoded = generate_image_transforms(
-                X_train_np, y_train_np_encoded,
+            # generate_image_transforms trả về y_train_np_encoded là nhãn sau augmentation
+            X_train_np, y_train_np_encoded_after_aug = generate_image_transforms( # Đổi tên biến để rõ ràng
+                X_train_np, y_train_np, # y_train_np ở đây là one-hot từ split
                 apply_elastic=cli_args.apply_elastic, elastic_alpha=cli_args.elastic_alpha, elastic_sigma=cli_args.elastic_sigma,
                 apply_mixup=cli_args.apply_mixup, mixup_alpha=cli_args.mixup_alpha,
                 apply_cutmix=cli_args.apply_cutmix, cutmix_alpha=cli_args.cutmix_alpha
             )
-        y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
-        class_weights = make_class_weights(y_train_for_weights, num_classes)
+            # Cập nhật y_train_np để phản ánh dữ liệu sau augmentation cho các bước sau (nếu cần)
+            y_train_np = y_train_np_encoded_after_aug # Gán lại y_train_np nếu có augmentation
+            y_labels_for_class_weights_calc = y_train_np_encoded_after_aug # Dùng nhãn sau aug để tính weights
+        else:
+            # Nếu không có augmentation, nhãn để tính class_weights chính là y_train_np (one-hot gốc)
+            y_labels_for_class_weights_calc = y_train_np
+
+        # Bây giờ tính y_train_for_weights dựa trên y_labels_for_class_weights_calc
+        # Đảm bảo y_labels_for_class_weights_calc không phải là None trước khi truy cập
+        if y_labels_for_class_weights_calc is not None:
+            # Chuyển về nhãn số (1D) nếu nó đang là one-hot (2D)
+            y_train_for_weights = np.argmax(y_labels_for_class_weights_calc, axis=1) if y_labels_for_class_weights_calc.ndim > 1 and y_labels_for_class_weights_calc.shape[1] > 1 else y_labels_for_class_weights_calc
+            
+            # Kiểm tra nếu y_train_for_weights vẫn là 2D (ví dụ: (N,1)), thì flatten nó
+            if y_train_for_weights.ndim > 1 and y_train_for_weights.shape[1] == 1:
+                y_train_for_weights = y_train_for_weights.flatten()
+
+            if y_train_for_weights.size > 0:
+                class_weights = make_class_weights(y_train_for_weights, num_classes)
+            else:
+                class_weights = None
+                print("[WARN CMMD] y_train_for_weights is empty after processing, cannot calculate class_weights.")
+        else:
+            class_weights = None
+            print("[WARN CMMD] Labels for class weight calculation (y_labels_for_class_weights_calc) is None.")
 
 
 # Trong main.py, sau khi có y_train_np, y_val_np, y_test_np
