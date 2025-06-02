@@ -38,7 +38,7 @@ MOBILENET_IMG_SIZE = MOBILE_NET_IMG_SIZE
 # Số epoch tối đa không cải thiện sẽ dừng training
 early_stopping_patience = 10  
 # Số epoch không cải thiện sẽ giảm learning rate
-reduce_lr_patience      = 6  
+reduce_lr_patience      = 5  
 # Hệ số giảm learning rate mỗi lần giảm
 reduce_lr_factor        = 0.5
 # Learning rate nhỏ nhất còn cho phép

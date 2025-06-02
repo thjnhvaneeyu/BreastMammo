@@ -139,7 +139,7 @@ def create_basic_cnn_model(num_classes: int):
     
     # model.add(Dense(512, activation='relu', name='Dense_FC_512'))
     # Trong basic_cnn.py
-    model.add(Conv2D(32, (3, 3), padding='same',kernel_initializer='he_normal', name="Conv1_32"))
+    model.add(Conv2D(32, (3, 3), padding='same',kernel_initializer=regularizers.l2(lambda_val), name="Conv1_32"))
     model.add(BatchNormalization(name="BN1"))
     # model.add(Activation('relu', name="Relu1"))
     model.add(LeakyReLU(alpha=0.01, name="LeakyRelu1")) # Hoặc alpha=0.2
@@ -161,7 +161,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(MaxPooling2D((2, 2), name="Pool4"))
 
     model.add(Flatten(name="Flatten"))
-    # model.add(Dropout(0.3, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
+    model.add(Dropout(0.3, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
     model.add(Dense(512, activation='relu', name='Dense_FC1'))
     # model.add(Dense(256, activation='relu', name='Dense_FC2')) # Có thể thêm 1 lớp Dense nữa
     # Lớp output giữ nguyên (softmax với 2 units)
