@@ -70,99 +70,99 @@ def create_basic_cnn_model(num_classes: int):
     ))
     
     # 2) Convolutional + pooling layers
-    # model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
-    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
-    # model.add(Conv2D(16, (5, 5), padding='same', activation='relu', name="Conv2"))
-    # model.add(tf.keras.layers.Conv2D(
-    #     64, (5, 5),
-    #     activation='relu',
-    #     kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
-    #     name="Conv1"
-    # ))
-    # model.add(tf.keras.layers.MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+    model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
+    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+    model.add(Conv2D(16, (5, 5), padding='same', activation='relu', name="Conv2"))
+    model.add(tf.keras.layers.Conv2D(
+        64, (5, 5),
+        activation='relu',
+        kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
+        name="Conv1"
+    ))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
 
-    # model.add(tf.keras.layers.Conv2D(
-    #     32, (5, 5),
-    #     padding='same',
-    #     activation='relu',
-    #     kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
-    #     name="Conv2"
-    # ))
-    # model.add(BatchNormalization(name="BN1")) # Ngay sau Conv2D
-    # model.add(Activation('relu', name="Relu1")) # Hoặc gộp activation='relu' vào Conv2D
-    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
+    model.add(tf.keras.layers.Conv2D(
+        32, (5, 5),
+        padding='same',
+        activation='relu',
+        kernel_regularizer=regularizers.l2(lambda_val), # Added L2 regularizer
+        name="Conv2"
+    ))
+    model.add(BatchNormalization(name="BN1")) # Ngay sau Conv2D
+    model.add(Activation('relu', name="Relu1")) # Hoặc gộp activation='relu' vào Conv2D
+    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
     
-    # # 3) Flatten giờ không còn lỗi về layer thiếu input_shape
-    # model.add(Flatten(name="Flatten"))
+    # 3) Flatten giờ không còn lỗi về layer thiếu input_shape
+    model.add(Flatten(name="Flatten"))
     
-    # # 4) Dropout
-    # model.add(Dropout(0.6, seed=config.RANDOM_SEED, name="Dropout_1"))
+    # 4) Dropout
+    model.add(Dropout(0.6, seed=config.RANDOM_SEED, name="Dropout_1"))
     
-    # # 5) Fully Connected
-    # model.add(Dense(256, activation='relu', name='Dense_2'))
-    # Block 1
-    # model.add(Conv2D(
-    #     64, (5, 5), # Kernel 5x5, 64 filters
-    #     activation='relu', # Sử dụng 'relu' trực tiếp thay vì BN + Activation riêng ở lớp đầu
-    #     padding='same', # Thêm padding để giữ kích thước không gian
-    #     kernel_regularizer=regularizers.l2(lambda_val),
-    #     name="Conv1_5x5_64"
-    # ))
-    # model.add(BatchNormalization(name="BN1"))
-    # model.add(Activation('relu', name="Relu1_after_BN"))
-    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
-    
-    # # Block 2
-    # model.add(Conv2D(
-    #     128, (3, 3), # Kernel 3x3, 128 filters
-    #     padding='same',
-    #     kernel_regularizer=regularizers.l2(lambda_val),
-    #     name="Conv2_3x3_128"
-    # ))
-    # model.add(BatchNormalization(name="BN2"))
-    # model.add(Activation('relu', name="Relu2"))
-    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
-
-    # # Block 3 (New)
-    # model.add(Conv2D(
-    #     64, (3, 3), # Kernel 3x3, 64 filters
-    #     padding='same',
-    #     # kernel_regularizer=regularizers.l2(lambda_val),
-    #     name="Conv3_3x3_64"
-    # ))
-    # model.add(BatchNormalization(name="BN3"))
-    # model.add(Activation('relu', name="Relu3"))
-    # model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool3"))
-    
-    # model.add(Flatten(name="Flatten"))
-    # model.add(Dropout(0.3, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
-    
-    # model.add(Dense(512, activation='relu', name='Dense_FC_512'))
-    # Trong basic_cnn.py
-    model.add(Conv2D(32, (3, 3), padding='same',kernel_initializer=regularizers.l2(lambda_val), name="Conv1_32"))
+    # 5) Fully Connected
+    model.add(Dense(256, activation='relu', name='Dense_2'))
+    Block 1
+    model.add(Conv2D(
+        64, (5, 5), # Kernel 5x5, 64 filters
+        activation='relu', # Sử dụng 'relu' trực tiếp thay vì BN + Activation riêng ở lớp đầu
+        padding='same', # Thêm padding để giữ kích thước không gian
+        kernel_regularizer=regularizers.l2(lambda_val),
+        name="Conv1_5x5_64"
+    ))
     model.add(BatchNormalization(name="BN1"))
-    # model.add(Activation('relu', name="Relu1"))
-    model.add(LeakyReLU(alpha=0.01, name="LeakyRelu1")) # Hoặc alpha=0.2
-    model.add(MaxPooling2D((2, 2), name="Pool1"))
-
-    model.add(Conv2D(64, (3, 3), padding='same', name="Conv2_64"))
+    model.add(Activation('relu', name="Relu1_after_BN"))
+    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
+    
+    # Block 2
+    model.add(Conv2D(
+        128, (3, 3), # Kernel 3x3, 128 filters
+        padding='same',
+        kernel_regularizer=regularizers.l2(lambda_val),
+        name="Conv2_3x3_128"
+    ))
     model.add(BatchNormalization(name="BN2"))
     model.add(Activation('relu', name="Relu2"))
-    model.add(MaxPooling2D((2, 2), name="Pool2"))
+    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool2"))
 
-    model.add(Conv2D(128, (3, 3), padding='same', name="Conv3_128"))
+    # Block 3 (New)
+    model.add(Conv2D(
+        64, (3, 3), # Kernel 3x3, 64 filters
+        padding='same',
+        # kernel_regularizer=regularizers.l2(lambda_val),
+        name="Conv3_3x3_64"
+    ))
     model.add(BatchNormalization(name="BN3"))
     model.add(Activation('relu', name="Relu3"))
-    model.add(MaxPooling2D((2, 2), name="Pool3"))
-
-    model.add(Conv2D(256, (3, 3), padding='same', name="Conv4_256")) # Thêm lớp
-    model.add(BatchNormalization(name="BN4"))
-    model.add(Activation('relu', name="Relu4"))
-    model.add(MaxPooling2D((2, 2), name="Pool4"))
-
+    model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool3"))
+    
     model.add(Flatten(name="Flatten"))
-    model.add(Dropout(0.3, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
-    model.add(Dense(512, activation='relu', name='Dense_FC1'))
+    model.add(Dropout(0.3, seed=config.RANDOM_SEED if hasattr(config, 'RANDOM_SEED') else None, name="Dropout_FC")) # Tăng Dropout
+    
+    model.add(Dense(512, activation='relu', name='Dense_FC_512'))
+    # # Trong basic_cnn.py
+    # model.add(Conv2D(32, (3, 3), padding='same',kernel_initializer='he_normal', name="Conv1_32"))
+    # model.add(BatchNormalization(name="BN1"))
+    # # model.add(Activation('relu', name="Relu1"))
+    # model.add(LeakyReLU(alpha=0.01, name="LeakyRelu1")) # Hoặc alpha=0.2
+    # model.add(MaxPooling2D((2, 2), name="Pool1"))
+
+    # model.add(Conv2D(64, (3, 3), padding='same', name="Conv2_64"))
+    # model.add(BatchNormalization(name="BN2"))
+    # model.add(Activation('relu', name="Relu2"))
+    # model.add(MaxPooling2D((2, 2), name="Pool2"))
+
+    # model.add(Conv2D(128, (3, 3), padding='same', name="Conv3_128"))
+    # model.add(BatchNormalization(name="BN3"))
+    # model.add(Activation('relu', name="Relu3"))
+    # model.add(MaxPooling2D((2, 2), name="Pool3"))
+
+    # model.add(Conv2D(256, (3, 3), padding='same', name="Conv4_256")) # Thêm lớp
+    # model.add(BatchNormalization(name="BN4"))
+    # model.add(Activation('relu', name="Relu4"))
+    # model.add(MaxPooling2D((2, 2), name="Pool4"))
+
+    # model.add(Flatten(name="Flatten"))
+    # model.add(Dropout(0.3, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
+    # model.add(Dense(512, activation='relu', name='Dense_FC1'))
     # model.add(Dense(256, activation='relu', name='Dense_FC2')) # Có thể thêm 1 lớp Dense nữa
     # Lớp output giữ nguyên (softmax với 2 units)
     # # 6) Output layer
