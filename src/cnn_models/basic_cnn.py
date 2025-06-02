@@ -100,7 +100,7 @@ def create_basic_cnn_model(num_classes: int):
     
     # 5) Fully Connected
     model.add(Dense(256, activation='relu', name='Dense_2'))
-    Block 1
+    # Block 1
     model.add(Conv2D(
         64, (5, 5), # Kernel 5x5, 64 filters
         activation='relu', # Sử dụng 'relu' trực tiếp thay vì BN + Activation riêng ở lớp đầu
