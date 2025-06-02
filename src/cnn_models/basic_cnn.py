@@ -70,7 +70,7 @@ def create_basic_cnn_model(num_classes: int):
     ))
     
     # 2) Convolutional + pooling layers
-    model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
+    # model.add(Conv2D(32, (5, 5), activation='relu', name="Conv1"))
     model.add(MaxPooling2D((2, 2), strides=(2, 2), name="Pool1"))
     model.add(Conv2D(16, (5, 5), padding='same', activation='relu', name="Conv2"))
     model.add(tf.keras.layers.Conv2D(
