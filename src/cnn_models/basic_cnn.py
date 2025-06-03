@@ -164,6 +164,7 @@ def create_basic_cnn_model(num_classes: int):
     model.add(Dropout(0.2, name="Dropout_FC")) # Giảm dropout hoặc bỏ hẳn ban đầu
     model.add(Dense(512, activation='relu', name='Dense_FC1'))
     model.add(Dense(256, activation='relu', name='Dense_FC2')) # Có thể thêm 1 lớp Dense nữa
+    model.add(Dense(256, activation='relu', name='Dense_FC3')) # Có thể thêm 1 lớp Dense nữa
     # Lớp output giữ nguyên (softmax với 2 units)
     # # 6) Output layer
     # if num_classes == 2:

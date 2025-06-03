@@ -46,6 +46,9 @@ min_learning_rate       = 1e-6
 # Batch size mặc định
 batch_size              = 8
 random_state            = 42
+CLAHE_CLIP_LIMIT = 2.0
+CLAHE_TILEGRID_H = 8
+CLAHE_TILEGRID_W = 8
 # Kích thước ROI (Region of Interest)
 ROI_IMG_SIZE = {
     "HEIGHT": 224,

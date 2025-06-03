@@ -772,14 +772,40 @@ def load_inbreast_data_with_pectoral_removal(
             image_normalized_2d = np.zeros_like(single_gray_frame_2d, dtype=np.float32)
             if max_val_norm - min_val_norm > 1e-8: image_normalized_2d = (single_gray_frame_2d - min_val_norm) / (max_val_norm - min_val_norm)
             image_normalized_2d = np.clip(image_normalized_2d, 0.0, 1.0)
-
             image_after_pectoral_removal = image_normalized_2d.copy()
+
             if pectoral_roi_file_path and os.path.exists(pectoral_roi_file_path) and os.path.isdir(pectoral_roi_data_dir):
                 if config.verbose_mode: print(f"    [Pectoral Removal] Using ROI file: {os.path.basename(pectoral_roi_file_path)}")
                 image_after_pectoral_removal = clean_image_with_pectoral_removal(image_normalized_2d, pectoral_roi_file_path)
             elif config.verbose_mode:
                 print(f"    [Pectoral Removal] Skipped for {base_dicom_name_no_ext} (Pectoral ROI file '{pectoral_roi_file_name_pattern}' or alt not found in '{pectoral_roi_data_dir}').")
-                
+
+
+            # --- THÊM BƯỚC CLAHE ---
+            # CLAHE thường hoạt động tốt nhất trên ảnh uint8 (0-255)
+            # Chuyển ảnh float [0,1] sang uint8 [0,255]
+            if image_after_pectoral_removal is not None and image_after_pectoral_removal.size > 0: # Kiểm tra ảnh có tồn tại không
+                image_uint8_for_clahe = (image_after_pectoral_removal * 255).astype(np.uint8)
+
+                # Khởi tạo CLAHE
+                # clipLimit: Ngưỡng giới hạn tương phản. Giá trị cao hơn có thể làm tăng nhiễu.
+                # tileGridSize: Kích thước của các ô (tile) mà histogram equalization được áp dụng cục bộ.
+                clahe_cliplimit_val = getattr(config, 'CLAHE_CLIP_LIMIT', 2.0) # Lấy từ config nếu có, nếu không dùng default
+                clahe_tilegrid_h = getattr(config, 'CLAHE_TILEGRID_H', 8)
+                clahe_tilegrid_w = getattr(config, 'CLAHE_TILEGRID_W', 8)
+
+                clahe_processor = cv2.createCLAHE(clipLimit=clahe_cliplimit_val, tileGridSize=(clahe_tilegrid_h, clahe_tilegrid_w)) 
+                image_after_clahe_uint8 = clahe_processor.apply(image_uint8_for_clahe)
+
+                # Chuyển ảnh đã qua CLAHE trở lại float [0,1] để xử lý tiếp
+                # Gán lại vào biến image_after_pectoral_removal để các bước sau sử dụng ảnh đã qua CLAHE
+                image_after_pectoral_removal = image_after_clahe_uint8.astype(np.float32) / 255.0
+                if config.verbose_mode:
+                    print(f"    [CLAHE Applied] For DICOM: {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else patient_id_key}")
+            elif config.verbose_mode:
+                print(f"    [CLAHE Skipped] image_after_pectoral_removal is None or empty for {base_dicom_name_no_ext if 'base_dicom_name_no_ext' in locals() else patient_id_key}")
+            # -------------------------
+
             birad_value_csv = birad_map_for_lesion_label.get(patient_id_key)
             if birad_value_csv is None: continue
             current_label_text = None

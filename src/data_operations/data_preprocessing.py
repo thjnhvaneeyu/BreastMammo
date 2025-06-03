@@ -192,6 +192,21 @@ def load_inbreast_data_no_pectoral_removal(
             else:
                 current_image_processed_2d.fill(np.clip(min_val_norm, 0.0, 1.0))
             current_image_processed_2d = np.clip(current_image_processed_2d, 0.0, 1.0)
+
+            # --- THÊM BƯỚC CLAHE ---
+            # CLAHE thường hoạt động tốt nhất trên ảnh uint8 (0-255)
+            # Chuyển ảnh float [0,1] sang uint8 [0,255]
+            image_uint8_for_clahe = (current_image_processed_2d * 255).astype(np.uint8)
+
+            # Khởi tạo CLAHE
+            # clipLimit: Ngưỡng giới hạn tương phản. Giá trị cao hơn có thể làm tăng nhiễu.
+            # tileGridSize: Kích thước của các ô (tile) mà histogram equalization được áp dụng cục bộ.
+            clahe_processor = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8)) # Bạn có thể thử nghiệm các giá trị này
+            image_after_clahe_uint8 = clahe_processor.apply(image_uint8_for_clahe)
+
+            # Chuyển ảnh đã qua CLAHE trở lại float [0,1] để xử lý tiếp
+            current_image_processed_2d = image_after_clahe_uint8.astype(np.float32) / 255.0
+# -------------------------
             # min_val, max_val = np.min(final_model_input_image), np.max(final_model_input_image)
             # if max_val - min_val > 1e-8:
             #     final_model_input_image = (final_model_input_image - min_val) / (max_val - min_val)
@@ -368,6 +383,20 @@ def import_cmmd_dataset(data_dir: str, label_encoder, target_size=None) -> (np.n
                 # Load ảnh; đảm bảo ảnh grayscale 1 kênh
                 image = load_img(image_path, color_mode="grayscale", target_size=target_size)
                 image_array = img_to_array(image) / 255.0  # chuyển thành mảng và chuẩn hóa [0,1]
+                # --- THÊM BƯỚC CLAHE ---
+                # image_array ở đây đang là (H, W, 1) và giá trị float [0,1]
+                # Bỏ chiều kênh để có ảnh 2D cho CLAHE
+                image_2d_for_clahe = image_array.squeeze(axis=-1)
+                image_uint8_for_clahe = (image_2d_for_clahe * 255).astype(np.uint8)
+
+                clahe_processor = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                image_after_clahe_uint8 = clahe_processor.apply(image_uint8_for_clahe)
+
+                image_after_clahe_float = image_after_clahe_uint8.astype(np.float32) / 255.0
+
+                # Thêm lại chiều kênh để phù hợp với các bước sau
+                image_array = np.expand_dims(image_after_clahe_float, axis=-1)
+
                 images.append(image_array)
                 labels.append(label_folder)  # label chính là tên thư mục
             except Exception as e:
@@ -388,6 +417,7 @@ def import_cmmd_dataset(data_dir: str, label_encoder, target_size=None) -> (np.n
     if config.augment_data:
         images, labels = generate_image_transforms(images, labels)
     return images, labels
+
 
 def import_inbreast_full_dataset(
     data_dir: str,
