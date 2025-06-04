@@ -514,7 +514,8 @@ def main_logic(cli_args):
     elif config.run_mode.lower() == "test":
         print(f"[INFO] Running in TEST mode for {config.dataset}.")
         # Model path might need to be dataset-specific if you train separate models
-        loaded_keras_model = load_trained_model(model_name_prefix=f"{config.dataset}_{config.model}") # Example modification
+        # loaded_keras_model = load_trained_model(model_name_prefix=f"{config.dataset}_{config.model}") # Example modification
+        loaded_keras_model = load_trained_model() # Example modification
         if loaded_keras_model is None:
             print(f"[ERROR] Failed to load trained model. Attempted with prefix: {config.dataset}_{config.model}")
             raise FileNotFoundError("Failed to load trained model for testing.")
