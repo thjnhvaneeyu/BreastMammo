@@ -882,7 +882,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
     target_multiplier = 1
     dataset_name = getattr(config, 'dataset', '')
     # Đọc các hằng số multiplier từ config nếu có, nếu không dùng default
-    if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
+    if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 1))
     elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 3))
 
     # print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
