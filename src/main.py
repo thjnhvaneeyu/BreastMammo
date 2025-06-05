@@ -219,9 +219,14 @@ def main_logic(cli_args):
                 print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE.")
                 # Nếu SMOTE lỗi, tính class_weights dựa trên dữ liệu trước SMOTE
                 if class_weights is None: # Chỉ tính nếu chưa được tính (ví dụ SMOTE là False ngay từ đầu)
-                     y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
-                     class_weights = make_class_weights(y_train_for_weights, num_classes)
-                     print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
+                    #  y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
+                    #  class_weights = make_class_weights(y_train_for_weights, num_classes)
+                    y_train_for_calc_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+                    # Đảm bảo y_train_for_calc_weights là 1D nếu nó vẫn còn dạng (N,1)
+                    if y_train_for_calc_weights.ndim > 1 and y_train_for_calc_weights.shape[1] == 1:
+                        y_train_for_calc_weights = y_train_for_calc_weights.flatten()
+                    class_weights = make_class_weights(y_train_for_calc_weights, num_classes)
+                    print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
         
         # --- ĐIỀU CHỈNH CLASS_WEIGHTS THỦ CÔNG (ƯU TIÊN 3) ---
         # Logic này sẽ chạy nếu class_weights không phải None (tức là SMOTE OFF hoặc SMOTE lỗi)
