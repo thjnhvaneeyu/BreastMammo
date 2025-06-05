@@ -858,10 +858,37 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
             if img_f.shape[-1] == 2: img_f = img_f[..., :1] # Lấy kênh đầu nếu 2 kênh
         # img_f giờ là (H,W,1) hoặc (H,W,3)
 
+        # if apply_elastic:
+        #     img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05) # Thêm alpha_affine nhỏ
+        # initial_images_processed_for_aug.append(img_f)
         if apply_elastic:
-            img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05) # Thêm alpha_affine nhỏ
-        initial_images_processed_for_aug.append(img_f)
+            print(f"    [DEBUG Elastic] Processing image {img_idx} with elastic. Original img_f shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}")
+            img_f_before_elastic = img_f.copy() # Giữ bản sao để so sánh
+            try:
+                img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05)
+                if img_f is None:
+                    print(f"    [CRITICAL Elastic] Elastic transform returned None for image {img_idx}! Using original.")
+                    img_f = img_f_before_elastic # Sử dụng lại ảnh gốc nếu elastic trả về None
+                else:
+                    print(f"    [DEBUG Elastic] Image {img_idx} after elastic. Shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}, NaNs: {np.isnan(img_f).sum()}")
+            except Exception as e_elastic:
+                print(f"    [CRITICAL Elastic] Exception during elastic_transform for image {img_idx}: {e_elastic}. Using original.")
+                img_f = img_f_before_elastic # Sử dụng ảnh gốc nếu có lỗi
 
+        # Kiểm tra lại shape và dtype trước khi append
+        if not isinstance(img_f, np.ndarray) or img_f.ndim not in [2, 3] or (img_f.ndim == 3 and img_f.shape[-1] not in [1,3]):
+            print(f"    [CRITICAL Elastic] img_f for image {img_idx} has problematic shape/type after elastic processing: {img_f.shape if hasattr(img_f, 'shape') else type(img_f)}. Reverting to original for this image.")
+            # Lấy lại ảnh gốc img_orig, chuẩn hóa và đảm bảo đúng số kênh
+            temp_img_orig = img_orig.astype(np.float32)
+            if np.max(temp_img_orig) > 1.0:
+                min_v, max_v = np.min(temp_img_orig), np.max(temp_img_orig)
+                if max_v - min_v > 1e-8: temp_img_orig = (temp_img_orig - min_v) / (max_v - min_v)
+                else: temp_img_orig = np.zeros_like(temp_img_orig)
+            temp_img_orig = np.clip(temp_img_orig, 0.0, 1.0)
+            if temp_img_orig.ndim == 2: temp_img_orig = np.expand_dims(temp_img_orig, axis=-1)
+            img_f = temp_img_orig
+
+        initial_images_processed_for_aug.append(img_f)
     if not initial_images_processed_for_aug:
         return images, labels
 
