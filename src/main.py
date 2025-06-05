@@ -213,14 +213,14 @@ def main_logic(cli_args):
                 y_train_np_encoded = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
                 
                 print(f"  Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np_encoded={y_train_np_encoded.shape}")
-                y_train_np = y_train_np_encoded.astype(np.float32) 
+                # y_train_np = y_train_np_encoded.astype(np.float32) 
                 print("  Setting class_weights to None after SMOTE.")
                 class_weights = None # SMOTE đã cân bằng, không cần class weights nữa
             except ValueError as e_smote:
                 print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE.")
                 # Nếu SMOTE lỗi, tính class_weights dựa trên dữ liệu trước SMOTE
                 if class_weights is None: # Chỉ tính nếu chưa được tính (ví dụ SMOTE là False ngay từ đầu)
-                    y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 else y_train_np_encoded
+                    y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
                     class_weights = make_class_weights(y_train_for_weights, num_classes)
                     print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
         
@@ -419,15 +419,15 @@ def main_logic(cli_args):
         if config.augment_data:
             print(f"\n[INFO main_logic] Applying data augmentation to {config.dataset} training set...")
             # generate_image_transforms trả về y_train_np_encoded là nhãn sau augmentation
-            X_train_np, y_train_np_encoded_after_aug = generate_image_transforms( # Đổi tên biến để rõ ràng
+            X_train_np, y_train_np_encoded = generate_image_transforms( # Đổi tên biến để rõ ràng
                 X_train_np, y_train_np, # y_train_np ở đây là one-hot từ split
                 apply_elastic=cli_args.apply_elastic, elastic_alpha=cli_args.elastic_alpha, elastic_sigma=cli_args.elastic_sigma,
                 apply_mixup=cli_args.apply_mixup, mixup_alpha=cli_args.mixup_alpha,
                 apply_cutmix=cli_args.apply_cutmix, cutmix_alpha=cli_args.cutmix_alpha
             )
             # Cập nhật y_train_np để phản ánh dữ liệu sau augmentation cho các bước sau (nếu cần)
-            y_train_np = y_train_np_encoded_after_aug # Gán lại y_train_np nếu có augmentation
-            y_labels_for_class_weights_calc = y_train_np_encoded_after_aug # Dùng nhãn sau aug để tính weights
+            y_train_np = y_train_np_encoded # Gán lại y_train_np nếu có augmentation
+            y_labels_for_class_weights_calc = y_train_np_encoded # Dùng nhãn sau aug để tính weights
         else:
             # Nếu không có augmentation, nhãn để tính class_weights chính là y_train_np (one-hot gốc)
             y_labels_for_class_weights_calc = y_train_np
