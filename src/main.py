@@ -183,7 +183,8 @@ def main_logic(cli_args):
                 cutmix_alpha=cli_args.cutmix_alpha
             )
             print(f"  Shapes after training set augmentation: X_train={X_train_np.shape}, y_train={y_train_np_encoded.shape}")
-            
+            y_train_np = y_train_np_encoded.astype(np.float32) # Hoặc y_train_np = y_train_np_encoded
+
         # Tính class_weights SAU KHI augmentation tập train (nếu không dùng SMOTE)
         # Hoặc dựa trên tập train gốc nếu SMOTE sẽ xử lý cân bằng
         if not config.APPLY_SMOTE:
@@ -419,15 +420,15 @@ def main_logic(cli_args):
         if config.augment_data:
             print(f"\n[INFO main_logic] Applying data augmentation to {config.dataset} training set...")
             # generate_image_transforms trả về y_train_np_encoded là nhãn sau augmentation
-            X_train_np, y_train_np_encoded = generate_image_transforms( # Đổi tên biến để rõ ràng
+            X_train_np, y_train_np_encoded_after_aug = generate_image_transforms( # Đổi tên biến để rõ ràng
                 X_train_np, y_train_np, # y_train_np ở đây là one-hot từ split
                 apply_elastic=cli_args.apply_elastic, elastic_alpha=cli_args.elastic_alpha, elastic_sigma=cli_args.elastic_sigma,
                 apply_mixup=cli_args.apply_mixup, mixup_alpha=cli_args.mixup_alpha,
                 apply_cutmix=cli_args.apply_cutmix, cutmix_alpha=cli_args.cutmix_alpha
             )
             # Cập nhật y_train_np để phản ánh dữ liệu sau augmentation cho các bước sau (nếu cần)
-            y_train_np = y_train_np_encoded # Gán lại y_train_np nếu có augmentation
-            y_labels_for_class_weights_calc = y_train_np_encoded # Dùng nhãn sau aug để tính weights
+            y_train_np = y_train_np_encoded_after_aug # Gán lại y_train_np nếu có augmentation
+            y_labels_for_class_weights_calc = y_train_np_encoded_after_aug # Dùng nhãn sau aug để tính weights
         else:
             # Nếu không có augmentation, nhãn để tính class_weights chính là y_train_np (one-hot gốc)
             y_labels_for_class_weights_calc = y_train_np
