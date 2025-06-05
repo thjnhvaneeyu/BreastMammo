@@ -869,8 +869,8 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
                 if img_f is None:
                     print(f"    [CRITICAL Elastic] Elastic transform returned None for image {img_idx}! Using original.")
                     img_f = img_f_before_elastic # Sử dụng lại ảnh gốc nếu elastic trả về None
-                else:
-                    print(f"    [DEBUG Elastic] Image {img_idx} after elastic. Shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}, NaNs: {np.isnan(img_f).sum()}")
+                # else:
+                    # print(f"    [DEBUG Elastic] Image {img_idx} after elastic. Shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}, NaNs: {np.isnan(img_f).sum()}")
             except Exception as e_elastic:
                 print(f"    [CRITICAL Elastic] Exception during elastic_transform for image {img_idx}: {e_elastic}. Using original.")
                 img_f = img_f_before_elastic # Sử dụng ảnh gốc nếu có lỗi
