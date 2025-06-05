@@ -213,6 +213,7 @@ def main_logic(cli_args):
                 y_train_np_encoded = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
                 
                 print(f"  Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np_encoded={y_train_np_encoded.shape}")
+                y_train_np = y_train_np_encoded.astype(np.float32) 
                 print("  Setting class_weights to None after SMOTE.")
                 class_weights = None # SMOTE đã cân bằng, không cần class weights nữa
             except ValueError as e_smote:
@@ -500,12 +501,6 @@ def main_logic(cli_args):
             print(f"[DEBUG DTYPE PRE-FIT] X_val_np.dtype: {X_val_np.dtype}")
         if y_val_np is not None:
             print(f"[DEBUG DTYPE PRE-FIT] y_val_np.dtype: {y_val_np.dtype}")
-            print(f"[ULTIMATE DEBUG main_logic] Shapes just before cnn.train_model call:")
-            print(f"  X_train_np: {X_train_np.shape if X_train_np is not None else 'None'}")
-            print(f"  y_train_np: {y_train_np.shape if y_train_np is not None else 'None'}")
-            print(f"  X_val_np: {X_val_np.shape if X_val_np is not None else 'None'}")
-            print(f"  y_val_np: {y_val_np.shape if y_val_np is not None else 'None'}")
-            print(f"  Class weights: {class_weights}")
             cnn.train_model(X_train_np, X_val_np, y_train_np, y_val_np, class_weights)
         else: print(f"[ERROR] Training data for {config.dataset} is empty or None. Cannot train."); return
         print_runtime("Model training", time.time() - start_time_train)

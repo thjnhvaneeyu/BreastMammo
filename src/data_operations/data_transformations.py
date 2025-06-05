@@ -862,7 +862,7 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
         #     img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05) # Thêm alpha_affine nhỏ
         # initial_images_processed_for_aug.append(img_f)
         if apply_elastic:
-            print(f"    [DEBUG Elastic] Processing image {img_idx} with elastic. Original img_f shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}")
+            # print(f"    [DEBUG Elastic] Processing image {img_idx} with elastic. Original img_f shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}")
             img_f_before_elastic = img_f.copy() # Giữ bản sao để so sánh
             try:
                 img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05)
@@ -1003,13 +1003,4 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
         print(f"[FATAL ERROR generate_image_transforms] Mismatch in samples between augmented images and labels BEFORE returning!")
         # Bạn có thể raise lỗi ở đây để dừng sớm nếu muốn:
         # raise ValueError("Mismatch in samples from generate_image_transforms after augmentation")
-    # In ra shape của các list TRƯỚC khi chuyển thành np.array
-    print(f"    [DEBUG GenTransforms] Length of augmented_images_list: {len(augmented_images_list)}")
-    print(f"    [DEBUG GenTransforms] Length of augmented_labels_list: {len(augmented_labels_list)}")
-
-    final_images_np = np.array(augmented_images_list, dtype=np.float32)
-    final_labels_np = np.array(augmented_labels_list, dtype=np.float32)
-    
-    print(f"    [DEBUG GenTransforms] Shape of final_images_np after np.array(): {final_images_np.shape}")
-    print(f"    [DEBUG GenTransforms] Shape of final_labels_np after np.array(): {final_labels_np.shape}")
     return final_images_output, final_labels_output
