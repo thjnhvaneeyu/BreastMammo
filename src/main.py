@@ -220,7 +220,7 @@ def main_logic(cli_args):
                 print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE.")
                 # Nếu SMOTE lỗi, tính class_weights dựa trên dữ liệu trước SMOTE
                 if class_weights is None: # Chỉ tính nếu chưa được tính (ví dụ SMOTE là False ngay từ đầu)
-                    y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
+                    y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 else y_train_np_encoded
                     class_weights = make_class_weights(y_train_for_weights, num_classes)
                     print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
         
