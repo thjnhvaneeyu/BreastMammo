@@ -500,6 +500,12 @@ def main_logic(cli_args):
             print(f"[DEBUG DTYPE PRE-FIT] X_val_np.dtype: {X_val_np.dtype}")
         if y_val_np is not None:
             print(f"[DEBUG DTYPE PRE-FIT] y_val_np.dtype: {y_val_np.dtype}")
+            print(f"[ULTIMATE DEBUG main_logic] Shapes just before cnn.train_model call:")
+            print(f"  X_train_np: {X_train_np.shape if X_train_np is not None else 'None'}")
+            print(f"  y_train_np: {y_train_np.shape if y_train_np is not None else 'None'}")
+            print(f"  X_val_np: {X_val_np.shape if X_val_np is not None else 'None'}")
+            print(f"  y_val_np: {y_val_np.shape if y_val_np is not None else 'None'}")
+            print(f"  Class weights: {class_weights}")
             cnn.train_model(X_train_np, X_val_np, y_train_np, y_val_np, class_weights)
         else: print(f"[ERROR] Training data for {config.dataset} is empty or None. Cannot train."); return
         print_runtime("Model training", time.time() - start_time_train)
