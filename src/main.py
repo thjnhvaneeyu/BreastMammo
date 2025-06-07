@@ -212,6 +212,7 @@ def main_logic(cli_args):
                 
                 X_train_np = X_train_smote.reshape(-1, *original_X_train_shape_for_smote[1:])
                 y_train_np_encoded = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
+                y_train_np = y_train_np_encoded.astype(np.float32)
                 
                 print(f"  Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np_encoded={y_train_np_encoded.shape}")
                 # y_train_np = y_train_np_encoded.astype(np.float32) 
