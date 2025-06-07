@@ -169,111 +169,111 @@ def elastic_transform(image_array_input: np.ndarray,
     distorted_image = np.clip(distorted_image, 0.0, 1.0)
     return distorted_image.astype(np.float32)
 
-# --- HÀM MIXUP (TensorFlow) ---
-def mixup_tf(images_batch, labels_batch, alpha=0.2):
-    batch_size = tf.shape(images_batch)[0]
-    if batch_size <= 1: # Cần ít nhất 2 sample để mixup
-        return images_batch, labels_batch
-    indices = tf.random.shuffle(tf.range(batch_size))
+# # --- HÀM MIXUP (TensorFlow) ---
+# def mixup_tf(images_batch, labels_batch, alpha=0.2):
+#     batch_size = tf.shape(images_batch)[0]
+#     if batch_size <= 1: # Cần ít nhất 2 sample để mixup
+#         return images_batch, labels_batch
+#     indices = tf.random.shuffle(tf.range(batch_size))
     
-    images_shuffled = tf.gather(images_batch, indices)
-    labels_shuffled = tf.gather(labels_batch, indices)
+#     images_shuffled = tf.gather(images_batch, indices)
+#     labels_shuffled = tf.gather(labels_batch, indices)
     
-    l = tf.compat.v1.distributions.Beta(alpha, alpha).sample([]) # Lấy một scalar sample
-    l = tf.cast(l, images_batch.dtype)
+#     l = tf.compat.v1.distributions.Beta(alpha, alpha).sample([]) # Lấy một scalar sample
+#     l = tf.cast(l, images_batch.dtype)
 
-    mixed_images = l * images_batch + (1.0 - l) * images_shuffled
-    mixed_labels = l * labels_batch + (1.0 - l) * labels_shuffled
-    return mixed_images, mixed_labels
+#     mixed_images = l * images_batch + (1.0 - l) * images_shuffled
+#     mixed_labels = l * labels_batch + (1.0 - l) * labels_shuffled
+#     return mixed_images, mixed_labels
 
 # --- HÀM CUTMIX (TensorFlow) ---
-def get_random_box_tf(img_height, img_width, lam):
-    cut_rat = tf.sqrt(1. - lam) # Tỷ lệ của vùng cắt
-    cut_h = tf.cast(tf.cast(img_height, tf.float32) * cut_rat, dtype=tf.int32)
-    cut_w = tf.cast(tf.cast(img_width, tf.float32) * cut_rat, dtype=tf.int32)
+# def get_random_box_tf(img_height, img_width, lam):
+#     cut_rat = tf.sqrt(1. - lam) # Tỷ lệ của vùng cắt
+#     cut_h = tf.cast(tf.cast(img_height, tf.float32) * cut_rat, dtype=tf.int32)
+#     cut_w = tf.cast(tf.cast(img_width, tf.float32) * cut_rat, dtype=tf.int32)
 
-    # Đảm bảo kích thước vùng cắt ít nhất là 1 pixel
-    cut_h = tf.maximum(cut_h, 1)
-    cut_w = tf.maximum(cut_w, 1)
+#     # Đảm bảo kích thước vùng cắt ít nhất là 1 pixel
+#     cut_h = tf.maximum(cut_h, 1)
+#     cut_w = tf.maximum(cut_w, 1)
 
-    # Chọn tâm ngẫu nhiên cho vùng cắt
-    cx = tf.random.uniform([], 0, img_width, dtype=tf.int32)
-    cy = tf.random.uniform([], 0, img_height, dtype=tf.int32)
+#     # Chọn tâm ngẫu nhiên cho vùng cắt
+#     cx = tf.random.uniform([], 0, img_width, dtype=tf.int32)
+#     cy = tf.random.uniform([], 0, img_height, dtype=tf.int32)
 
-    # Tính tọa độ bounding box, đảm bảo nằm trong ảnh
-    bbx1 = tf.clip_by_value(cx - cut_w // 2, 0, img_width - 1)
-    bby1 = tf.clip_by_value(cy - cut_h // 2, 0, img_height - 1)
-    bbx2 = tf.clip_by_value(cx + cut_w // 2, 0, img_width -1) # Sửa: phải là cx + cut_w // 2
-    bby2 = tf.clip_by_value(cy + cut_h // 2, 0, img_height -1) # Sửa: phải là cy + cut_h // 2
+#     # Tính tọa độ bounding box, đảm bảo nằm trong ảnh
+#     bbx1 = tf.clip_by_value(cx - cut_w // 2, 0, img_width - 1)
+#     bby1 = tf.clip_by_value(cy - cut_h // 2, 0, img_height - 1)
+#     bbx2 = tf.clip_by_value(cx + cut_w // 2, 0, img_width -1) # Sửa: phải là cx + cut_w // 2
+#     bby2 = tf.clip_by_value(cy + cut_h // 2, 0, img_height -1) # Sửa: phải là cy + cut_h // 2
     
-    # Điều chỉnh lại width và height nếu clipping xảy ra
-    actual_cut_w = bbx2 - bbx1
-    actual_cut_h = bby2 - bby1
+#     # Điều chỉnh lại width và height nếu clipping xảy ra
+#     actual_cut_w = bbx2 - bbx1
+#     actual_cut_h = bby2 - bby1
 
-    # Đảm bảo width và height của box > 0
-    if actual_cut_w <= 0 or actual_cut_h <=0:
-        # Fallback: trả về một box nhỏ ở góc hoặc không làm gì cả
-        return 0,0,1,1 # Box 1x1 pixel để tránh lỗi chia cho 0
+#     # Đảm bảo width và height của box > 0
+#     if actual_cut_w <= 0 or actual_cut_h <=0:
+#         # Fallback: trả về một box nhỏ ở góc hoặc không làm gì cả
+#         return 0,0,1,1 # Box 1x1 pixel để tránh lỗi chia cho 0
 
-    return bbx1, bby1, bbx2, bby2
+#     return bbx1, bby1, bbx2, bby2
 
-def cutmix_tf(images_batch, labels_batch, alpha=1.0):
-    batch_size = tf.shape(images_batch)[0]
-    if batch_size <= 1: # Cần ít nhất 2 sample
-        return images_batch, labels_batch
+# def cutmix_tf(images_batch, labels_batch, alpha=1.0):
+#     batch_size = tf.shape(images_batch)[0]
+#     if batch_size <= 1: # Cần ít nhất 2 sample
+#         return images_batch, labels_batch
 
-    img_height = tf.shape(images_batch)[1]
-    img_width = tf.shape(images_batch)[2]
-    channels = tf.shape(images_batch)[3]
+#     img_height = tf.shape(images_batch)[1]
+#     img_width = tf.shape(images_batch)[2]
+#     channels = tf.shape(images_batch)[3]
 
-    indices = tf.random.shuffle(tf.range(batch_size))
-    images_shuffled = tf.gather(images_batch, indices)
-    labels_shuffled = tf.gather(labels_batch, indices)
+#     indices = tf.random.shuffle(tf.range(batch_size))
+#     images_shuffled = tf.gather(images_batch, indices)
+#     labels_shuffled = tf.gather(labels_batch, indices)
 
-    lam_value = tf.compat.v1.distributions.Beta(alpha, alpha).sample([])
+#     lam_value = tf.compat.v1.distributions.Beta(alpha, alpha).sample([])
 
-    bbx1, bby1, bbx2, bby2 = get_random_box_tf(img_height, img_width, lam_value)
+#     bbx1, bby1, bbx2, bby2 = get_random_box_tf(img_height, img_width, lam_value)
     
-    # Tạo mask cho vùng cần thay thế
-    mask_y = tf.sequence_mask(tf.fill([batch_size, img_width], bby2 - bby1), img_height, dtype=tf.bool)[..., bby1:bby2, :]
-    mask_x = tf.sequence_mask(tf.fill([batch_size, img_height], bbx2 - bbx1), img_width, dtype=tf.bool)[..., :, bbx1:bbx2]
+#     # Tạo mask cho vùng cần thay thế
+#     mask_y = tf.sequence_mask(tf.fill([batch_size, img_width], bby2 - bby1), img_height, dtype=tf.bool)[..., bby1:bby2, :]
+#     mask_x = tf.sequence_mask(tf.fill([batch_size, img_height], bbx2 - bbx1), img_width, dtype=tf.bool)[..., :, bbx1:bbx2]
     
-    # Điều chỉnh mask cho đúng shape
-    # mask_y shape (batch_size, H_box, W_img)
-    # mask_x shape (batch_size, H_img, W_box)
-    # Ta cần mask (batch_size, H_img, W_img)
+#     # Điều chỉnh mask cho đúng shape
+#     # mask_y shape (batch_size, H_box, W_img)
+#     # mask_x shape (batch_size, H_img, W_box)
+#     # Ta cần mask (batch_size, H_img, W_img)
     
-    y_indices = tf.range(img_height)
-    x_indices = tf.range(img_width)
-    grid_y, grid_x = tf.meshgrid(y_indices, x_indices, indexing='ij') # (H, W)
+#     y_indices = tf.range(img_height)
+#     x_indices = tf.range(img_width)
+#     grid_y, grid_x = tf.meshgrid(y_indices, x_indices, indexing='ij') # (H, W)
 
-    cut_mask_2d = (grid_y >= bby1) & (grid_y < bby2) & (grid_x >= bbx1) & (grid_x < bbx2)
-    cut_mask_4d = tf.cast(tf.expand_dims(tf.expand_dims(cut_mask_2d, axis=0), axis=-1), images_batch.dtype)
-    cut_mask_4d = tf.tile(cut_mask_4d, [batch_size, 1, 1, channels])
+#     cut_mask_2d = (grid_y >= bby1) & (grid_y < bby2) & (grid_x >= bbx1) & (grid_x < bbx2)
+#     cut_mask_4d = tf.cast(tf.expand_dims(tf.expand_dims(cut_mask_2d, axis=0), axis=-1), images_batch.dtype)
+#     cut_mask_4d = tf.tile(cut_mask_4d, [batch_size, 1, 1, channels])
 
-    mixed_images = images_batch * (1.0 - cut_mask_4d) + images_shuffled * cut_mask_4d
+#     mixed_images = images_batch * (1.0 - cut_mask_4d) + images_shuffled * cut_mask_4d
     
-    # Điều chỉnh lambda dựa trên diện tích thực tế của bounding box
-    actual_lam = 1.0 - tf.cast((bbx2 - bbx1) * (bby2 - bby1), tf.float32) / tf.cast(img_height * img_width, tf.float32)
-    actual_lam = tf.cast(actual_lam, labels_batch.dtype)
+#     # Điều chỉnh lambda dựa trên diện tích thực tế của bounding box
+#     actual_lam = 1.0 - tf.cast((bbx2 - bbx1) * (bby2 - bby1), tf.float32) / tf.cast(img_height * img_width, tf.float32)
+#     actual_lam = tf.cast(actual_lam, labels_batch.dtype)
 
-    mixed_labels = actual_lam * labels_batch + (1.0 - actual_lam) * labels_shuffled
-    return mixed_images, mixed_labels
+#     mixed_labels = actual_lam * labels_batch + (1.0 - actual_lam) * labels_shuffled
+#     return mixed_images, mixed_labels
 
-# --- HÀM CUTMIX (TensorFlow) ---
-def get_random_box_tf(img_height, img_width, lam):
-    cut_rat = tf.sqrt(1. - lam)
-    cut_h = tf.cast(tf.cast(img_height, tf.float32) * cut_rat, dtype=tf.int32)
-    cut_w = tf.cast(tf.cast(img_width, tf.float32) * cut_rat, dtype=tf.int32)
+# # --- HÀM CUTMIX (TensorFlow) ---
+# def get_random_box_tf(img_height, img_width, lam):
+#     cut_rat = tf.sqrt(1. - lam)
+#     cut_h = tf.cast(tf.cast(img_height, tf.float32) * cut_rat, dtype=tf.int32)
+#     cut_w = tf.cast(tf.cast(img_width, tf.float32) * cut_rat, dtype=tf.int32)
 
-    cx = tf.random.uniform([], 0, img_width, dtype=tf.int32)
-    cy = tf.random.uniform([], 0, img_height, dtype=tf.int32)
+#     cx = tf.random.uniform([], 0, img_width, dtype=tf.int32)
+#     cy = tf.random.uniform([], 0, img_height, dtype=tf.int32)
 
-    bbx1 = tf.clip_by_value(cx - cut_w // 2, 0, img_width)
-    bby1 = tf.clip_by_value(cy - cut_h // 2, 0, img_height)
-    bbx2 = tf.clip_by_value(cx + cut_w // 2, 0, img_width)
-    bby2 = tf.clip_by_value(cy + cut_h // 2, 0, img_height)
-    return bbx1, bby1, bbx2, bby2
+#     bbx1 = tf.clip_by_value(cx - cut_w // 2, 0, img_width)
+#     bby1 = tf.clip_by_value(cy - cut_h // 2, 0, img_height)
+#     bbx2 = tf.clip_by_value(cx + cut_w // 2, 0, img_width)
+#     bby2 = tf.clip_by_value(cy + cut_h // 2, 0, img_height)
+#     return bbx1, bby1, bbx2, bby2
 
 def sample_benign_patch(full_img: np.ndarray, x0: int, y0: int, w: int, h: int) -> np.ndarray:
     """Randomly crop a non-overlapping benign region of size (h,w)."""
@@ -329,9 +329,9 @@ def augment_roi_patch(full_img: np.ndarray, coords: list, target_size: tuple=Non
     patch = cv2.resize(mixed, (W, H), interpolation=cv2.INTER_AREA)
     return patch[..., np.newaxis].astype(np.float32)
 
-def label_is_binary(labels):
-    # Kiểm tra nếu labels là mảng 1D chứa toàn số (0/1) => binary
-    return labels.ndim == 1 or (labels.ndim == 2 and labels.shape[1] == 1)
+# def label_is_binary(labels):
+#     # Kiểm tra nếu labels là mảng 1D chứa toàn số (0/1) => binary
+#     return labels.ndim == 1 or (labels.ndim == 2 and labels.shape[1] == 1)
 
 # ... (các hàm random_rotation, random_noise, horizontal_flip, random_shearing,
 # random_zoom, random_contrast, create_individual_transform, get_class_balances
@@ -439,39 +439,39 @@ def random_shearing(image_array: np.ndarray):
     tf = sk.transform.AffineTransform(shear=random_degree)
     return sk.transform.warp(image_array, tf, order=1, preserve_range=True, mode='wrap')
 
-def get_class_balances(y_vals):
-    """
-    Đếm số lượng mẫu cho mỗi lớp trong y_vals.
-    Trả về list [count_class0, count_class1, ...].
-    """
-    if config.dataset == "mini-MIAS":
-        # multi-class (nhãn one-hot)
-        num_classes = y_vals.shape[1]  # số cột = số lớp
-        counts = np.zeros(num_classes, dtype=int)
-        for y in y_vals:
-            # y là vector one-hot, cộng dồn cho class index tương ứng
-            counts += y.astype(int)
-    elif config.dataset == "mini-MIAS-binary" or config.dataset == "CMMD-binary":
-        # binary (nhãn 0/1 dạng số)
-        counts = np.zeros(2, dtype=int)
-        for y in y_vals:
-            if y == 0: counts[0] += 1
-            elif y == 1: counts[1] += 1
-    else:
-        # Mặc định cho các trường hợp khác (nếu label one-hot)
-        try:
-            num_classes = y_vals.shape[1]
-        except IndexError:
-            num_classes = len(np.unique(y_vals))
-        counts = np.zeros(num_classes, dtype=int)
-        for y in y_vals:
-            if isinstance(y, np.ndarray):
-                # nếu one-hot vector
-                counts += y.astype(int)
-            else:
-                # nếu label số
-                counts[int(y)] += 1
-    return counts.tolist()
+# def get_class_balances(y_vals):
+#     """
+#     Đếm số lượng mẫu cho mỗi lớp trong y_vals.
+#     Trả về list [count_class0, count_class1, ...].
+#     """
+#     if config.dataset == "mini-MIAS":
+#         # multi-class (nhãn one-hot)
+#         num_classes = y_vals.shape[1]  # số cột = số lớp
+#         counts = np.zeros(num_classes, dtype=int)
+#         for y in y_vals:
+#             # y là vector one-hot, cộng dồn cho class index tương ứng
+#             counts += y.astype(int)
+#     elif config.dataset == "mini-MIAS-binary" or config.dataset == "CMMD-binary":
+#         # binary (nhãn 0/1 dạng số)
+#         counts = np.zeros(2, dtype=int)
+#         for y in y_vals:
+#             if y == 0: counts[0] += 1
+#             elif y == 1: counts[1] += 1
+#     else:
+#         # Mặc định cho các trường hợp khác (nếu label one-hot)
+#         try:
+#             num_classes = y_vals.shape[1]
+#         except IndexError:
+#             num_classes = len(np.unique(y_vals))
+#         counts = np.zeros(num_classes, dtype=int)
+#         for y in y_vals:
+#             if isinstance(y, np.ndarray):
+#                 # nếu one-hot vector
+#                 counts += y.astype(int)
+#             else:
+#                 # nếu label số
+#                 counts[int(y)] += 1
+#     return counts.tolist()
 
 def random_rotation(image_array: np.ndarray) -> np.ndarray:
     """
@@ -525,36 +525,36 @@ def random_contrast(image_array: np.ndarray) -> np.ndarray:
     vmin, vmax = np.percentile(image_array, [low_p, high_p])
     return sk.exposure.rescale_intensity(image_array, in_range=(vmin, vmax), out_range=(0, 1))
 
-def create_individual_transform(image: np.ndarray, transforms: dict) -> np.ndarray:
-    """
-    Apply a random combination of transforms to a single image.
-    """
-    num = random.randint(1, len(transforms))
-    transformed = image.copy()
-    for _ in range(num):
-        func = random.choice(list(transforms.values()))
-        transformed = func(transformed)
-    return transformed
+# def create_individual_transform(image: np.ndarray, transforms: dict) -> np.ndarray:
+#     """
+#     Apply a random combination of transforms to a single image.
+#     """
+#     num = random.randint(1, len(transforms))
+#     transformed = image.copy()
+#     for _ in range(num):
+#         func = random.choice(list(transforms.values()))
+#         transformed = func(transformed)
+#     return transformed
 
-def label_is_binary(labels: np.ndarray) -> bool:
-    """
-    Check if labels are binary (0/1) scalar array.
-    """
-    arr = np.array(labels)
-    return arr.ndim == 1 or (arr.ndim == 2 and arr.shape[1] == 1)
+# def label_is_binary(labels: np.ndarray) -> bool:
+#     """
+#     Check if labels are binary (0/1) scalar array.
+#     """
+#     arr = np.array(labels)
+#     return arr.ndim == 1 or (arr.ndim == 2 and arr.shape[1] == 1)
 
-def get_class_balances(y_vals: np.ndarray) -> list:
-    """
-    Count samples per class in y_vals.
-    Returns [count_class0, count_class1, ...].
-    """
-    arr = np.array(y_vals)
-    if arr.ndim == 2 and arr.shape[1] > 1:
-        return list(arr.sum(axis=0).astype(int))
-    else:
-        unique, counts = np.unique(arr, return_counts=True)
-        return [int(counts[unique.tolist().index(i)]) if i in unique else 0
-                for i in range(len(unique))]
+# def get_class_balances(y_vals: np.ndarray) -> list:
+#     """
+#     Count samples per class in y_vals.
+#     Returns [count_class0, count_class1, ...].
+#     """
+#     arr = np.array(y_vals)
+#     if arr.ndim == 2 and arr.shape[1] > 1:
+#         return list(arr.sum(axis=0).astype(int))
+#     else:
+#         unique, counts = np.unique(arr, return_counts=True)
+#         return [int(counts[unique.tolist().index(i)]) if i in unique else 0
+#                 for i in range(len(unique))]
 
 import random
 import numpy as np
@@ -718,40 +718,75 @@ def random_brightness_adjustment(image_array: np.ndarray, factor_range: tuple = 
 # ==============================================================
 # 2. Hàm tạo biến đổi kết hợp (giữ nguyên)
 # ==============================================================
-def create_individual_transform(image: np.ndarray, transforms: dict):
-    if image.ndim == 2:
-        image = np.expand_dims(image, axis=-1)
-    elif image.ndim == 3 and image.shape[-1] != 1:
-        image = image[..., :1]
-    if image.shape[-1] != 1:
-         return image.astype(np.float32)
+# def create_individual_transform(image: np.ndarray, transforms: dict):
+#     if image.ndim == 2:
+#         image = np.expand_dims(image, axis=-1)
+#     elif image.ndim == 3 and image.shape[-1] != 1:
+#         image = image[..., :1]
+#     if image.shape[-1] != 1:
+#          return image.astype(np.float32)
 
-    num_transformations_to_apply = random.randint(1, len(transforms))
+#     num_transformations_to_apply = random.randint(1, len(transforms))
+#     transformed_image = image.copy()
+#     applied_keys = random.sample(list(transforms.keys()), num_transformations_to_apply)
+#     for key in applied_keys:
+#         transformed_image = transforms[key](transformed_image)
+#         if transformed_image is None:
+#             transformed_image = image.copy()
+#             continue
+#         if transformed_image.ndim == 3 and transformed_image.shape[-1] != 1:
+#             if transformed_image.shape[-1] == 3:
+#                  gray_img = sk.color.rgb2gray(transformed_image)
+#                  transformed_image = np.expand_dims(gray_img, axis=-1)
+#             elif transformed_image.shape[-1] == 4:
+#                  gray_img = sk.color.rgb2gray(sk.color.rgba2rgb(transformed_image))
+#                  transformed_image = np.expand_dims(gray_img, axis=-1)
+#             else:
+#                  transformed_image = transformed_image[..., 0:1]
+#         elif transformed_image.ndim == 2:
+#              transformed_image = np.expand_dims(transformed_image, axis=-1)
+#         if transformed_image.ndim != 3 or transformed_image.shape[-1] != 1:
+#              transformed_image = image.copy()
+#              break
+#     if transformed_image.ndim != 3 or transformed_image.shape[-1] != 1:
+#          return image.copy().astype(np.float32)
+#     return transformed_image.astype(np.float32)
+def create_individual_transform(image: np.ndarray, transforms: dict) -> np.ndarray:
+    """
+    Apply a random combination of transformations to a single image.
+    This corrected version handles both grayscale and RGB images without unwanted channel reduction.
+    """
+    # Tạo bản sao để không thay đổi ảnh gốc
     transformed_image = image.copy()
-    applied_keys = random.sample(list(transforms.keys()), num_transformations_to_apply)
-    for key in applied_keys:
-        transformed_image = transforms[key](transformed_image)
-        if transformed_image is None:
-            transformed_image = image.copy()
-            continue
-        if transformed_image.ndim == 3 and transformed_image.shape[-1] != 1:
-            if transformed_image.shape[-1] == 3:
-                 gray_img = sk.color.rgb2gray(transformed_image)
-                 transformed_image = np.expand_dims(gray_img, axis=-1)
-            elif transformed_image.shape[-1] == 4:
-                 gray_img = sk.color.rgb2gray(sk.color.rgba2rgb(transformed_image))
-                 transformed_image = np.expand_dims(gray_img, axis=-1)
-            else:
-                 transformed_image = transformed_image[..., 0:1]
-        elif transformed_image.ndim == 2:
-             transformed_image = np.expand_dims(transformed_image, axis=-1)
-        if transformed_image.ndim != 3 or transformed_image.shape[-1] != 1:
-             transformed_image = image.copy()
-             break
-    if transformed_image.ndim != 3 or transformed_image.shape[-1] != 1:
-         return image.copy().astype(np.float32)
-    return transformed_image.astype(np.float32)
 
+    # Đảm bảo ảnh đầu vào có ít nhất 3 chiều (H, W, C)
+    if transformed_image.ndim == 2:
+        # Nếu ảnh là 2D (H, W), thêm chiều kênh vào cuối
+        transformed_image = np.expand_dims(transformed_image, axis=-1)
+
+    # Logic cũ có vấn đề đã được gỡ bỏ. Các hàm transform từ skimage
+    # thường có thể tự xử lý ảnh đa kênh.
+
+    # Chọn ngẫu nhiên số lượng phép biến đổi để áp dụng
+    num_transformations_to_apply = random.randint(1, len(transforms))
+    # Chọn ngẫu nhiên các phép biến đổi từ danh sách
+    applied_keys = random.sample(list(transforms.keys()), num_transformations_to_apply)
+
+    for key in applied_keys:
+        transform_func = transforms[key]
+        transformed_image = transform_func(transformed_image)
+
+        # Kiểm tra sau mỗi phép biến đổi để đảm bảo shape không bị thay đổi không mong muốn
+        if transformed_image.ndim == 2:
+             transformed_image = np.expand_dims(transformed_image, axis=-1)
+
+        if transformed_image.shape[-1] != image.shape[-1]:
+            print(f"Warning: Transform '{key}' changed channel count from {image.shape[-1]} to {transformed_image.shape[-1]}. This may cause issues.")
+            # Trong trường hợp phức tạp, bạn có thể muốn xử lý thêm ở đây
+            # nhưng với các transform hiện tại, việc này ít khả năng xảy ra
+            # nếu input đã được chuẩn hóa.
+
+    return transformed_image.astype(np.float32)
 # ==============================================================
 # 3. Hàm đếm số lượng lớp (giữ nguyên)
 # ==============================================================
