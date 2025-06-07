@@ -59,54 +59,119 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 #     return model
 
-def create_densenet121_model(num_classes: int):
-    """
-    Function to create a DenseNet121 model pre-trained with custom FC Layers.
-    :param num_classes: The number of classes (labels).
-    :return: The DenseNet121 model.
-    """
-    # Sử dụng giá trị từ config một cách an toàn
-    img_height = getattr(config, 'DENSE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
-    img_width = getattr(config, 'DENSE_NET_IMG_SIZE', {}).get('WIDTH', 224)
+# def create_densenet121_model(num_classes: int):
+#     """
+#     Function to create a DenseNet121 model pre-trained with custom FC Layers.
+#     :param num_classes: The number of classes (labels).
+#     :return: The DenseNet121 model.
+#     """
+#     # Sử dụng giá trị từ config một cách an toàn
+#     img_height = getattr(config, 'DENSE_NET_IMG_SIZE', {}).get('HEIGHT', 224)
+#     img_width = getattr(config, 'DENSE_NET_IMG_SIZE', {}).get('WIDTH', 224)
 
-    # Reconfigure single channel input into a greyscale 3 channel input
-    img_input = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
-    img_conc = Concatenate(name="Input_RGB_Grayscale")([img_input, img_input, img_input])
+#     # Reconfigure single channel input into a greyscale 3 channel input
+#     img_input = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
+#     img_conc = Concatenate(name="Input_RGB_Grayscale")([img_input, img_input, img_input])
 
-    # Generate a DenseNet121 model with pre-trained ImageNet weights
-    model_base = DenseNet121(include_top=False, weights="imagenet", input_tensor=img_conc)
+#     # Generate a DenseNet121 model with pre-trained ImageNet weights
+#     model_base = DenseNet121(include_top=False, weights="imagenet", input_tensor=img_conc)
 
-    # Get the output of the base model
-    x = model_base.output
+#     # Get the output of the base model
+#     x = model_base.output
     
-    # Add custom top layers
-    x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) # Thường dùng GAP sau backbone
-    # Hoặc Flatten nếu muốn: x = Flatten(name="Flatten")(x)
+#     # Add custom top layers
+#     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x) # Thường dùng GAP sau backbone
+#     # Hoặc Flatten nếu muốn: x = Flatten(name="Flatten")(x)
 
-    # Fully connected layers.
-    # Sử dụng giá trị từ config một cách an toàn
-    random_seed_val = getattr(config, 'RANDOM_SEED', None)
-    x = Dropout(0.2, seed=random_seed_val, name="Dropout_1")(x)
-    x = Dense(units=512, activation='relu', name='Dense_1')(x)
-    x = Dense(units=32, activation='relu', name='Dense_2')(x)
+#     # Fully connected layers.
+#     # Sử dụng giá trị từ config một cách an toàn
+#     random_seed_val = getattr(config, 'RANDOM_SEED', None)
+#     x = Dropout(0.2, seed=random_seed_val, name="Dropout_1")(x)
+#     x = Dense(units=512, activation='relu', name='Dense_1')(x)
+#     x = Dense(units=32, activation='relu', name='Dense_2')(x)
 
-    # Final output layer - Đã sửa đổi
-    if num_classes == 2:
-        # Nhị phân, nhưng target là one-hot (2 classes) và loss là CategoricalCrossentropy
-        outputs = Dense(num_classes, activation='softmax', name='Output')(x)
-    elif num_classes > 2:
-        outputs = Dense(num_classes, activation='softmax', name='Output')(x)
-    else: # num_classes = 1 hoặc < 1
-        print(f"[WARNING] densenet121: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
-        outputs = Dense(1, activation='sigmoid', name='Output')(x)
+#     # Final output layer - Đã sửa đổi
+#     if num_classes == 2:
+#         # Nhị phân, nhưng target là one-hot (2 classes) và loss là CategoricalCrossentropy
+#         outputs = Dense(num_classes, activation='softmax', name='Output')(x)
+#     elif num_classes > 2:
+#         outputs = Dense(num_classes, activation='softmax', name='Output')(x)
+#     else: # num_classes = 1 hoặc < 1
+#         print(f"[WARNING] densenet121: num_classes is {num_classes}. Defaulting output to 1 neuron with sigmoid for safety, but review CnnModel's compile logic.")
+#         outputs = Dense(1, activation='sigmoid', name='Output')(x)
         
-    # Create the final model
-    model = Model(inputs=img_input, outputs=outputs, name="DenseNet121_Custom")
+#     # Create the final model
+#     model = Model(inputs=img_input, outputs=outputs, name="DenseNet121_Custom")
 
-    # Print model details if running in debug mode.
-    verbose_mode_val = getattr(config, 'verbose_mode', False)
-    if verbose_mode_val:
-        print("CNN Model used (DenseNet121_Custom):")
-        model.summary()
+#     # Print model details if running in debug mode.
+#     verbose_mode_val = getattr(config, 'verbose_mode', False)
+#     if verbose_mode_val:
+#         print("CNN Model used (DenseNet121_Custom):")
+#         model.summary()
+
+#     return model
+
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Lambda, Concatenate
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
+from tensorflow.keras.models import Model
+from tensorflow.keras.applications import DenseNet121
+from tensorflow.keras import backend as K
+
+
+def create_densenet121_model(input_shape=(224, 224, 3), num_classes=2):
+    """
+    Tạo một model DenseNet121 linh hoạt, có thể xử lý đầu vào 1 kênh hoặc 3 kênh.
+
+    Args:
+        input_shape (tuple): Shape của ảnh đầu vào. Ví dụ: (224, 224, 1) cho ảnh xám
+                             hoặc (224, 224, 3) cho ảnh màu.
+        num_classes (int): Số lượng lớp đầu ra.
+
+    Returns:
+        A Keras Model.
+    """
+    # Định nghĩa lớp Input với shape được cung cấp
+    img_input = Input(shape=input_shape, name='flexible_input')
+
+    # --- Phần logic xử lý kênh ---
+    # Sử dụng Lambda layer để kiểm tra và xử lý số kênh của tensor đầu vào.
+    # Logic này sẽ được thực thi bên trong graph của TensorFlow.
+    def channel_handler(x):
+        # Lấy số kênh của tensor x một cách linh hoạt
+        num_channels = K.shape(x)[-1]
+
+        # Sử dụng tf.cond để tạo logic if-else trong model
+        # tf.cond(condition, true_fn, false_fn)
+        # - condition: tf.equal(num_channels, 1) -> Kiểm tra xem có phải 1 kênh không
+        # - true_fn: Nếu đúng (1 kênh), thực hiện concatenate để nhân 3 kênh.
+        # - false_fn: Nếu sai (đã là 3 kênh), trả về chính nó.
+        return tf.cond(
+            tf.equal(num_channels, 1),
+            lambda: Concatenate(axis=-1, name='concat_to_3_channels')([x, x, x]),
+            lambda: x
+        )
+
+    # Áp dụng logic xử lý kênh thông qua Lambda layer
+    processed_input = Lambda(channel_handler, name='channel_processing_lambda')(img_input)
+
+    # --- Phần còn lại của model ---
+    # Giờ đây, 'processed_input' chắc chắn là 3 kênh, an toàn để đưa vào DenseNet121
+    base_model = DenseNet121(
+        weights='imagenet',
+        include_top=False,
+        input_tensor=processed_input
+    )
+
+    # Thêm các lớp tùy chỉnh (custom layers) ở cuối
+    x = base_model.output
+    x = GlobalAveragePooling2D(name='GlobalAvgPool')(x)
+    x = Dropout(0.5, name='Dropout_1')(x)
+    x = Dense(512, activation='relu', name='Dense_1')(x)
+    x = Dense(32, activation='relu', name='Dense_2')(x)
+    output = Dense(num_classes, activation='softmax', name='Output')(x)
+
+    # Tạo model cuối cùng
+    model = Model(inputs=img_input, outputs=output, name="DenseNet121_Flexible")
 
     return model
