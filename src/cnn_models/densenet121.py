@@ -109,43 +109,60 @@ ssl._create_default_https_context = ssl._create_unverified_context
 #         print("CNN Model used (DenseNet121_Custom):")
 #         model.summary()
 
-#     return model
+    return model
 
-
-def create_densenet121_model(num_classes: int, input_shape: tuple):
+def create_densenet121_model(num_classes: int):
     """
-    Function to create a flexible DenseNet121 model that accepts 1-channel or 3-channel input.
+    Function to create a DenseNet121 model that flexibly handles input channels
+    by mimicking the logic from create_mobilenet_model.
     :param num_classes: The number of classes (labels).
-    :param input_shape: The shape of the input images, e.g., (224, 224, 1) or (224, 224, 3).
     """
-    # Lấy số kênh từ input_shape
-    num_channels = input_shape[2]
-
-    # Định nghĩa lớp Input linh hoạt dựa trên shape được cung cấp
-    img_input = Input(shape=input_shape, name="flexible_input")
-
-    # --- LOGIC XỬ LÝ KÊNH ĐẦU VÀO ---
-    # Kiểm tra số kênh để quyết định có cần concatenate hay không
-    if num_channels == 1:
-        # Nếu đầu vào là ảnh xám (1 kênh), nhân 3 để tạo thành tensor 3 kênh
-        print("[INFO] Input is 1-channel. Concatenating to 3 channels.")
-        processed_input = Concatenate(name="concat_to_3_channels")([img_input, img_input, img_input])
-    elif num_channels == 3:
-        # Nếu đầu vào đã là 3 kênh, sử dụng trực tiếp
-        print("[INFO] Input is 3-channel. Using it directly.")
-        processed_input = img_input
-    else:
-        # Ném ra lỗi nếu số kênh không được hỗ trợ
-        raise ValueError(f"Unsupported number of channels: {num_channels}. Expected 1 or 3.")
-
-    # Generate a DenseNet121 model with pre-trained ImageNet weights
-    # 'processed_input' giờ đây chắc chắn là 3 kênh
-    model_base = DenseNet121(include_top=False, weights="imagenet", input_tensor=processed_input)
-
-    # Lấy output của model cơ sở
-    x = model_base.output
+    # Đọc cấu hình ảnh từ biến config
+    img_config = getattr(config, 'DENSE_NET_IMG_SIZE', {})
+    img_height = img_config.get('HEIGHT', 224)
+    img_width = img_config.get('WIDTH', 224)
     
-    # Thêm các lớp tùy chỉnh (giữ nguyên như code của bạn)
+    # --- LOGIC XỬ LÝ KÊNH THEO TÊN DATASET ---
+    # Bắt chước chính xác logic từ hàm create_mobilenet_model
+    final_model_input_layer = None 
+    tensor_fed_to_densenet_base = None
+
+    dataset_name_upper = getattr(config, 'dataset', '').upper()
+
+    if dataset_name_upper == "INBREAST":
+        # INbreast: Dữ liệu đã là 3 kênh, sử dụng trực tiếp.
+        print("[INFO DenseNet] Dataset is INBREAST. Expecting 3-channel input.")
+        inp_rgb = Input(shape=(img_height, img_width, 3), name="Input_RGB_INbreast_DenseNet")
+        tensor_fed_to_densenet_base = inp_rgb
+        final_model_input_layer = inp_rgb
+
+    elif dataset_name_upper == "CMMD":
+        # CMMD: Dữ liệu là 1 kênh, cần ghép lại thành 3.
+        print("[INFO DenseNet] Dataset is CMMD. Expecting 1-channel input, will concatenate.")
+        inp_gray = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_CMMD_DenseNet")
+        concatenated_rgb = Concatenate(name="CMMD_DenseNet_Grayscale_to_RGB")([inp_gray, inp_gray, inp_gray])
+        tensor_fed_to_densenet_base = concatenated_rgb
+        final_model_input_layer = inp_gray # Input của model tổng thể là 1 kênh
+
+    else: # Trường hợp mặc định cho các dataset khác
+        print(f"[INFO DenseNet] Dataset '{config.dataset}' not specifically handled. Assuming 1-channel input, will concatenate.")
+        inp_gray_default = Input(shape=(img_height, img_width, 1), name="Input_Grayscale_Default_DenseNet")
+        concatenated_default_rgb = Concatenate(name="Default_DenseNet_Grayscale_to_RGB")([inp_gray_default, inp_gray_default, inp_gray_default])
+        tensor_fed_to_densenet_base = concatenated_default_rgb
+        final_model_input_layer = inp_gray_default
+
+    # Kiểm tra để đảm bảo các tensor đã được tạo
+    if tensor_fed_to_densenet_base is None or final_model_input_layer is None:
+        raise ValueError(f"Critical Error: Input tensors for DenseNet could not be constructed for dataset '{config.dataset}'.")
+    
+    # --- KẾT THÚC LOGIC XỬ LÝ KÊNH ---
+
+    # Generate a DenseNet121 model with pre-trained ImageNet weights.
+    # `tensor_fed_to_densenet_base` giờ đây chắc chắn là 3 kênh.
+    model_base = DenseNet121(include_top=False, weights="imagenet", input_tensor=tensor_fed_to_densenet_base)
+
+    # Giữ nguyên toàn bộ logic phía sau của bạn
+    x = model_base.output
     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x)
 
     random_seed_val = getattr(config, 'RANDOM_SEED', None)
@@ -153,7 +170,6 @@ def create_densenet121_model(num_classes: int, input_shape: tuple):
     x = Dense(units=512, activation='relu', name='Dense_1')(x)
     x = Dense(units=32, activation='relu', name='Dense_2')(x)
 
-    # Lớp output cuối cùng (giữ nguyên logic của bạn)
     if num_classes == 2:
         outputs = Dense(num_classes, activation='softmax', name='Output')(x)
     elif num_classes > 2:
@@ -162,12 +178,12 @@ def create_densenet121_model(num_classes: int, input_shape: tuple):
         print(f"[WARNING] densenet121: num_classes is {num_classes}. Defaulting to 1 neuron with sigmoid.")
         outputs = Dense(1, activation='sigmoid', name='Output')(x)
         
-    # Tạo model cuối cùng
-    model = Model(inputs=img_input, outputs=outputs, name="DenseNet121_Flexible")
+    # Tạo model cuối cùng với input layer chính xác
+    model = Model(inputs=final_model_input_layer, outputs=outputs, name=f"DenseNet121_Custom_{config.dataset}")
 
     verbose_mode_val = getattr(config, 'verbose_mode', False)
     if verbose_mode_val:
-        print("CNN Model used (DenseNet121_Flexible):")
+        print(f"--- DenseNet121_Custom ({config.dataset}) Summary ---")
         model.summary()
 
     return model
