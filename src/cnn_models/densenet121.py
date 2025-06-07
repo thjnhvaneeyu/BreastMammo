@@ -109,7 +109,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 #         print("CNN Model used (DenseNet121_Custom):")
 #         model.summary()
 
-    return model
+    # return model
 
 def create_densenet121_model(num_classes: int):
     """
