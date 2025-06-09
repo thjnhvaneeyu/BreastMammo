@@ -192,40 +192,81 @@ def main_logic(cli_args):
             class_weights = make_class_weights(y_train_for_weights, num_classes)
             print(f"[INFO main_logic] Calculated class_weights (SMOTE is OFF): {class_weights}")
         
-        # --- ÁP DỤNG SMOTE (NẾU CÓ) CHỈ CHO TẬP HUẤN LUYỆN ---
-        if config.APPLY_SMOTE:
-            print(f"\n[INFO main_logic] Applying SMOTE to INbreast training data...")
-            # SMOTE cần X_train_np có shape (n_samples, n_features)
-            # và y_train_np_encoded ở dạng nhãn số 1D
+        # # --- ÁP DỤNG SMOTE (NẾU CÓ) CHỈ CHO TẬP HUẤN LUYỆN ---
+        # if config.APPLY_SMOTE:
+        #     print(f"\n[INFO main_logic] Applying SMOTE to INbreast training data...")
+        #     # SMOTE cần X_train_np có shape (n_samples, n_features)
+        #     # và y_train_np_encoded ở dạng nhãn số 1D
             
-            original_y_train_shape_for_smote = y_train_np_encoded.shape
-            y_train_labels_for_smote = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded.astype(int)
+        #     original_y_train_shape_for_smote = y_train_np_encoded.shape
+        #     y_train_labels_for_smote = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded.astype(int)
             
-            print(f"  Original y_train distribution before SMOTE: {Counter(y_train_labels_for_smote)}")
-            original_X_train_shape_for_smote = X_train_np.shape
-            X_train_reshaped_for_smote = X_train_np.reshape(original_X_train_shape_for_smote[0], -1)
+        #     print(f"  Original y_train distribution before SMOTE: {Counter(y_train_labels_for_smote)}")
+        #     original_X_train_shape_for_smote = X_train_np.shape
+        #     X_train_reshaped_for_smote = X_train_np.reshape(original_X_train_shape_for_smote[0], -1)
 
-            smote_instance = SMOTE(random_state=config.RANDOM_SEED)
-            try:
-                X_train_smote, y_train_smote_labels = smote_instance.fit_resample(X_train_reshaped_for_smote, y_train_labels_for_smote)
-                print(f"  y_train distribution after SMOTE: {Counter(y_train_smote_labels)}")
+        #     smote_instance = SMOTE(random_state=config.RANDOM_SEED)
+        #     try:
+        #         X_train_smote, y_train_smote_labels = smote_instance.fit_resample(X_train_reshaped_for_smote, y_train_labels_for_smote)
+        #         print(f"  y_train distribution after SMOTE: {Counter(y_train_smote_labels)}")
                 
-                X_train_np = X_train_smote.reshape(-1, *original_X_train_shape_for_smote[1:])
-                y_train_np_encoded = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
-                y_train_np = y_train_np_encoded.astype(np.float32)
+        #         X_train_np = X_train_smote.reshape(-1, *original_X_train_shape_for_smote[1:])
+        #         y_train_np_encoded = tf.keras.utils.to_categorical(y_train_smote_labels, num_classes=num_classes)
+        #         y_train_np = y_train_np_encoded.astype(np.float32)
                 
-                print(f"  Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np_encoded={y_train_np_encoded.shape}")
-                # y_train_np = y_train_np_encoded.astype(np.float32) 
-                print("  Setting class_weights to None after SMOTE.")
-                class_weights = None # SMOTE đã cân bằng, không cần class weights nữa
-            except ValueError as e_smote:
-                print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE.")
-                # Nếu SMOTE lỗi, tính class_weights dựa trên dữ liệu trước SMOTE
-                if class_weights is None: # Chỉ tính nếu chưa được tính (ví dụ SMOTE là False ngay từ đầu)
-                    y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
-                    class_weights = make_class_weights(y_train_for_weights, num_classes)
-                    print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
-        
+        #         print(f"  Shapes after SMOTE: X_train_np={X_train_np.shape}, y_train_np_encoded={y_train_np_encoded.shape}")
+        #         # y_train_np = y_train_np_encoded.astype(np.float32) 
+        #         print("  Setting class_weights to None after SMOTE.")
+        #         class_weights = None # SMOTE đã cân bằng, không cần class weights nữa
+        #     except ValueError as e_smote:
+        #         print(f"[ERROR main_logic] SMOTE failed: {e_smote}. Proceeding without SMOTE.")
+        #         # Nếu SMOTE lỗi, tính class_weights dựa trên dữ liệu trước SMOTE
+        #         if class_weights is None: # Chỉ tính nếu chưa được tính (ví dụ SMOTE là False ngay từ đầu)
+        #             y_train_for_weights = np.argmax(y_train_np_encoded, axis=1) if y_train_np_encoded.ndim > 1 else y_train_np_encoded
+        #             class_weights = make_class_weights(y_train_for_weights, num_classes)
+        #             print(f"  Calculated class_weights (SMOTE failed/skipped): {class_weights}")
+        if config.APPLY_SMOTE:
+            print("\n--- Kịch bản: Áp dụng SMOTE ---")
+            
+            # 1. Reshape dữ liệu X_train từ 4D về 2D để SMOTE có thể xử lý
+            # (số_mẫu, chiều_cao, chiều_rộng, số_kênh) -> (số_mẫu, chiều_cao * chiều_rộng * số_kênh)
+            original_shape = X_train_np.shape
+            X_train_reshaped = X_train_np.reshape(original_shape[0], -1)
+            print(f"Đã reshape X_train thành: {X_train_reshaped.shape} để đưa vào SMOTE.")
+
+            # 2. Khởi tạo và áp dụng SMOTE
+            # random_state để đảm bảo kết quả lặp lại được
+            smote_instance = SMOTE(random_state=42)
+            X_train_resampled, y_train_resampled = smote_instance.fit_resample(X_train_reshaped, y_train_np)
+            
+            print("\n[INFO] Đã áp dụng SMOTE.")
+            print(f"Phân phối lớp y_train sau khi SMOTE: {Counter(y_train_resampled)}")
+
+            # 3. Reshape X_train lại về dạng ảnh 4D ban đầu
+            X_train_np = X_train_resampled.reshape(-1, original_shape[1], original_shape[2], original_shape[3])
+            y_train_np = y_train_resampled # Cập nhật y_train với dữ liệu đã cân bằng
+            print(f"Đã reshape X_train lại thành dạng ảnh: {X_train_np.shape}")
+            
+            # 4. Vì đã cân bằng dữ liệu bằng SMOTE, không cần dùng class weights nữa
+            class_weights = None
+            print("[INFO] Class weights được đặt thành None vì đã sử dụng SMOTE.")
+
+        else:
+            print("\n--- Kịch bản: KHÔNG áp dụng SMOTE, tính Class Weights ---")
+            
+            # 1. Tính toán trọng số lớp để bù lại sự mất cân bằng
+            # Sử dụng hàm tiện ích của scikit-learn để đảm bảo tính toán chính xác
+            # Nhãn phải ở dạng 1D (ví dụ: [0, 1, 0, 0, 1])
+            class_labels = np.unique(y_train_np)
+            weights = make_class_weights(
+                class_weight='balanced',
+                classes=class_labels,
+                y=y_train_np
+            )
+            # Tạo một dictionary từ trọng số đã tính, ví dụ: {0: 0.55, 1: 5.0}
+            class_weights = dict(zip(class_labels, weights))
+            print(f"[INFO] Class weights được tính toán (SMOTE is OFF): {class_weights}")
+                
         # --- ĐIỀU CHỈNH CLASS_WEIGHTS THỦ CÔNG (ƯU TIÊN 3) ---
         # Logic này sẽ chạy nếu class_weights không phải None (tức là SMOTE OFF hoặc SMOTE lỗi)
         # HOẶC nếu SMOTE ON nhưng bạn vẫn muốn boost (manual_weight_boost > 1.0)

@@ -20,10 +20,10 @@ def preprocess_image(image_array):
     smoothed_image = gaussian_filter(normalized_image, sigma=0.5)
     # 3. Histogram Equalization for contrast
     uint8_image = (smoothed_image * 255).astype(np.uint8)
-    equalized_image = cv2.equalizeHist(uint8_image)
+    # equalized_image = cv2.equalizeHist(uint8_image)
     # 4. Resize to 224x224 with padding to maintain aspect ratio
     desired_size = 224
-    image_pil = Image.fromarray(equalized_image)
+    image_pil = Image.fromarray(uint8_image)
     old_size = image_pil.size  # (width, height)
     ratio = float(desired_size) / max(old_size)
     new_size = tuple([int(x * ratio) for x in old_size])
