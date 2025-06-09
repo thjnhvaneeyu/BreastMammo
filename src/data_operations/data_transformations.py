@@ -853,189 +853,316 @@ def label_is_binary(labels: np.ndarray) -> bool:
 # 5. Hàm Augmentation chính (CẬP NHẬT)
 # ==============================================================
 # --- HÀM AUGMENTATION CHÍNH ---
+# def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
+#                               apply_elastic: bool = False, elastic_alpha: float = 34.0, elastic_sigma: float = 4.0,
+#                               apply_mixup: bool = False, mixup_alpha: float = 0.2,
+#                               apply_cutmix: bool = False, cutmix_alpha: float = 1.0
+#                               ):
+#     # print(f"[generate_image_transforms] Initial shapes: images={images.shape}, labels={labels.shape}")
+#     # print(f"  Flags: Elastic={apply_elastic} (a:{elastic_alpha},s:{elastic_sigma}), MixUp={apply_mixup} (a:{mixup_alpha}), CutMix={apply_cutmix} (a:{cutmix_alpha})")
+
+#     is_binary_scalar_original = label_is_binary(labels) # Lưu lại dạng nhãn gốc
+    
+#     # 1. Chuẩn bị labels_one_hot (luôn là float32)
+#     if is_binary_scalar_original:
+#         num_classes = 2
+#         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
+#     elif labels.ndim == 2 and labels.shape[1] > 1: # Đã là one-hot
+#         num_classes = labels.shape[1]
+#         labels_one_hot = labels.astype(np.float32)
+#     else: # Nhãn số đa lớp
+#         unique_labels_count = len(np.unique(labels.ravel()))
+#         num_classes = unique_labels_count if unique_labels_count > 0 else (int(np.max(labels)) + 1 if labels.size > 0 else 2)
+#         if num_classes == 0 : num_classes = 2 # Fallback
+#         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
+#     # print(f"    [INFO Aug] num_classes determined: {num_classes}, labels_one_hot shape: {labels_one_hot.shape}")
+
+#     # 2. Chuẩn bị initial_images_processed_for_aug
+#     initial_images_processed_for_aug = []
+#     for img_idx, img_orig in enumerate(images):
+#         img_f = img_orig.astype(np.float32)
+#         if np.max(img_f) > 1.0: # Chuẩn hóa nếu chưa
+#             min_v, max_v = np.min(img_f), np.max(img_f)
+#             if max_v - min_v > 1e-8: img_f = (img_f - min_v) / (max_v - min_v)
+#             else: img_f = np.zeros_like(img_f)
+#         img_f = np.clip(img_f, 0.0, 1.0)
+
+#         if img_f.ndim == 2: img_f = np.expand_dims(img_f, axis=-1)
+#         elif img_f.ndim == 3:
+#             if img_f.shape[-1] > 3 : img_f = sk.color.rgba2rgb(img_f) # RGBA -> RGB
+#             if img_f.shape[-1] == 2: img_f = img_f[..., :1] # Lấy kênh đầu nếu 2 kênh
+#         # img_f giờ là (H,W,1) hoặc (H,W,3)
+
+#         # if apply_elastic:
+#         #     img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05) # Thêm alpha_affine nhỏ
+#         # initial_images_processed_for_aug.append(img_f)
+#         if apply_elastic:
+#             # print(f"    [DEBUG Elastic] Processing image {img_idx} with elastic. Original img_f shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}")
+#             img_f_before_elastic = img_f.copy() # Giữ bản sao để so sánh
+#             try:
+#                 img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05)
+#                 if img_f is None:
+#                     print(f"    [CRITICAL Elastic] Elastic transform returned None for image {img_idx}! Using original.")
+#                     img_f = img_f_before_elastic # Sử dụng lại ảnh gốc nếu elastic trả về None
+#                 # else:
+#                     # print(f"    [DEBUG Elastic] Image {img_idx} after elastic. Shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}, NaNs: {np.isnan(img_f).sum()}")
+#             except Exception as e_elastic:
+#                 print(f"    [CRITICAL Elastic] Exception during elastic_transform for image {img_idx}: {e_elastic}. Using original.")
+#                 img_f = img_f_before_elastic # Sử dụng ảnh gốc nếu có lỗi
+
+#         # Kiểm tra lại shape và dtype trước khi append
+#         if not isinstance(img_f, np.ndarray) or img_f.ndim not in [2, 3] or (img_f.ndim == 3 and img_f.shape[-1] not in [1,3]):
+#             print(f"    [CRITICAL Elastic] img_f for image {img_idx} has problematic shape/type after elastic processing: {img_f.shape if hasattr(img_f, 'shape') else type(img_f)}. Reverting to original for this image.")
+#             # Lấy lại ảnh gốc img_orig, chuẩn hóa và đảm bảo đúng số kênh
+#             temp_img_orig = img_orig.astype(np.float32)
+#             if np.max(temp_img_orig) > 1.0:
+#                 min_v, max_v = np.min(temp_img_orig), np.max(temp_img_orig)
+#                 if max_v - min_v > 1e-8: temp_img_orig = (temp_img_orig - min_v) / (max_v - min_v)
+#                 else: temp_img_orig = np.zeros_like(temp_img_orig)
+#             temp_img_orig = np.clip(temp_img_orig, 0.0, 1.0)
+#             if temp_img_orig.ndim == 2: temp_img_orig = np.expand_dims(temp_img_orig, axis=-1)
+#             img_f = temp_img_orig
+
+#         initial_images_processed_for_aug.append(img_f)
+#     if not initial_images_processed_for_aug:
+#         return images, labels
+
+#     augmented_images_list = list(initial_images_processed_for_aug)
+#     augmented_labels_list = list(labels_one_hot)
+
+#     # 3. Logic cân bằng lớp và áp dụng basic_transforms
+#     # basic_transforms = {
+#     #     'rotate': random_rotation, 'noise': random_noise, 'horizontal_flip': horizontal_flip,
+#     #     'shear': random_shearing, 'gamma_correction': gamma_correction,
+#     #     'zoom': random_zoom, 'contrast': random_contrast,
+#     #     'gaussian_blur': random_gaussian_blur, 'brightness_adjust': random_brightness_adjustment
+#     # }
+#     basic_transforms = {
+#         'rotate': random_rotation, 'horizontal_flip': horizontal_flip,
+#         'shear': random_shearing, 'gamma_correction': gamma_correction
+#     }
+#     target_multiplier = 1
+#     dataset_name = getattr(config, 'dataset', '')
+#     # Đọc các hằng số multiplier từ config nếu có, nếu không dùng default
+#     if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
+#     elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 1))
+
+#     # print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
+
+#     class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
+#     # print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
+
+#     # if not class_counts or num_classes == 0:
+#     #     print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
+#     # else:
+#     #     target_count_per_class = max(class_counts) * target_multiplier if class_counts and len(class_counts) > 0 else 0
+#     if not class_counts or num_classes == 0 or len(class_counts) != num_classes or not any(c > 0 for c in class_counts):
+#         print("    [WARN Aug] Invalid class_counts or num_classes. Skipping basic augmentation/balancing.")
+#     else:
+#         # Mục tiêu là làm cho tất cả các lớp có ít nhất số lượng mẫu bằng lớp đa số hiện tại,
+#         # sau đó nhân thêm nếu target_multiplier > 1.
+#         max_present_class_count = 0
+#         for count in class_counts:
+#             if count > 0: max_present_class_count = max(max_present_class_count, count)
+        
+#         if max_present_class_count == 0: # Không có mẫu nào trong bất kỳ lớp nào
+#             print("    [WARN Aug] All class counts are zero. Skipping augmentation.")
+#         else:
+#             # Mục tiêu cuối cùng cho mỗi lớp
+#             target_count_per_class = max_present_class_count * target_multiplier
+#             # print(f"    [INFO Aug] Max present class count: {max_present_class_count}. Final target count per class: {final_target_count_per_class}")
+
+#         for class_idx in range(num_classes):
+#             current_class_count_for_idx = class_counts[class_idx] if class_idx < len(class_counts) else 0
+#             num_to_generate = target_count_per_class - current_class_count_for_idx
+            
+#             if num_to_generate <= 0: continue
+
+#             original_indices_for_class = [j for j, lab_vec in enumerate(labels_one_hot) if lab_vec[class_idx] == 1.0]
+#             if not original_indices_for_class: continue
+            
+#             # print(f"    [INFO] Aug: Basic augmenting class {class_idx}: Need {num_to_generate} more from {len(original_indices_for_class)} originals.")
+
+#             for k in range(int(num_to_generate)): # Chuyển sang int
+#                 original_image_idx = original_indices_for_class[k % len(original_indices_for_class)]
+#                 # Lấy ảnh đã qua elastic (nếu có) để làm cơ sở cho transform cơ bản
+#                 original_image_for_transform = initial_images_processed_for_aug[original_image_idx]
+                
+#                 transformed_image = create_individual_transform(original_image_for_transform, basic_transforms)
+#                 augmented_images_list.append(transformed_image)
+#                 augmented_labels_list.append(labels_one_hot[original_image_idx].copy())
+
+#     final_images_np = np.array(augmented_images_list, dtype=np.float32)
+#     final_labels_np = np.array(augmented_labels_list, dtype=np.float32)
+
+#     # 4. Áp dụng MixUp
+#     if apply_mixup and final_images_np.shape[0] > 1:
+#         if final_images_np.ndim == 3: final_images_np = np.expand_dims(final_images_np, axis=-1)
+#         # Đảm bảo số kênh hợp lệ cho MixUp (thường là 1 hoặc 3)
+#         if final_images_np.ndim == 4 and final_images_np.shape[-1] not in [1, 3]:
+#              final_images_np = final_images_np[..., :1] # Lấy kênh đầu
+        
+#         tf_images = tf.convert_to_tensor(final_images_np, dtype=tf.float32)
+#         tf_labels = tf.convert_to_tensor(final_labels_np, dtype=tf.float32)
+#         if tf.shape(tf_images)[0] > 0: # Kiểm tra batch không rỗng
+#             tf_images, tf_labels = mixup_tf(tf_images, tf_labels, alpha=mixup_alpha)
+#             final_images_np = tf_images.numpy()
+#             final_labels_np = tf_labels.numpy()
+
+#     # 5. Áp dụng CutMix
+#     if apply_cutmix and final_images_np.shape[0] > 1:
+#         if final_images_np.ndim == 3: final_images_np = np.expand_dims(final_images_np, axis=-1)
+#         if final_images_np.ndim == 4 and final_images_np.shape[-1] not in [1, 3]:
+#              final_images_np = final_images_np[..., :1]
+
+#         tf_images = tf.convert_to_tensor(final_images_np, dtype=tf.float32)
+#         tf_labels = tf.convert_to_tensor(final_labels_np, dtype=tf.float32)
+#         if tf.shape(tf_images)[0] > 0:
+#             tf_images, tf_labels = cutmix_tf(tf_images, tf_labels, alpha=cutmix_alpha)
+#             final_images_np = tf.clip_by_value(tf_images, 0.0, 1.0).numpy()
+#             final_labels_np = tf_labels.numpy()
+    
+#     final_images_output = final_images_np
+#     final_labels_output = final_labels_np
+
+#     # 6. Xử lý nhãn cuối cùng: Nếu nhãn gốc là binary scalar, chuyển lại từ one-hot/mixed
+#     if is_binary_scalar_original and final_labels_output.ndim > 1 and final_labels_output.shape[1] == 2 :
+#         final_labels_output = np.argmax(final_labels_output, axis=1)
+#     elif is_binary_scalar_original and final_labels_output.ndim == 1 and num_classes == 2:
+#         # Đã là scalar, nhưng có thể là float do mixup, làm tròn
+#         final_labels_output = np.round(final_labels_output).astype(int)
+
+
+#     # print(f"[generate_image_transforms] DEBUG Final output shapes before return: images={final_images_output.shape}, labels={final_labels_output.shape}")
+#     if final_images_output.shape[0] != final_labels_output.shape[0]:
+#         print(f"[FATAL ERROR generate_image_transforms] Mismatch in samples between augmented images and labels BEFORE returning!")
+#         # Bạn có thể raise lỗi ở đây để dừng sớm nếu muốn:
+#         # raise ValueError("Mismatch in samples from generate_image_transforms after augmentation")
+#     return final_images_output, final_labels_output
+
+# === PHIÊN BẢN HÀM generate_image_transforms ĐÃ ĐƯỢC TINH CHỈNH ===
+# Giữ nguyên hoàn toàn chữ ký hàm và tên biến của bạn
 def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
                               apply_elastic: bool = False, elastic_alpha: float = 34.0, elastic_sigma: float = 4.0,
                               apply_mixup: bool = False, mixup_alpha: float = 0.2,
                               apply_cutmix: bool = False, cutmix_alpha: float = 1.0
                               ):
-    # print(f"[generate_image_transforms] Initial shapes: images={images.shape}, labels={labels.shape}")
-    # print(f"  Flags: Elastic={apply_elastic} (a:{elastic_alpha},s:{elastic_sigma}), MixUp={apply_mixup} (a:{mixup_alpha}), CutMix={apply_cutmix} (a:{cutmix_alpha})")
-
-    is_binary_scalar_original = label_is_binary(labels) # Lưu lại dạng nhãn gốc
+    """
+    Tăng cường và cân bằng dữ liệu ảnh bằng phương pháp oversampling.
+    Hàm này được tinh chỉnh từ code gốc để đảm bảo logic rõ ràng và mạnh mẽ hơn.
+    """
+    print("[INFO Augment] Bắt đầu quá trình tăng cường và oversampling...")
+    # --- BƯỚC 1: CHUẨN BỊ NHÃN (Giữ nguyên logic của bạn) ---
+    is_binary_scalar_original = label_is_binary(labels)
     
-    # 1. Chuẩn bị labels_one_hot (luôn là float32)
     if is_binary_scalar_original:
         num_classes = 2
         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
-    elif labels.ndim == 2 and labels.shape[1] > 1: # Đã là one-hot
+    elif labels.ndim == 2 and labels.shape[1] > 1:
         num_classes = labels.shape[1]
         labels_one_hot = labels.astype(np.float32)
-    else: # Nhãn số đa lớp
-        unique_labels_count = len(np.unique(labels.ravel()))
-        num_classes = unique_labels_count if unique_labels_count > 0 else (int(np.max(labels)) + 1 if labels.size > 0 else 2)
-        if num_classes == 0 : num_classes = 2 # Fallback
+    else:
+        num_classes = len(np.unique(labels)) if labels.size > 0 else 2
         labels_one_hot = tf.keras.utils.to_categorical(labels, num_classes=num_classes).astype(np.float32)
-    # print(f"    [INFO Aug] num_classes determined: {num_classes}, labels_one_hot shape: {labels_one_hot.shape}")
-
-    # 2. Chuẩn bị initial_images_processed_for_aug
+    
+    # --- BƯỚC 2: CHUẨN HÓA VÀ ÁP DỤNG ELASTIC TRANSFORM (NẾU CÓ) ---
     initial_images_processed_for_aug = []
-    for img_idx, img_orig in enumerate(images):
+    for img_orig in images:
+        # Chuẩn hóa ảnh về [0, 1]
         img_f = img_orig.astype(np.float32)
-        if np.max(img_f) > 1.0: # Chuẩn hóa nếu chưa
+        if np.max(img_f) > 1.0:
             min_v, max_v = np.min(img_f), np.max(img_f)
-            if max_v - min_v > 1e-8: img_f = (img_f - min_v) / (max_v - min_v)
-            else: img_f = np.zeros_like(img_f)
+            img_f = (img_f - min_v) / (max_v - min_v + 1e-8)
         img_f = np.clip(img_f, 0.0, 1.0)
+        
+        # Đảm bảo ảnh có kênh (channel)
+        if img_f.ndim == 2:
+            img_f = np.expand_dims(img_f, axis=-1)
 
-        if img_f.ndim == 2: img_f = np.expand_dims(img_f, axis=-1)
-        elif img_f.ndim == 3:
-            if img_f.shape[-1] > 3 : img_f = sk.color.rgba2rgb(img_f) # RGBA -> RGB
-            if img_f.shape[-1] == 2: img_f = img_f[..., :1] # Lấy kênh đầu nếu 2 kênh
-        # img_f giờ là (H,W,1) hoặc (H,W,3)
-
-        # if apply_elastic:
-        #     img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05) # Thêm alpha_affine nhỏ
-        # initial_images_processed_for_aug.append(img_f)
+        # Áp dụng Elastic Transform nếu được yêu cầu
         if apply_elastic:
-            # print(f"    [DEBUG Elastic] Processing image {img_idx} with elastic. Original img_f shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}")
-            img_f_before_elastic = img_f.copy() # Giữ bản sao để so sánh
-            try:
-                img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma, alpha_affine=0.05)
-                if img_f is None:
-                    print(f"    [CRITICAL Elastic] Elastic transform returned None for image {img_idx}! Using original.")
-                    img_f = img_f_before_elastic # Sử dụng lại ảnh gốc nếu elastic trả về None
-                # else:
-                    # print(f"    [DEBUG Elastic] Image {img_idx} after elastic. Shape: {img_f.shape}, dtype: {img_f.dtype}, min: {np.min(img_f):.2f}, max: {np.max(img_f):.2f}, NaNs: {np.isnan(img_f).sum()}")
-            except Exception as e_elastic:
-                print(f"    [CRITICAL Elastic] Exception during elastic_transform for image {img_idx}: {e_elastic}. Using original.")
-                img_f = img_f_before_elastic # Sử dụng ảnh gốc nếu có lỗi
-
-        # Kiểm tra lại shape và dtype trước khi append
-        if not isinstance(img_f, np.ndarray) or img_f.ndim not in [2, 3] or (img_f.ndim == 3 and img_f.shape[-1] not in [1,3]):
-            print(f"    [CRITICAL Elastic] img_f for image {img_idx} has problematic shape/type after elastic processing: {img_f.shape if hasattr(img_f, 'shape') else type(img_f)}. Reverting to original for this image.")
-            # Lấy lại ảnh gốc img_orig, chuẩn hóa và đảm bảo đúng số kênh
-            temp_img_orig = img_orig.astype(np.float32)
-            if np.max(temp_img_orig) > 1.0:
-                min_v, max_v = np.min(temp_img_orig), np.max(temp_img_orig)
-                if max_v - min_v > 1e-8: temp_img_orig = (temp_img_orig - min_v) / (max_v - min_v)
-                else: temp_img_orig = np.zeros_like(temp_img_orig)
-            temp_img_orig = np.clip(temp_img_orig, 0.0, 1.0)
-            if temp_img_orig.ndim == 2: temp_img_orig = np.expand_dims(temp_img_orig, axis=-1)
-            img_f = temp_img_orig
+            img_f = elastic_transform(img_f, alpha=elastic_alpha, sigma=elastic_sigma)
 
         initial_images_processed_for_aug.append(img_f)
+
     if not initial_images_processed_for_aug:
+        print("[LỖI Augment] Không xử lý được ảnh nào. Trả về dữ liệu gốc.")
         return images, labels
 
+    # --- BƯỚC 3: OVERSAMPLING VỚI CÁC PHÉP BIẾN ĐỔI CƠ BẢN ---
     augmented_images_list = list(initial_images_processed_for_aug)
     augmented_labels_list = list(labels_one_hot)
 
-    # 3. Logic cân bằng lớp và áp dụng basic_transforms
-    # basic_transforms = {
-    #     'rotate': random_rotation, 'noise': random_noise, 'horizontal_flip': horizontal_flip,
-    #     'shear': random_shearing, 'gamma_correction': gamma_correction,
-    #     'zoom': random_zoom, 'contrast': random_contrast,
-    #     'gaussian_blur': random_gaussian_blur, 'brightness_adjust': random_brightness_adjustment
-    # }
     basic_transforms = {
-        'rotate': random_rotation, 'horizontal_flip': horizontal_flip,
-        'shear': random_shearing, 'gamma_correction': gamma_correction
+        'rotate': random_rotation,
+        'horizontal_flip': horizontal_flip,
+        'shear': random_shearing,
+        'gamma_correction': gamma_correction
     }
-    target_multiplier = 1
+    transform_keys = list(basic_transforms.keys())
+
+    # Xác định số lượng mẫu mục tiêu
     dataset_name = getattr(config, 'dataset', '')
-    # Đọc các hằng số multiplier từ config nếu có, nếu không dùng default
-    if dataset_name == "INbreast": target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
-    elif dataset_name in ["mini-MIAS-binary", "CMMD-binary", "CMMD"]: target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 1))
+    if dataset_name == "INbreast":
+        target_multiplier = int(getattr(config, 'INBREAST_AUG_MULTIPLIER', 3))
+    else: # Mặc định cho CMMD và các bộ khác
+        target_multiplier = int(getattr(config, 'BINARY_AUG_MULTIPLIER', 2))
 
-    # print(f"    [INFO Aug] Augmentation target_multiplier for {dataset_name}: {target_multiplier}")
-
-    class_counts = get_class_balances(labels_one_hot) # labels_one_hot là (N, num_classes)
-    # print(f"    [INFO Aug] Initial class counts (from one-hot labels): {class_counts}")
-
-    # if not class_counts or num_classes == 0:
-    #     print("    [WARN] Aug: Could not determine class balance or num_classes is 0. Skipping basic augmentation.")
-    # else:
-    #     target_count_per_class = max(class_counts) * target_multiplier if class_counts and len(class_counts) > 0 else 0
-    if not class_counts or num_classes == 0 or len(class_counts) != num_classes or not any(c > 0 for c in class_counts):
-        print("    [WARN Aug] Invalid class_counts or num_classes. Skipping basic augmentation/balancing.")
+    class_counts = get_class_balances(labels_one_hot)
+    
+    if not class_counts or max(class_counts) == 0:
+        print("[CẢNH BÁO Augment] Không tìm thấy mẫu nào trong các lớp. Bỏ qua oversampling.")
     else:
-        # Mục tiêu là làm cho tất cả các lớp có ít nhất số lượng mẫu bằng lớp đa số hiện tại,
-        # sau đó nhân thêm nếu target_multiplier > 1.
-        max_present_class_count = 0
-        for count in class_counts:
-            if count > 0: max_present_class_count = max(max_present_class_count, count)
-        
-        if max_present_class_count == 0: # Không có mẫu nào trong bất kỳ lớp nào
-            print("    [WARN Aug] All class counts are zero. Skipping augmentation.")
-        else:
-            # Mục tiêu cuối cùng cho mỗi lớp
-            target_count_per_class = max_present_class_count * target_multiplier
-            # print(f"    [INFO Aug] Max present class count: {max_present_class_count}. Final target count per class: {final_target_count_per_class}")
+        target_count_per_class = max(class_counts) * target_multiplier
+        print(f"[INFO Augment] Mục tiêu oversampling: {target_count_per_class} mẫu mỗi lớp.")
 
         for class_idx in range(num_classes):
-            current_class_count_for_idx = class_counts[class_idx] if class_idx < len(class_counts) else 0
-            num_to_generate = target_count_per_class - current_class_count_for_idx
+            current_class_count = class_counts[class_idx]
+            num_to_generate = target_count_per_class - current_class_count
             
-            if num_to_generate <= 0: continue
+            if num_to_generate <= 0:
+                continue
 
-            original_indices_for_class = [j for j, lab_vec in enumerate(labels_one_hot) if lab_vec[class_idx] == 1.0]
-            if not original_indices_for_class: continue
+            print(f"  > Lớp {class_idx}: Cần tạo thêm {num_to_generate} mẫu.")
+            original_indices_for_class = [j for j, lab_vec in enumerate(labels_one_hot) if np.argmax(lab_vec) == class_idx]
             
-            # print(f"    [INFO] Aug: Basic augmenting class {class_idx}: Need {num_to_generate} more from {len(original_indices_for_class)} originals.")
+            if not original_indices_for_class:
+                continue
 
-            for k in range(int(num_to_generate)): # Chuyển sang int
-                original_image_idx = original_indices_for_class[k % len(original_indices_for_class)]
-                # Lấy ảnh đã qua elastic (nếu có) để làm cơ sở cho transform cơ bản
+            for _ in range(int(num_to_generate)):
+                # Chọn ngẫu nhiên một ảnh gốc (đã qua elastic) để biến đổi
+                original_image_idx = random.choice(original_indices_for_class)
                 original_image_for_transform = initial_images_processed_for_aug[original_image_idx]
                 
-                transformed_image = create_individual_transform(original_image_for_transform, basic_transforms)
+                # Chọn và áp dụng một phép biến đổi cơ bản ngẫu nhiên
+                # Đây là logic thay thế cho hàm create_individual_transform
+                transform_name = random.choice(transform_keys)
+                transformed_image = basic_transforms[transform_name](original_image_for_transform)
+
                 augmented_images_list.append(transformed_image)
                 augmented_labels_list.append(labels_one_hot[original_image_idx].copy())
 
+    # Chuyển đổi list về lại numpy array
     final_images_np = np.array(augmented_images_list, dtype=np.float32)
     final_labels_np = np.array(augmented_labels_list, dtype=np.float32)
 
-    # 4. Áp dụng MixUp
+    # --- BƯỚC 4 & 5: ÁP DỤNG MIXUP / CUTMIX (Giữ nguyên logic của bạn) ---
     if apply_mixup and final_images_np.shape[0] > 1:
-        if final_images_np.ndim == 3: final_images_np = np.expand_dims(final_images_np, axis=-1)
-        # Đảm bảo số kênh hợp lệ cho MixUp (thường là 1 hoặc 3)
-        if final_images_np.ndim == 4 and final_images_np.shape[-1] not in [1, 3]:
-             final_images_np = final_images_np[..., :1] # Lấy kênh đầu
-        
-        tf_images = tf.convert_to_tensor(final_images_np, dtype=tf.float32)
-        tf_labels = tf.convert_to_tensor(final_labels_np, dtype=tf.float32)
-        if tf.shape(tf_images)[0] > 0: # Kiểm tra batch không rỗng
-            tf_images, tf_labels = mixup_tf(tf_images, tf_labels, alpha=mixup_alpha)
-            final_images_np = tf_images.numpy()
-            final_labels_np = tf_labels.numpy()
+        print("[INFO Augment] Áp dụng MixUp...")
+        tf_images, tf_labels = mixup_tf(tf.convert_to_tensor(final_images_np), tf.convert_to_tensor(final_labels_np), alpha=mixup_alpha)
+        final_images_np, final_labels_np = tf_images.numpy(), tf_labels.numpy()
 
-    # 5. Áp dụng CutMix
     if apply_cutmix and final_images_np.shape[0] > 1:
-        if final_images_np.ndim == 3: final_images_np = np.expand_dims(final_images_np, axis=-1)
-        if final_images_np.ndim == 4 and final_images_np.shape[-1] not in [1, 3]:
-             final_images_np = final_images_np[..., :1]
+        print("[INFO Augment] Áp dụng CutMix...")
+        tf_images, tf_labels = cutmix_tf(tf.convert_to_tensor(final_images_np), tf.convert_to_tensor(final_labels_np), alpha=cutmix_alpha)
+        final_images_np, final_labels_np = tf.clip_by_value(tf_images, 0.0, 1.0).numpy(), tf_labels.numpy()
 
-        tf_images = tf.convert_to_tensor(final_images_np, dtype=tf.float32)
-        tf_labels = tf.convert_to_tensor(final_labels_np, dtype=tf.float32)
-        if tf.shape(tf_images)[0] > 0:
-            tf_images, tf_labels = cutmix_tf(tf_images, tf_labels, alpha=cutmix_alpha)
-            final_images_np = tf.clip_by_value(tf_images, 0.0, 1.0).numpy()
-            final_labels_np = tf_labels.numpy()
-    
     final_images_output = final_images_np
     final_labels_output = final_labels_np
 
-    # 6. Xử lý nhãn cuối cùng: Nếu nhãn gốc là binary scalar, chuyển lại từ one-hot/mixed
-    if is_binary_scalar_original and final_labels_output.ndim > 1 and final_labels_output.shape[1] == 2 :
+    # --- BƯỚC 6: XỬ LÝ NHÃN CUỐI CÙNG (Giữ nguyên logic của bạn) ---
+    if is_binary_scalar_original and final_labels_output.ndim == 2:
         final_labels_output = np.argmax(final_labels_output, axis=1)
-    elif is_binary_scalar_original and final_labels_output.ndim == 1 and num_classes == 2:
-        # Đã là scalar, nhưng có thể là float do mixup, làm tròn
-        final_labels_output = np.round(final_labels_output).astype(int)
-
-
-    # print(f"[generate_image_transforms] DEBUG Final output shapes before return: images={final_images_output.shape}, labels={final_labels_output.shape}")
-    if final_images_output.shape[0] != final_labels_output.shape[0]:
-        print(f"[FATAL ERROR generate_image_transforms] Mismatch in samples between augmented images and labels BEFORE returning!")
-        # Bạn có thể raise lỗi ở đây để dừng sớm nếu muốn:
-        # raise ValueError("Mismatch in samples from generate_image_transforms after augmentation")
+    
+    print(f"[INFO Augment] Hoàn tất. Shape cuối cùng: images={final_images_output.shape}, labels={final_labels_output.shape}")
     return final_images_output, final_labels_output
