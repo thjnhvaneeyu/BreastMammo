@@ -316,8 +316,8 @@ def main_logic(cli_args):
             print(f"Phân phối lớp sau SMOTE: {Counter(y_train)}")
         else:
             print("\n[INFO] SMOTE không được bật. Tính toán Class Weights cho INbreast...")
-            class_labels = np.unique(y_train)
-            weights = make_class_weights('balanced', classes=class_labels, y=y_train)
+            # class_labels = np.unique(y_train)
+            # weights = make_class_weights('balanced', classes=class_labels, y=y_train)
             # class_weights = dict(zip(class_labels, weights))
             class_weights = make_class_weights(y_train) 
             print(f"Class Weights đã tính: {class_weights}")
