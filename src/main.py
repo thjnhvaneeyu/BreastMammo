@@ -687,7 +687,7 @@ if __name__ == "__main__":
     parser.add_argument("-e1", "--max_epoch_frozen", type=int, default=config.max_epoch_frozen, help="Frozen epochs")
     parser.add_argument("-e2", "--max_epoch_unfrozen", type=int, default=config.max_epoch_unfrozen, help="Unfrozen epochs")
     parser.add_argument("--roi", action="store_true", help="Use ROI patches (mainly for INbreast, adapt if other datasets use ROIs).")
-    
+    parser.add_argument("--augment", action="store_true", help="General switch to enable basic oversampling augmentation.")    
     parser.add_argument("--apply_elastic", action='store_true', help="Apply Elastic Transform.")
     parser.add_argument("--elastic_alpha", type=float, default=34.0, help="Alpha for Elastic Transform.") # Default from original INbreast call
     parser.add_argument("--elastic_sigma", type=float, default=4.0, help="Sigma for Elastic Transform.") # Default from original INbreast call
@@ -771,7 +771,7 @@ if __name__ == "__main__":
     config.max_epoch_frozen   = args.max_epoch_frozen
     config.max_epoch_unfrozen = args.max_epoch_unfrozen
     config.is_roi             = args.roi # Standardized
-    config.augment_data       = args.apply_elastic or args.apply_mixup or args.apply_cutmix
+    config.augment_data = args.augment or args.apply_elastic or args.apply_mixup or args.apply_cutmix
     config.verbose_mode       = args.verbose_logging
     config.name               = args.name
     config.ELASTIC_ALPHA      = args.elastic_alpha
