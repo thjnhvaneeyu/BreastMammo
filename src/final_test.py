@@ -3,7 +3,6 @@ import argparse
 import random
 import numpy as np
 import tensorflow as tf
-import pydicom
 import pandas as pd
 from tensorflow.keras.layers import Input, Dense, GlobalAveragePooling2D, Concatenate
 from tensorflow.keras.models import Model
@@ -12,72 +11,73 @@ from sklearn.model_selection import train_test_split
 from collections import Counter
 import skimage as sk
 import skimage.transform
-import skimage.exposure
 from PIL import Image
 from sklearn.utils.class_weight import compute_class_weight
 
 # ===================================================================
-# PHẦN 1: CÁC HÀM HELPER VÀ AUGMENTATION (TỰ CHỨA, KHÔNG IMPORT)
+# PHẦN 1: CÁC HÀM HELPER VÀ AUGMENTATION
 # ===================================================================
 
-def import_cmmd_dataset_standalone(data_dir, metadata_filename="processed_metadata.csv"):
+def import_cmmd_dataset_standalone(base_data_dir, metadata_filename="CMMD_clinicaldata_revision.csv"):
     """
-    PHIÊN BẢN V2: Đã sửa lại để đọc CSV với cột 'filename' và 'label'
+    PHIÊN BẢN V3: Đã sửa lại để đọc file PNG trực tiếp từ đường dẫn trong metadata.
     """
-    print(f"--- [STANDALONE V2] Loading CMMD data from: {data_dir}")
-    metadata_path = os.path.join(data_dir, metadata_filename)
+    print(f"--- [STANDALONE V3] Loading CMMD data from base directory: {base_data_dir}")
+    metadata_path = os.path.join(base_data_dir, metadata_filename)
     if not os.path.exists(metadata_path):
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
     
     df = pd.read_csv(metadata_path)
     print(f"[INFO] Metadata columns found: {df.columns.tolist()}")
 
-    # Đổi tên cột để phù hợp với các định dạng khác nhau
-    # Điều này giúp code linh hoạt hơn
-    df.rename(columns={
-        'ID1': 'filename', 
-        'classification': 'label',
-        # Bạn có thể thêm các alias khác ở đây
-    }, inplace=True)
-
+    # Đổi tên cột để linh hoạt
+    df.rename(columns={'ID1': 'filename', 'classification': 'label'}, inplace=True, errors='ignore')
 
     images_list = []
     labels_list = []
     
-    # Giả định filename có dạng "ID1" và label có dạng "Benign"/"Malignant"
+    # CMMD_clinicaldata_revision.csv có 3 cột: ID1, LeftRight, classification
+    # Giả định cấu trúc thư mục là: data_dir/ID1/ID1_LeftRight_1.dcm
+    # Nhưng lỗi của bạn cho thấy bạn có thể đang dùng file PNG và cấu trúc khác.
+    # Logic này sẽ thử tìm file PNG dựa trên ID1
+    
     for index, row in df.iterrows():
-        # Dùng .get() để tránh lỗi nếu cột không tồn tại
-        image_filename_base = row.get('filename')
+        patient_id = row.get('filename')
         label_str = row.get('label')
 
-        if not isinstance(image_filename_base, str) or not isinstance(label_str, str):
-            print(f"Warning: Skipping row {index} due to invalid data.")
+        if not isinstance(patient_id, str) or not isinstance(label_str, str):
             continue
-            
-        # Tìm file .dcm trong thư mục con tương ứng
-        patient_folder_path = os.path.join(data_dir, image_filename_base)
-        dcm_file_found = None
+
+        # Thử tìm file PNG trong thư mục tương ứng
+        # Ví dụ: /kaggle/input/breastdata/CMMD/CMMD/D1-0001/*.png
+        patient_folder_path = os.path.join(base_data_dir, patient_id)
+        png_file_found = None
         if os.path.isdir(patient_folder_path):
             for file in os.listdir(patient_folder_path):
-                if file.endswith('.dcm'):
-                    dcm_file_found = os.path.join(patient_folder_path, file)
-                    break
+                if file.lower().endswith('.png'):
+                    png_file_found = os.path.join(patient_folder_path, file)
+                    break # Lấy file PNG đầu tiên tìm thấy
         
-        if dcm_file_found:
+        if png_file_found:
             try:
-                dcm_data = pydicom.dcmread(dcm_file_found)
-                image = dcm_data.pixel_array
-                image = (image - np.min(image)) / (np.max(image) - np.min(image) + 1e-6) # Thêm epsilon để tránh chia cho 0
-                image = np.array(Image.fromarray(image * 255).convert('L').resize((224, 224))) / 255.0 # Resize an toàn
+                # Đọc file PNG bằng PIL, đảm bảo nó là ảnh xám
+                image = Image.open(png_file_found).convert('L')
+                image = image.resize((224, 224))
+                image_np = np.array(image, dtype=np.float32)
                 
-                images_list.append(image)
+                # Chuẩn hóa về [0, 1]
+                if np.max(image_np) > 1.0:
+                    image_np /= 255.0
+                
+                images_list.append(image_np)
                 labels_list.append(0 if 'Benign' in label_str else 1)
             except Exception as e:
-                print(f"Warning: Could not process file {dcm_file_found}. Error: {e}")
+                print(f"Warning: Could not process file {png_file_found}. Error: {e}")
         else:
-            print(f"Warning: No .dcm file found in folder {patient_folder_path}")
+            print(f"Warning: No .png file found in folder {patient_folder_path}")
 
     return np.array(images_list, dtype=np.float32), np.array(labels_list, dtype=np.int32)
+
 
 def horizontal_flip(image_array):
     return image_array[:, ::-1]
@@ -120,26 +120,25 @@ def generate_image_transforms(images, labels):
     indices = np.random.permutation(len(augmented_images))
     return augmented_images[indices], augmented_labels[indices]
 
-
 # ===================================================================
-# PHẦN 3: LOGIC MAIN ĐỂ CHẠY TRỰC TIẾP
+# PHẦN 2: LOGIC MAIN ĐỂ CHẠY TRỰC TIẾP
 # ===================================================================
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", required=True)
-    parser.add_argument("--weights_path", required=True)
+    parser.add_argument("--data_dir", required=True, help="Path to the CMMD root directory containing patient folders and the CSV file.")
+    parser.add_argument("--weights_path", required=True, help="Path to efficientnetb0_notop.h5")
     parser.add_argument("--learning_rate", type=float, default=0.0001)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--augment", action="store_true")
+    parser.add_argument("--augment", action="store_true", help="Enable basic oversampling augmentation.")
     args = parser.parse_args()
 
-    # Tải dữ liệu bằng hàm độc lập đã sửa
+    # Tải dữ liệu bằng hàm độc lập đã sửa lỗi
     X_np, y_scalar_labels = import_cmmd_dataset_standalone(args.data_dir)
     X_np = np.expand_dims(X_np, axis=-1)
     y_np = tf.keras.utils.to_categorical(y_scalar_labels, num_classes=2)
 
-    print(f"[INFO] Loaded {len(X_np)} images successfully.")
-    print(f"[INFO] Original class distribution: {Counter(y_scalar_labels)}")
+    print(f"\n[INFO] Loaded {len(X_np)} images successfully.")
+    print(f"[INFO] Original class distribution: {Counter(y_scalar_labels)}\n")
 
     # Chia dữ liệu
     X_train, X_test, y_train, y_test = train_test_split(X_np, y_np, test_size=0.2, stratify=y_scalar_labels, random_state=42)
@@ -169,7 +168,7 @@ def main():
     
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.learning_rate), loss='categorical_crossentropy', metrics=['accuracy'])
     
-    print("[INFO] Starting training...")
+    print("\n[INFO] Starting training...")
     model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
