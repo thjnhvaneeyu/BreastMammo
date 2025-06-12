@@ -14,42 +14,68 @@ import skimage as sk
 import skimage.transform
 import skimage.exposure
 from PIL import Image
+from sklearn.utils.class_weight import compute_class_weight
 
 # ===================================================================
 # PHẦN 1: CÁC HÀM HELPER VÀ AUGMENTATION (TỰ CHỨA, KHÔNG IMPORT)
 # ===================================================================
-def import_cmmd_dataset_standalone(data_dir):
-    print(f"--- [STANDALONE] Loading CMMD data from: {data_dir}")
-    metadata_path = os.path.join(data_dir, "processed_metadata.csv")
+
+def import_cmmd_dataset_standalone(data_dir, metadata_filename="CMMD_clinicaldata_revision.csv"):
+    """
+    PHIÊN BẢN V2: Đã sửa lại để đọc CSV với cột 'filename' và 'label'
+    """
+    print(f"--- [STANDALONE V2] Loading CMMD data from: {data_dir}")
+    metadata_path = os.path.join(data_dir, metadata_filename)
     if not os.path.exists(metadata_path):
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
     
     df = pd.read_csv(metadata_path)
+    print(f"[INFO] Metadata columns found: {df.columns.tolist()}")
+
+    # Đổi tên cột để phù hợp với các định dạng khác nhau
+    # Điều này giúp code linh hoạt hơn
+    df.rename(columns={
+        'ID1': 'filename', 
+        'classification': 'label',
+        # Bạn có thể thêm các alias khác ở đây
+    }, inplace=True)
+
+
     images_list = []
     labels_list = []
     
+    # Giả định filename có dạng "ID1" và label có dạng "Benign"/"Malignant"
     for index, row in df.iterrows():
-        patient_id = row['ID1']
-        side = row['LeftRight']
-        classification = row['classification']
+        # Dùng .get() để tránh lỗi nếu cột không tồn tại
+        image_filename_base = row.get('filename')
+        label_str = row.get('label')
+
+        if not isinstance(image_filename_base, str) or not isinstance(label_str, str):
+            print(f"Warning: Skipping row {index} due to invalid data.")
+            continue
+            
+        # Tìm file .dcm trong thư mục con tương ứng
+        patient_folder_path = os.path.join(data_dir, image_filename_base)
+        dcm_file_found = None
+        if os.path.isdir(patient_folder_path):
+            for file in os.listdir(patient_folder_path):
+                if file.endswith('.dcm'):
+                    dcm_file_found = os.path.join(patient_folder_path, file)
+                    break
         
-        # Tạo đường dẫn tới file ảnh DICOM
-        image_path = os.path.join(data_dir, patient_id, f"{patient_id}_{side}_1.dcm")
-        
-        if os.path.exists(image_path):
+        if dcm_file_found:
             try:
-                dcm_data = pydicom.dcmread(image_path)
+                dcm_data = pydicom.dcmread(dcm_file_found)
                 image = dcm_data.pixel_array
-                image = (image - np.min(image)) / (np.max(image) - np.min(image)) # Chuẩn hóa về [0,1]
-                image = np.array(Image.fromarray(image).resize((224, 224))) # Resize
+                image = (image - np.min(image)) / (np.max(image) - np.min(image) + 1e-6) # Thêm epsilon để tránh chia cho 0
+                image = np.array(Image.fromarray(image * 255).convert('L').resize((224, 224))) / 255.0 # Resize an toàn
                 
                 images_list.append(image)
-                # Chuyển đổi nhãn: Benign -> 0, Malignant -> 1
-                labels_list.append(0 if classification == 'Benign' else 1)
+                labels_list.append(0 if 'Benign' in label_str else 1)
             except Exception as e:
-                print(f"Warning: Could not process file {image_path}. Error: {e}")
+                print(f"Warning: Could not process file {dcm_file_found}. Error: {e}")
         else:
-            print(f"Warning: File not found {image_path}")
+            print(f"Warning: No .dcm file found in folder {patient_folder_path}")
 
     return np.array(images_list, dtype=np.float32), np.array(labels_list, dtype=np.int32)
 
@@ -94,6 +120,7 @@ def generate_image_transforms(images, labels):
     indices = np.random.permutation(len(augmented_images))
     return augmented_images[indices], augmented_labels[indices]
 
+
 # ===================================================================
 # PHẦN 3: LOGIC MAIN ĐỂ CHẠY TRỰC TIẾP
 # ===================================================================
@@ -106,10 +133,13 @@ def main():
     parser.add_argument("--augment", action="store_true")
     args = parser.parse_args()
 
-    # Tải dữ liệu bằng hàm độc lập
+    # Tải dữ liệu bằng hàm độc lập đã sửa
     X_np, y_scalar_labels = import_cmmd_dataset_standalone(args.data_dir)
-    X_np = np.expand_dims(X_np, axis=-1) # Thêm chiều kênh (H, W) -> (H, W, 1)
+    X_np = np.expand_dims(X_np, axis=-1)
     y_np = tf.keras.utils.to_categorical(y_scalar_labels, num_classes=2)
+
+    print(f"[INFO] Loaded {len(X_np)} images successfully.")
+    print(f"[INFO] Original class distribution: {Counter(y_scalar_labels)}")
 
     # Chia dữ liệu
     X_train, X_test, y_train, y_test = train_test_split(X_np, y_np, test_size=0.2, stratify=y_scalar_labels, random_state=42)
@@ -120,8 +150,6 @@ def main():
         X_train, y_train = generate_image_transforms(X_train, y_train)
         print("[INFO] Data is balanced. Class weights are not needed.")
     else:
-        # Tính class weights nếu không augmentation
-        from sklearn.utils.class_weight import compute_class_weight
         y_train_numeric = np.argmax(y_train, axis=1)
         weights = compute_class_weight('balanced', classes=np.unique(y_train_numeric), y=y_train_numeric)
         class_weights = dict(enumerate(weights))
@@ -145,7 +173,7 @@ def main():
     model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=100, # Tăng epochs vì có early stopping
+        epochs=100,
         batch_size=args.batch_size,
         class_weight=class_weights,
         callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True, verbose=1)]
