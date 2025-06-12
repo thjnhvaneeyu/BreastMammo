@@ -751,40 +751,76 @@ def random_brightness_adjustment(image_array: np.ndarray, factor_range: tuple = 
 #     if transformed_image.ndim != 3 or transformed_image.shape[-1] != 1:
 #          return image.copy().astype(np.float32)
 #     return transformed_image.astype(np.float32)
+# def create_individual_transform(image: np.ndarray, transforms: dict) -> np.ndarray:
+#     """
+#     Apply a random combination of transformations to a single image.
+#     This corrected version handles both grayscale and RGB images without unwanted channel reduction.
+#     """
+#     # Tạo bản sao để không thay đổi ảnh gốc
+#     transformed_image = image.copy()
+
+#     # Đảm bảo ảnh đầu vào có ít nhất 3 chiều (H, W, C)
+#     if transformed_image.ndim == 2:
+#         # Nếu ảnh là 2D (H, W), thêm chiều kênh vào cuối
+#         transformed_image = np.expand_dims(transformed_image, axis=-1)
+
+#     # Logic cũ có vấn đề đã được gỡ bỏ. Các hàm transform từ skimage
+#     # thường có thể tự xử lý ảnh đa kênh.
+
+#     # Chọn ngẫu nhiên số lượng phép biến đổi để áp dụng
+#     num_transformations_to_apply = random.randint(1, len(transforms))
+#     # Chọn ngẫu nhiên các phép biến đổi từ danh sách
+#     applied_keys = random.sample(list(transforms.keys()), num_transformations_to_apply)
+
+#     for key in applied_keys:
+#         transform_func = transforms[key]
+#         transformed_image = transform_func(transformed_image)
+
+#         # Kiểm tra sau mỗi phép biến đổi để đảm bảo shape không bị thay đổi không mong muốn
+#         if transformed_image.ndim == 2:
+#              transformed_image = np.expand_dims(transformed_image, axis=-1)
+
+#         if transformed_image.shape[-1] != image.shape[-1]:
+#             print(f"Warning: Transform '{key}' changed channel count from {image.shape[-1]} to {transformed_image.shape[-1]}. This may cause issues.")
+#             # Trong trường hợp phức tạp, bạn có thể muốn xử lý thêm ở đây
+#             # nhưng với các transform hiện tại, việc này ít khả năng xảy ra
+#             # nếu input đã được chuẩn hóa.
+
+#     return transformed_image.astype(np.float32)
 def create_individual_transform(image: np.ndarray, transforms: dict) -> np.ndarray:
     """
-    Apply a random combination of transformations to a single image.
-    This corrected version handles both grayscale and RGB images without unwanted channel reduction.
+    PHIÊN BẢN TINH CHỈNH VÀ ỔN ĐỊNH
+    Áp dụng một pipeline augmentation cơ bản có kiểm soát thay vì logic hỗn loạn.
     """
-    # Tạo bản sao để không thay đổi ảnh gốc
     transformed_image = image.copy()
 
-    # Đảm bảo ảnh đầu vào có ít nhất 3 chiều (H, W, C)
+    # == LOGIC MỚI BẮT ĐẦU TỪ ĐÂY ==
+    # Thay vì chọn ngẫu nhiên, chúng ta đi qua một chuỗi các phép biến đổi
+    # và mỗi phép có một xác suất được áp dụng riêng.
+    
+    # 1. Lật ngang (Horizontal Flip): Xác suất 50%
+    if 'horizontal_flip' in transforms and random.random() < 0.5:
+        transformed_image = transforms['horizontal_flip'](transformed_image)
+
+    # 2. Xoay nhẹ (Random Rotation): Xác suất 30%
+    if 'rotate' in transforms and random.random() < 0.3:
+        transformed_image = transforms['rotate'](transformed_image)
+
+    # 3. Trượt ảnh (Shear): Xác suất 20%
+    if 'shear' in transforms and random.random() < 0.2:
+        transformed_image = transforms['shear'](transformed_image)
+
+    # 4. Điều chỉnh Gamma (Tương phản): Xác suất 20%
+    if 'gamma_correction' in transforms and random.random() < 0.2:
+        transformed_image = transforms['gamma_correction'](transformed_image)
+        
+    # Bạn có thể thêm các phép biến đổi khác vào đây theo cùng một logic
+    # ví dụ: zoom, noise... với một xác suất nhất định.
+    # == KẾT THÚC LOGIC MỚI ==
+    
+    # Đảm bảo định dạng đầu ra đúng
     if transformed_image.ndim == 2:
-        # Nếu ảnh là 2D (H, W), thêm chiều kênh vào cuối
         transformed_image = np.expand_dims(transformed_image, axis=-1)
-
-    # Logic cũ có vấn đề đã được gỡ bỏ. Các hàm transform từ skimage
-    # thường có thể tự xử lý ảnh đa kênh.
-
-    # Chọn ngẫu nhiên số lượng phép biến đổi để áp dụng
-    num_transformations_to_apply = random.randint(1, len(transforms))
-    # Chọn ngẫu nhiên các phép biến đổi từ danh sách
-    applied_keys = random.sample(list(transforms.keys()), num_transformations_to_apply)
-
-    for key in applied_keys:
-        transform_func = transforms[key]
-        transformed_image = transform_func(transformed_image)
-
-        # Kiểm tra sau mỗi phép biến đổi để đảm bảo shape không bị thay đổi không mong muốn
-        if transformed_image.ndim == 2:
-             transformed_image = np.expand_dims(transformed_image, axis=-1)
-
-        if transformed_image.shape[-1] != image.shape[-1]:
-            print(f"Warning: Transform '{key}' changed channel count from {image.shape[-1]} to {transformed_image.shape[-1]}. This may cause issues.")
-            # Trong trường hợp phức tạp, bạn có thể muốn xử lý thêm ở đây
-            # nhưng với các transform hiện tại, việc này ít khả năng xảy ra
-            # nếu input đã được chuẩn hóa.
 
     return transformed_image.astype(np.float32)
 # ==============================================================
