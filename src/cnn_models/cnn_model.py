@@ -24,6 +24,7 @@ from cnn_models.mobilenet_v2  import create_mobilenet_model
 from cnn_models.resnet50      import create_resnet50_model
 from cnn_models.vgg19         import create_vgg19_model
 from cnn_models.vgg19_common  import create_vgg19_model_common
+from cnn_models.efficientnet import create_efficientnet_model # <<< THÊM DÒNG NÀY
 from data_visualisation.csv_report import generate_csv_report, generate_csv_metadata
 from data_visualisation.plots      import plot_training_results, plot_confusion_matrix, plot_comparison_chart
 from data_visualisation.roc_curves import plot_roc_curve_binary, plot_roc_curve_multiclass
@@ -31,7 +32,7 @@ from data_operations.data_preprocessing import flatten_to_slices
 from data_operations.data_transformations import focal_loss_factory
 
 class CnnModel:
-    def __init__(self, model_name: str, num_classes: int):
+    def __init__(self, model_name: str, num_classes: int, args):
         self.model_name  = model_name
         self.num_classes = num_classes
         self.history     = None
@@ -49,6 +50,8 @@ class CnnModel:
             self._model = create_densenet121_model(num_classes)
         elif model_name == "MobileNet":
             self._model = create_mobilenet_model(num_classes)
+        elif model_name == "EfficientNet":
+            self._model = create_efficientnet_model(num_classes, weights_path=args.efficientnet_weights_path)
         elif model_name == "CNN":
             self._model = create_basic_cnn_model(num_classes)
         else:
