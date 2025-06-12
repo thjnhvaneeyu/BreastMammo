@@ -20,7 +20,7 @@ from PIL import Image
 # ===================================================================
 def import_cmmd_dataset_standalone(data_dir):
     print(f"--- [STANDALONE] Loading CMMD data from: {data_dir}")
-    metadata_path = os.path.join(data_dir, "CMMD_clinicaldata_revision.csv")
+    metadata_path = os.path.join(data_dir, "processed_metadata.csv")
     if not os.path.exists(metadata_path):
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
     
