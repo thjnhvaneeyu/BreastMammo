@@ -702,7 +702,8 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--name", default=config.name, help="Experiment name.")
     # Added mammogram_type for datasets other than INbreast, though INbreast sets it to "all"
     parser.add_argument("--mammogram_type", default="all", help="Mammogram type (e.g., CC, MLO), relevant if dataset loader uses it.")
-
+    parser.add_argument("--efficientnet_weights_path", type=str, default=None,
+                        help="Path to local EfficientNet .h5 weights file to avoid download issues.")
 
     args = parser.parse_args()
 
