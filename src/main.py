@@ -539,44 +539,65 @@ def main_logic(cli_args):
             # Nếu không có augmentation, nhãn để tính class_weights chính là y_train_np (one-hot gốc)
             y_labels_for_class_weights_calc = y_train_np
 
-        # Bây giờ tính y_train_for_weights dựa trên y_labels_for_class_weights_calc
-        # Đảm bảo y_labels_for_class_weights_calc không phải là None trước khi truy cập
-        if y_labels_for_class_weights_calc is not None:
-            # Chuyển về nhãn số (1D) nếu nó đang là one-hot (2D)
-            y_train_for_weights = np.argmax(y_labels_for_class_weights_calc, axis=1) if y_labels_for_class_weights_calc.ndim > 1 and y_labels_for_class_weights_calc.shape[1] > 1 else y_labels_for_class_weights_calc
+        # # Bây giờ tính y_train_for_weights dựa trên y_labels_for_class_weights_calc
+        # # Đảm bảo y_labels_for_class_weights_calc không phải là None trước khi truy cập
+        # if y_labels_for_class_weights_calc is not None:
+        #     # Chuyển về nhãn số (1D) nếu nó đang là one-hot (2D)
+        #     y_train_for_weights = np.argmax(y_labels_for_class_weights_calc, axis=1) if y_labels_for_class_weights_calc.ndim > 1 and y_labels_for_class_weights_calc.shape[1] > 1 else y_labels_for_class_weights_calc
             
-            # Kiểm tra nếu y_train_for_weights vẫn là 2D (ví dụ: (N,1)), thì flatten nó
-            if y_train_for_weights.ndim > 1 and y_train_for_weights.shape[1] == 1:
-                y_train_for_weights = y_train_for_weights.flatten()
+        #     # Kiểm tra nếu y_train_for_weights vẫn là 2D (ví dụ: (N,1)), thì flatten nó
+        #     if y_train_for_weights.ndim > 1 and y_train_for_weights.shape[1] == 1:
+        #         y_train_for_weights = y_train_for_weights.flatten()
 
-            if y_train_for_weights.size > 0:
-                class_weights = make_class_weights(y_train_for_weights, num_classes)
-            else:
-                class_weights = None
-                print("[WARN CMMD] y_train_for_weights is empty after processing, cannot calculate class_weights.")
+        #     if y_train_for_weights.size > 0:
+        #         class_weights = make_class_weights(y_train_for_weights, num_classes)
+        #     else:
+        #         class_weights = None
+        #         print("[WARN CMMD] y_train_for_weights is empty after processing, cannot calculate class_weights.")
+        # else:
+        #     class_weights = None
+        #     print("[WARN CMMD] Labels for class weight calculation (y_labels_for_class_weights_calc) is None.")
+# === BẮT ĐẦU VÙNG SỬA ĐỔI QUAN TRỌNG ===
+# Tính toán class_weights SAU KHI đã có dữ liệu train cuối cùng
+
+    class_weights = None # Reset về None trước
+    if y_labels_for_class_weights_calc is not None:
+        y_train_numeric = np.argmax(y_labels_for_class_weights_calc, axis=1)
+        
+        # Đếm số lượng mẫu sau augmentation
+        counts_after_aug = Counter(y_train_numeric)
+        print(f"[INFO] Class distribution for training AFTER augmentation: {counts_after_aug}")
+
+        # Chỉ tính class_weights nếu dữ liệu VẪN còn mất cân bằng
+        # (ví dụ: khi không chạy augmentation)
+        # Ngưỡng 5% để tránh các sai số nhỏ
+        if abs(counts_after_aug.get(0, 0) - counts_after_aug.get(1, 0)) > (0.05 * len(y_train_numeric)):
+            print("[INFO] Data is still imbalanced. Calculating class_weights.")
+            class_weights = make_class_weights(y_train_numeric, num_classes)
         else:
-            class_weights = None
-            print("[WARN CMMD] Labels for class weight calculation (y_labels_for_class_weights_calc) is None.")
+            # Nếu dữ liệu đã cân bằng, không dùng class_weights nữa
+            print("[INFO] Data is balanced after oversampling. class_weights will not be used.")
+            class_weights = None # Hoặc bạn có thể đặt là {0: 1.0, 1: 1.0}
 
 
-# Trong main.py, sau khi có y_train_np, y_val_np, y_test_np
-        print(f"\n[INFO] Class distribution for {config.dataset}:")
-        if y_train_np is not None:
-            # Nếu y_train_np là one-hot, cần argmax để lấy nhãn số
-            y_train_labels = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-            print(f"  Training set: {Counter(y_train_labels)}")
-        if y_val_np is not None:
-            y_val_labels = np.argmax(y_val_np, axis=1) if y_val_np.ndim > 1 and y_val_np.shape[1] > 1 else y_val_np
-            print(f"  Validation set: {Counter(y_val_labels)}")
-        if y_test_np is not None:
-            y_test_labels = np.argmax(y_test_np, axis=1) if y_test_np.ndim > 1 and y_test_np.shape[1] > 1 else y_test_np
-            print(f"  Test set: {Counter(y_test_labels)}")
-# Làm tương tự cho val, test và cho CMMD
-        y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
-        if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
+# # Trong main.py, sau khi có y_train_np, y_val_np, y_test_np
+#         print(f"\n[INFO] Class distribution for {config.dataset}:")
+#         if y_train_np is not None:
+#             # Nếu y_train_np là one-hot, cần argmax để lấy nhãn số
+#             y_train_labels = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+#             print(f"  Training set: {Counter(y_train_labels)}")
+#         if y_val_np is not None:
+#             y_val_labels = np.argmax(y_val_np, axis=1) if y_val_np.ndim > 1 and y_val_np.shape[1] > 1 else y_val_np
+#             print(f"  Validation set: {Counter(y_val_labels)}")
+#         if y_test_np is not None:
+#             y_test_labels = np.argmax(y_test_np, axis=1) if y_test_np.ndim > 1 and y_test_np.shape[1] > 1 else y_test_np
+#             print(f"  Test set: {Counter(y_test_labels)}")
+# # Làm tương tự cho val, test và cho CMMD
+#         y_train_for_weights = np.argmax(y_train_np, axis=1) if y_train_np.ndim > 1 and y_train_np.shape[1] > 1 else y_train_np
+#         if y_train_for_weights.size > 0: class_weights = make_class_weights(y_train_for_weights, num_classes)
 
-        else: class_weights = None
-        print("[WARN CMMD] y_train_for_weights is empty, cannot calculate class_weights.")
+#         else: class_weights = None
+#         print("[WARN CMMD] y_train_for_weights is empty, cannot calculate class_weights.")
 
     else:
         print(f"[ERROR] Dataset '{config.dataset}' is not supported or logic is not implemented. Exiting.")
