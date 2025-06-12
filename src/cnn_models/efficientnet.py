@@ -85,8 +85,8 @@ def create_efficientnet_model(num_classes: int, weights_path: str = None):
 
     final_model = Model(inputs=final_model_input_layer, outputs=outputs, name=f'EfficientNetB0_Custom_{config.dataset}')
 
-    if getattr(config, 'verbose_mode', False):
-        print(f"--- EfficientNetB0_Custom ({config.dataset}) Summary ---")
-        final_model.summary(line_length=120)
+    # if getattr(config, 'verbose_mode', False):
+    #     print(f"--- EfficientNetB0_Custom ({config.dataset}) Summary ---")
+    #     final_model.summary(line_length=120)
 
     return final_model

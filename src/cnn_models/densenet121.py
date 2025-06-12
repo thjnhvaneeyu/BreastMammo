@@ -182,8 +182,8 @@ def create_densenet121_model(num_classes: int):
     model = Model(inputs=final_model_input_layer, outputs=outputs, name=f"DenseNet121_Custom_{config.dataset}")
 
     verbose_mode_val = getattr(config, 'verbose_mode', False)
-    if verbose_mode_val:
-        print(f"--- DenseNet121_Custom ({config.dataset}) Summary ---")
-        model.summary()
+    # if verbose_mode_val:
+    #     print(f"--- DenseNet121_Custom ({config.dataset}) Summary ---")
+    #     model.summary()
 
     return model

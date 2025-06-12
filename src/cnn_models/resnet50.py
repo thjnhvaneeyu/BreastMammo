@@ -110,8 +110,8 @@ def create_resnet50_model(num_classes: int):
     model = Model(inputs=img_input, outputs=outputs, name="ResNet50_Custom")
 
     verbose_mode_val = getattr(config, 'verbose_mode', False)
-    if verbose_mode_val:
-        print("CNN Model used (ResNet50_Custom):")
-        model.summary()
+    # if verbose_mode_val:
+    #     print("CNN Model used (ResNet50_Custom):")
+    #     model.summary()
 
     return model
