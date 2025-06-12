@@ -20,7 +20,7 @@ from sklearn.utils.class_weight import compute_class_weight
 # PHẦN 1: CÁC HÀM HELPER VÀ AUGMENTATION (TỰ CHỨA, KHÔNG IMPORT)
 # ===================================================================
 
-def import_cmmd_dataset_standalone(data_dir, metadata_filename="CMMD_clinicaldata_revision.csv"):
+def import_cmmd_dataset_standalone(data_dir, metadata_filename="processed_metadata.csv"):
     """
     PHIÊN BẢN V2: Đã sửa lại để đọc CSV với cột 'filename' và 'label'
     """
