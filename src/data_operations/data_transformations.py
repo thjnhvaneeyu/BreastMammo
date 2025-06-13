@@ -11,7 +11,7 @@ import skimage.filters # Cho GaussianBlur
 import skimage.exposure # Cho điều chỉnh độ sáng (gamma) hoặc rescale_intensity
 import random
 import tensorflow.keras.backend as K
-
+from typing import Tuple
 # src/data_operations/data_transformations.py
 
 import random
