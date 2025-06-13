@@ -562,8 +562,21 @@ def main_logic(cli_args):
 
     class_weights = None # Reset về None trước
     if y_labels_for_class_weights_calc is not None:
-        y_train_numeric = np.argmax(y_labels_for_class_weights_calc, axis=1)
-        
+        # y_train_numeric = np.argmax(y_labels_for_class_weights_calc, axis=1)
+        try:
+            if y_train_np.ndim > 1 and y_train_np.shape[1] > 1:
+                y_train_numeric = np.argmax(y_train_np, axis=1)
+            else:
+                # Nếu đã là scalar, chỉ cần đảm bảo nó là kiểu dữ liệu đúng
+                y_train_numeric = y_train_np.astype(int)
+            
+            counts_after_aug = Counter(y_train_numeric)
+            print(f"[INFO] Class distribution for training AFTER augmentation: {counts_after_aug}")
+            
+        except Exception as e:
+            print(f"[ERROR] Could not count labels after augmentation due to an error: {e}")
+            print(f"        - y_train_np shape: {y_train_np.shape}, dtype: {y_train_np.dtype}")
+            
         # Đếm số lượng mẫu sau augmentation
         counts_after_aug = Counter(y_train_numeric)
         print(f"[INFO] Class distribution for training AFTER augmentation: {counts_after_aug}")

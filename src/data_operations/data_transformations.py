@@ -1152,9 +1152,9 @@ def generate_image_transforms(images: np.ndarray, labels: np.ndarray,
 
     basic_augmentations = A.Compose([
         A.HorizontalFlip(p=0.5),
-        A.Rotate(limit=15, p=0.7, border_mode=cv2.BORDER_CONSTANT, value=0),
+        A.Rotate(limit=15, p=0.7, border_mode=cv2.BORDER_CONSTANT), # Đã bỏ tham số 'value'
         A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.7),
-        A.GaussNoise(var_limit=(10.0 / 255.0, 50.0 / 255.0), p=0.5)
+        A.GaussNoise(p=0.5) # Đã bỏ 'var_limit' để dùng giá trị mặc định, an toàn hơn
     ])
 
     augmented_batch = [basic_augmentations(image=img)['image'] for img in processed_images]
