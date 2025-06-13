@@ -577,9 +577,9 @@ def main_logic(cli_args):
             print(f"[ERROR] Could not count labels after augmentation due to an error: {e}")
             print(f"        - y_train_np shape: {y_train_np.shape}, dtype: {y_train_np.dtype}")
             
-        # Đếm số lượng mẫu sau augmentation
-        counts_after_aug = Counter(y_train_numeric)
-        print(f"[INFO] Class distribution for training AFTER augmentation: {counts_after_aug}")
+        # # Đếm số lượng mẫu sau augmentation
+        # counts_after_aug = Counter(y_train_numeric)
+        # print(f"[INFO] Class distribution for training AFTER augmentation: {counts_after_aug}")
 
         # Chỉ tính class_weights nếu dữ liệu VẪN còn mất cân bằng
         # (ví dụ: khi không chạy augmentation)
