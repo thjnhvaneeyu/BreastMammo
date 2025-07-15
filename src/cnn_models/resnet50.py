@@ -115,3 +115,50 @@ def create_resnet50_model(num_classes: int):
     #     model.summary()
 
     return model
+
+# # Cần import thêm các thư viện cần thiết
+# import ssl
+# from tensorflow.keras.layers import Input, Concatenate, GlobalAveragePooling2D, Dropout, Dense, LayerNormalization
+# from tensorflow.keras.models import Model
+# # THAY ĐỔI QUAN TRỌNG: Import ConvNeXtSmall
+# from tensorflow.keras.applications import ConvNeXtSmall
+
+# # Needed to download pre-trained weights for ImageNet
+# ssl._create_default_https_context = ssl._create_unverified_context
+
+# def create_convnext_model(num_classes: int):
+#     """
+#     Function to create a ConvNeXt-Small model pre-trained with a custom head.
+#     :param num_classes: The number of classes (labels).
+#     :return: The ConvNeXt-Small model.
+#     """
+#     # ConvNeXt thường được huấn luyện với ảnh 224x224
+#     img_height = getattr(config, 'CONVNEXT_IMG_SIZE', {}).get('HEIGHT', 224)
+#     img_width = getattr(config, 'CONVNEXT_IMG_SIZE', {}).get('WIDTH', 224)
+
+#     # Reconfigure single channel input into a greyscale 3 channel input
+#     img_input = Input(shape=(img_height, img_width, 1), name="Input_Grayscale")
+#     img_conc = Concatenate(name="Input_RGB_Grayscale")([img_input, img_input, img_input])
+
+#     # Generate a ConvNeXt-Small model with pre-trained ImageNet weights
+#     # Để dùng phiên bản nhỏ hơn, chỉ cần đổi thành ConvNeXtTiny
+#     model_base = ConvNeXtSmall(include_top=False, weights="imagenet", input_tensor=img_conc)
+
+#     # Custom Head - Sử dụng LayerNormalization thay vì BatchNormalization
+#     x = model_base.output
+#     x = GlobalAveragePooling2D(name="GlobalAvgPool")(x)
+    
+#     # Một điểm đặc trưng của các kiến trúc giống Transformer là dùng LayerNorm
+#     x = LayerNormalization(epsilon=1e-6, name='LayerNorm')(x) 
+#     x = Dense(units=256, activation='gelu', name='Dense_1')(x) # ConvNeXt cũng thường dùng 'gelu' thay vì 'relu'
+#     x = Dropout(0.3, name="Dropout_1")(x)
+
+#     # Final output layer - Giữ nguyên logic thông minh của bạn
+#     if num_classes >= 2:
+#         outputs = Dense(num_classes, activation='softmax', name='Output')(x)
+#     else: # num_classes = 1
+#         outputs = Dense(1, activation='sigmoid', name='Output')(x)
+        
+#     model = Model(inputs=img_input, outputs=outputs, name="ConvNeXtSmall_Custom")
+
+#     return model

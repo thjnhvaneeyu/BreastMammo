@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Model Summary</title>
+<style>
+    body {
+        font-family: Menlo, 'DejaVu Sans Mono', consolas, 'Courier New', monospace;
+        line-height: normal;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        border: 1px solid #ccc;
+    }
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+        white-space: pre;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .color-none {
+        color: #00d7ff;
+    }
+    .color-num {
+        color: #00af00;
+    }
+    .color-layer {
+        color: #0087ff;
+    }
+</style>
+</head>
+<body>
+
+<table>
+    <thead>
+        <tr>
+            <th>Layer (type)</th>
+            <th>Output Shape</th>
+            <th>Param #</th>
+            <th>Connected to</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Input_Grayscale_CMMD_Mob…<br>(<span class="color-layer">InputLayer</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">224</span>, <span class="color-num">224</span>, <span class="color-num">1</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>CMMD_MobileNet_Grayscale…<br>(<span class="color-layer">Concatenate</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">224</span>, <span class="color-num">224</span>, <span class="color-num">3</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>Input_Grayscale_CMMD_…<br>Input_Grayscale_CMMD_…<br>Input_Grayscale_CMMD_…</td>
+        </tr>
+        <tr>
+            <td>Conv1 (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">864</span></td>
+            <td>CMMD_MobileNet_Graysc…</td>
+        </tr>
+        <tr>
+            <td>bn_Conv1<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">128</span></td>
+            <td>Conv1[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>Conv1_relu (<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>bn_Conv1[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>expanded_conv_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">288</span></td>
+            <td>Conv1_relu[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>expanded_conv_depthwise_…<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">128</span></td>
+            <td>expanded_conv_depthwi…</td>
+        </tr>
+        <tr>
+            <td>expanded_conv_depthwise_…<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>expanded_conv_depthwi…</td>
+        </tr>
+        <tr>
+            <td>expanded_conv_project<br>(<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">16</span>)</td>
+            <td><span class="color-num">512</span></td>
+            <td>expanded_conv_depthwi…</td>
+        </tr>
+        <tr>
+            <td>expanded_conv_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">16</span>)</td>
+            <td><span class="color-num">64</span></td>
+            <td>expanded_conv_project…</td>
+        </tr>
+        <tr>
+            <td>block_1_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>expanded_conv_project…</td>
+        </tr>
+        <tr>
+            <td>block_1_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">384</span></td>
+            <td>block_1_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_1_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">112</span>, <span class="color-num">112</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_1_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_1_pad<br>(<span class="color-layer">ZeroPadding2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">113</span>, <span class="color-num">113</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_1_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_1_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">864</span></td>
+            <td>block_1_pad[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_1_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">384</span></td>
+            <td>block_1_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_1_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_1_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_1_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">24</span>)</td>
+            <td><span class="color-num">2,304</span></td>
+            <td>block_1_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_1_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">24</span>)</td>
+            <td><span class="color-num">96</span></td>
+            <td>block_1_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_2_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_1_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_2_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">576</span></td>
+            <td>block_2_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_2_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_2_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_2_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">1,296</span></td>
+            <td>block_2_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_2_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">576</span></td>
+            <td>block_2_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_2_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_2_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_2_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">24</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_2_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_2_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">24</span>)</td>
+            <td><span class="color-num">96</span></td>
+            <td>block_2_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_2_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">24</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_1_project_BN[<span class="color-num">0</span>]…<br>block_2_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_3_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_2_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_3_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">576</span></td>
+            <td>block_3_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_3_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">56</span>, <span class="color-num">56</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_3_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_3_pad<br>(<span class="color-layer">ZeroPadding2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">57</span>, <span class="color-num">57</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_3_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_3_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">1,296</span></td>
+            <td>block_3_pad[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_3_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">576</span></td>
+            <td>block_3_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_3_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">144</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_3_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_3_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">4,608</span></td>
+            <td>block_3_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_3_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">128</span></td>
+            <td>block_3_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_4_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">6,144</span></td>
+            <td>block_3_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_4_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_4_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_4_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_4_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_4_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">1,728</span></td>
+            <td>block_4_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_4_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_4_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_4_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_4_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_4_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">6,144</span></td>
+            <td>block_4_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_4_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">128</span></td>
+            <td>block_4_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_4_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_3_project_BN[<span class="color-num">0</span>]…<br>block_4_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_5_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">6,144</span></td>
+            <td>block_4_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_5_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_5_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_5_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_5_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_5_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">1,728</span></td>
+            <td>block_5_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_5_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_5_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_5_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_5_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_5_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">6,144</span></td>
+            <td>block_5_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_5_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">128</span></td>
+            <td>block_5_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_5_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">32</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_4_add[<span class="color-num">0</span>][<span class="color-num">0</span>],<br>block_5_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_6_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">6,144</span></td>
+            <td>block_5_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_6_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_6_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_6_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">28</span>, <span class="color-num">28</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_6_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_6_pad<br>(<span class="color-layer">ZeroPadding2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">29</span>, <span class="color-num">29</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_6_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_6_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">1,728</span></td>
+            <td>block_6_pad[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_6_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">768</span></td>
+            <td>block_6_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_6_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">192</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_6_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_6_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">12,288</span></td>
+            <td>block_6_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_6_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">256</span></td>
+            <td>block_6_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_7_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_6_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_7_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_7_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_7_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_7_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_7_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_7_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_7_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_7_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_7_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_7_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_7_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_7_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_7_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">256</span></td>
+            <td>block_7_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_7_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_6_project_BN[<span class="color-num">0</span>]…<br>block_7_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_8_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_7_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_8_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_8_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_8_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_8_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_8_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_8_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_8_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_8_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_8_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_8_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_8_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_8_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_8_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">256</span></td>
+            <td>block_8_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_8_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_7_add[<span class="color-num">0</span>][<span class="color-num">0</span>],<br>block_8_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_9_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_8_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_9_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_9_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_9_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_9_expand_BN[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_9_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_9_expand_relu[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_9_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_9_depthwise[<span class="color-num">0</span>][<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_9_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_9_depthwise_BN[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_9_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_9_depthwise_rel…</td>
+        </tr>
+        <tr>
+            <td>block_9_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">256</span></td>
+            <td>block_9_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_9_add (<span class="color-layer">Add</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">64</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_8_add[<span class="color-num">0</span>][<span class="color-num">0</span>],<br>block_9_project_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_10_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">24,576</span></td>
+            <td>block_9_add[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_10_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_10_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_10_expand_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_10_expand_BN[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_10_depthwise<br>(<span class="color-layer">DepthwiseConv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">3,456</span></td>
+            <td>block_10_expand_relu[<span class="color-num">…</span></td>
+        </tr>
+        <tr>
+            <td>block_10_depthwise_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">1,536</span></td>
+            <td>block_10_depthwise[<span class="color-num">0</span>]…</td>
+        </tr>
+        <tr>
+            <td>block_10_depthwise_relu<br>(<span class="color-layer">ReLU</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">384</span>)</td>
+            <td><span class="color-num">0</span></td>
+            <td>block_10_depthwise_BN…</td>
+        </tr>
+        <tr>
+            <td>block_10_project (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">36,864</span></td>
+            <td>block_10_depthwise_re…</td>
+        </tr>
+        <tr>
+            <td>block_10_project_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">96</span>)</td>
+            <td><span class="color-num">384</span></td>
+            <td>block_10_project[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+        <tr>
+            <td>block_11_expand (<span class="color-layer">Conv2D</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">576</span>)</td>
+            <td><span class="color-num">55,296</span></td>
+            <td>block_10_project_BN[<span class="color-num">0</span>…</td>
+        </tr>
+        <tr>
+            <td>block_11_expand_BN<br>(<span class="color-layer">BatchNormalization</span>)</td>
+            <td>(<span class="color-none">None</span>, <span class="color-num">14</span>, <span class="color-num">14</span>, <span class="color-num">576</span>)</td>
+            <td><span class="color-num">2,304</span></td>
+            <td>block_11_expand[<span class="color-num">0</span>][<span class="color-num">0</span>]</td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html>

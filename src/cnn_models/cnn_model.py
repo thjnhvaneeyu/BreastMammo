@@ -5,7 +5,7 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD, AdamW
 from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy, CategoricalAccuracy
 from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
